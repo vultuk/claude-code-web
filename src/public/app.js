@@ -131,9 +131,13 @@ class ClaudeCodeWebInterface {
     }
 
     setupTerminal() {
+        // Adjust font size for mobile devices
+        const isMobile = this.detectMobile();
+        const fontSize = isMobile ? 12 : 14;
+        
         this.terminal = new Terminal({
             cursorBlink: true,
-            fontSize: 14,
+            fontSize: fontSize,
             fontFamily: 'JetBrains Mono, Fira Code, Monaco, Consolas, monospace',
             theme: {
                 background: 'transparent',
@@ -513,7 +517,27 @@ class ClaudeCodeWebInterface {
 
     fitTerminal() {
         if (this.fitAddon) {
-            this.fitAddon.fit();
+            try {
+                this.fitAddon.fit();
+                
+                // On mobile, ensure terminal doesn't exceed viewport width
+                if (this.isMobile) {
+                    const terminalElement = document.querySelector('.xterm');
+                    if (terminalElement) {
+                        const viewportWidth = window.innerWidth;
+                        const currentWidth = terminalElement.offsetWidth;
+                        
+                        if (currentWidth > viewportWidth) {
+                            // Reduce columns to fit viewport
+                            const charWidth = currentWidth / this.terminal.cols;
+                            const maxCols = Math.floor((viewportWidth - 20) / charWidth);
+                            this.terminal.resize(maxCols, this.terminal.rows);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error fitting terminal:', error);
+            }
         }
     }
 
