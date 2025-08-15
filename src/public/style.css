@@ -35,12 +35,19 @@
     padding: 0;
 }
 
+html {
+    overflow-x: hidden;
+    width: 100%;
+}
+
 body {
     font-family: var(--font-mono);
     background-color: var(--bg-primary);
     color: var(--text-primary);
     height: 100vh;
     overflow: hidden;
+    width: 100%;
+    position: relative;
 }
 
 #app {
@@ -400,12 +407,15 @@ body {
     flex: 1;
     position: relative;
     background-color: var(--bg-primary);
+    width: 100%;
+    overflow-x: hidden;
 }
 
 #terminal {
     width: 100%;
     height: 100%;
     padding: 16px;
+    box-sizing: border-box;
 }
 
 .terminal-overlay {
@@ -641,10 +651,21 @@ body {
 
 .xterm .xterm-viewport {
     background-color: transparent !important;
+    overflow-x: auto !important;
 }
 
 .xterm .xterm-screen {
     background-color: transparent !important;
+}
+
+/* Fix xterm canvas width on mobile */
+.xterm {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+.xterm-screen canvas {
+    max-width: 100%;
 }
 
 /* Folder Browser Modal */
@@ -978,6 +999,13 @@ body {
     display: block;
 }
 
+/* Ensure pre-formatted text and code blocks wrap properly */
+pre, code {
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+}
+
 /* Mobile Responsive Styles */
 @media (max-width: 768px) {
     .hamburger-btn {
@@ -1024,6 +1052,31 @@ body {
     
     .terminal-container {
         padding: 0;
+        width: 100vw;
+        max-width: 100vw;
+        overflow-x: auto;
+    }
+    
+    #terminal {
+        padding: 8px;
+        width: 100%;
+        max-width: 100vw;
+        box-sizing: border-box;
+    }
+    
+    /* Force xterm to respect mobile viewport */
+    .xterm {
+        width: 100% !important;
+        max-width: 100vw !important;
+    }
+    
+    .xterm-viewport {
+        width: 100% !important;
+        overflow-x: auto !important;
+    }
+    
+    .xterm-screen {
+        width: 100% !important;
     }
     
     .overlay-content {
@@ -1067,6 +1120,7 @@ body {
     }
 }
 
+/* Extra small devices (phones in portrait) */
 @media (max-width: 480px) {
     .header {
         padding: 6px 8px;
@@ -1097,6 +1151,27 @@ body {
     .btn-danger-skip {
         width: 100%;
         height: 36px;
+    }
+    
+    /* Extra terminal fixes for very small screens */
+    #terminal {
+        padding: 4px;
+    }
+    
+    /* Ensure modals don't overflow */
+    .modal-content {
+        max-height: 85vh;
+        overflow-y: auto;
+    }
+    
+    /* Adjust main container */
+    .main {
+        padding: 0;
+        margin: 0;
+    }
+    
+    body {
+        overflow-x: hidden;
     }
 }
 
