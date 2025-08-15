@@ -14,6 +14,8 @@ class ClaudeCodeWebInterface {
         this.currentFolderPath = null;
         this.claudeSessions = [];
         this.isCreatingNewSession = false;
+        this.isMobile = this.detectMobile();
+        this.currentMode = 'chat';
         
         this.init();
     }
@@ -22,6 +24,11 @@ class ClaudeCodeWebInterface {
         this.setupTerminal();
         this.setupUI();
         this.loadSettings();
+        
+        // Show mode switcher on mobile
+        if (this.isMobile) {
+            this.showModeSwitcher();
+        }
         
         // Check if server is in folder mode
         try {
@@ -48,6 +55,79 @@ class ClaudeCodeWebInterface {
         window.addEventListener('beforeunload', () => {
             this.disconnect();
         });
+    }
+    
+    detectMobile() {
+        // Check for touch capability and common mobile user agents
+        const hasTouchScreen = 'ontouchstart' in window || 
+                              navigator.maxTouchPoints > 0 || 
+                              navigator.msMaxTouchPoints > 0;
+        
+        const mobileUserAgent = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        // Also check viewport width for tablets
+        const smallViewport = window.innerWidth <= 1024;
+        
+        return hasTouchScreen && (mobileUserAgent || smallViewport);
+    }
+    
+    showModeSwitcher() {
+        // Create mode switcher button if it doesn't exist
+        if (!document.getElementById('modeSwitcher')) {
+            const modeSwitcher = document.createElement('div');
+            modeSwitcher.id = 'modeSwitcher';
+            modeSwitcher.className = 'mode-switcher';
+            modeSwitcher.innerHTML = `
+                <button id="modeSwitcherBtn" class="mode-switcher-btn" data-mode="${this.currentMode}" title="Switch mode (Shift+Tab)">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                        <line x1="12" y1="22.08" x2="12" y2="12"/>
+                    </svg>
+                    <span id="modeSwitcherText">Chat</span>
+                </button>
+            `;
+            document.body.appendChild(modeSwitcher);
+            
+            // Add event listener
+            document.getElementById('modeSwitcherBtn').addEventListener('click', () => {
+                this.switchMode();
+            });
+        }
+    }
+    
+    switchMode() {
+        // Toggle between modes
+        const modes = ['chat', 'code', 'plan'];
+        const currentIndex = modes.indexOf(this.currentMode);
+        const nextIndex = (currentIndex + 1) % modes.length;
+        this.currentMode = modes[nextIndex];
+        
+        // Update UI
+        const modeSwitcherText = document.getElementById('modeSwitcherText');
+        if (modeSwitcherText) {
+            modeSwitcherText.textContent = this.currentMode.charAt(0).toUpperCase() + this.currentMode.slice(1);
+        }
+        
+        // Update button data attribute for styling
+        const btn = document.getElementById('modeSwitcherBtn');
+        if (btn) {
+            btn.setAttribute('data-mode', this.currentMode);
+        }
+        
+        // Send Shift+Tab to terminal to trigger actual mode switch in Claude Code
+        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+            // Send Shift+Tab key combination (ESC[Z is the terminal sequence for Shift+Tab)
+            this.send({ type: 'input', data: '\x1b[Z' });
+        }
+        
+        // Add visual feedback
+        if (btn) {
+            btn.classList.add('switching');
+            setTimeout(() => {
+                btn.classList.remove('switching');
+            }, 300);
+        }
     }
 
     setupTerminal() {
