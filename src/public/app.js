@@ -10,7 +10,7 @@ class ClaudeCodeWebInterface {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
         this.reconnectDelay = 1000;
-        this.folderMode = false;
+        this.folderMode = true; // Always use folder mode
         this.currentFolderPath = null;
         this.claudeSessions = [];
         this.isCreatingNewSession = false;
@@ -24,20 +24,20 @@ class ClaudeCodeWebInterface {
         this.setupTerminal();
         this.setupUI();
         this.loadSettings();
+        this.disablePullToRefresh();
         
         // Show mode switcher on mobile
         if (this.isMobile) {
             this.showModeSwitcher();
         }
         
-        // Check if server is in folder mode
+        // Always show folder browser on startup
         try {
             const response = await fetch('/api/config');
             const config = await response.json();
-            this.folderMode = config.folderMode;
             
-            if (this.folderMode && !config.selectedWorkingDir) {
-                // Show folder browser if in folder mode and no directory selected
+            if (!config.selectedWorkingDir) {
+                // Show folder browser if no directory selected
                 this.showFolderBrowser();
             } else {
                 // Connect normally
@@ -45,7 +45,8 @@ class ClaudeCodeWebInterface {
             }
         } catch (error) {
             console.error('Failed to fetch config:', error);
-            this.connect().catch(err => console.error('Connection failed:', err));
+            // Show folder browser as fallback
+            this.showFolderBrowser();
         }
         
         window.addEventListener('resize', () => {
@@ -69,6 +70,35 @@ class ClaudeCodeWebInterface {
         const smallViewport = window.innerWidth <= 1024;
         
         return hasTouchScreen && (mobileUserAgent || smallViewport);
+    }
+    
+    disablePullToRefresh() {
+        // Prevent pull-to-refresh on touchmove
+        let lastY = 0;
+        
+        document.addEventListener('touchstart', (e) => {
+            lastY = e.touches[0].clientY;
+        }, { passive: false });
+        
+        document.addEventListener('touchmove', (e) => {
+            const y = e.touches[0].clientY;
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+            
+            // Prevent pull-to-refresh when at the top and trying to scroll up
+            if (scrollTop === 0 && y > lastY) {
+                e.preventDefault();
+            }
+            
+            lastY = y;
+        }, { passive: false });
+        
+        // Also prevent overscroll on the terminal element
+        const terminal = document.getElementById('terminal');
+        if (terminal) {
+            terminal.addEventListener('touchmove', (e) => {
+                e.stopPropagation();
+            }, { passive: false });
+        }
     }
     
     showModeSwitcher() {
@@ -219,7 +249,6 @@ class ClaudeCodeWebInterface {
         newSessionBtn.addEventListener('click', () => {
             // Show folder picker for new session
             this.isCreatingNewSession = true;
-            this.folderMode = true;
             this.selectedWorkingDir = null;
             this.currentFolderPath = null;
             this.showFolderBrowser();
@@ -319,8 +348,8 @@ class ClaudeCodeWebInterface {
                         this.showOverlay('startPrompt');
                     }
                     
-                    // Show close session button if in folder mode
-                    if (this.folderMode && this.selectedWorkingDir) {
+                    // Show close session button if we have a selected working directory
+                    if (this.selectedWorkingDir) {
                         document.getElementById('closeSessionBtn').style.display = 'block';
                         document.getElementById('closeSessionBtnMobile').style.display = 'block';
                     }
@@ -703,8 +732,8 @@ class ClaudeCodeWebInterface {
         // Reset the creating new session flag if canceling
         this.isCreatingNewSession = false;
         
-        // If in folder mode and no folder selected, exit
-        if (this.folderMode && !this.currentFolderPath) {
+        // If no folder selected, show error
+        if (!this.currentFolderPath) {
             this.showError('You must select a folder to continue');
         }
     }
@@ -1195,7 +1224,6 @@ class ClaudeCodeWebInterface {
                 this.hideMobileSessionsModal();
                 // Show folder picker for new session
                 this.isCreatingNewSession = true;
-                this.folderMode = true;
                 this.selectedWorkingDir = null;
                 this.currentFolderPath = null;
                 this.showFolderBrowser();

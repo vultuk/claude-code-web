@@ -16,7 +16,7 @@ class ClaudeCodeWebServer {
     this.useHttps = options.https || false;
     this.certFile = options.cert;
     this.keyFile = options.key;
-    this.folderMode = options.folderMode || false;
+    this.folderMode = options.folderMode !== false; // Default to true
     this.selectedWorkingDir = null;
     
     this.app = express();

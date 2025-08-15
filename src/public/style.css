@@ -38,6 +38,7 @@
 html {
     overflow-x: hidden;
     width: 100%;
+    overscroll-behavior: none; /* Disable pull-to-refresh */
 }
 
 body {
@@ -48,6 +49,8 @@ body {
     height: 100dvh; /* Dynamic viewport height for mobile */
     overflow: hidden;
     width: 100%;
+    overscroll-behavior: none; /* Disable pull-to-refresh */
+    touch-action: pan-x pan-y; /* Allow normal scrolling but prevent browser gestures */
     position: relative;
 }
 
@@ -1277,7 +1280,7 @@ pre, code {
 /* Mode Switcher Styles */
 .mode-switcher {
     position: fixed;
-    bottom: 20px;
+    bottom: 80px; /* Increased from 20px to avoid covering text input */
     right: 20px;
     z-index: 1000;
     display: none;

@@ -18,7 +18,6 @@ program
   .option('--cert <path>', 'path to SSL certificate file')
   .option('--key <path>', 'path to SSL private key file')
   .option('--dev', 'development mode with additional logging')
-  .option('--folder', 'enable folder selection mode to choose working directory')
   .parse();
 
 const options = program.opts();
@@ -39,16 +38,12 @@ async function main() {
       cert: options.cert,
       key: options.key,
       dev: options.dev,
-      folderMode: options.folder || false
+      folderMode: true // Always use folder mode
     };
 
     console.log('Starting Claude Code Web Interface...');
     console.log(`Port: ${port}`);
-    if (options.folder) {
-      console.log('Mode: Folder selection mode');
-    } else {
-      console.log(`Working directory: ${process.cwd()}`);
-    }
+    console.log('Mode: Folder selection mode');
     
     if (options.auth) {
       console.log('Authentication: Enabled');
