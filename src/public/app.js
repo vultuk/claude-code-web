@@ -758,7 +758,6 @@ class ClaudeCodeWebInterface {
             this.showError(`Failed to close session: ${error.message}`);
         }
     }
-}
 
     // Session Management Methods
     toggleSessionDropdown() {
