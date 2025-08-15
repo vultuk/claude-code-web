@@ -400,13 +400,21 @@ class ClaudeCodeWebServer {
       
       case 'input':
         if (wsInfo.claudeSessionId) {
-          await this.claudeBridge.sendInput(wsInfo.claudeSessionId, data.data);
+          // Verify the session exists and the WebSocket is part of it
+          const session = this.claudeSessions.get(wsInfo.claudeSessionId);
+          if (session && session.connections.has(wsId)) {
+            await this.claudeBridge.sendInput(wsInfo.claudeSessionId, data.data);
+          }
         }
         break;
       
       case 'resize':
         if (wsInfo.claudeSessionId) {
-          await this.claudeBridge.resize(wsInfo.claudeSessionId, data.cols, data.rows);
+          // Verify the session exists and the WebSocket is part of it
+          const session = this.claudeSessions.get(wsInfo.claudeSessionId);
+          if (session && session.connections.has(wsId)) {
+            await this.claudeBridge.resize(wsInfo.claudeSessionId, data.cols, data.rows);
+          }
         }
         break;
       
@@ -532,33 +540,46 @@ class ClaudeCodeWebServer {
       return;
     }
 
+    // Capture the session ID to avoid closure issues
+    const sessionId = wsInfo.claudeSessionId;
+    
     try {
-      await this.claudeBridge.startSession(wsInfo.claudeSessionId, {
+      await this.claudeBridge.startSession(sessionId, {
         workingDir: session.workingDir,
         onOutput: (data) => {
+          // Get the current session again to ensure we have the right reference
+          const currentSession = this.claudeSessions.get(sessionId);
+          if (!currentSession) return;
+          
           // Add to buffer
-          session.outputBuffer.push(data);
-          if (session.outputBuffer.length > session.maxBufferSize) {
-            session.outputBuffer.shift();
+          currentSession.outputBuffer.push(data);
+          if (currentSession.outputBuffer.length > currentSession.maxBufferSize) {
+            currentSession.outputBuffer.shift();
           }
           
-          // Broadcast to all connected clients
-          this.broadcastToSession(wsInfo.claudeSessionId, {
+          // Broadcast to all connected clients for THIS specific session
+          this.broadcastToSession(sessionId, {
             type: 'output',
             data
           });
         },
         onExit: (code, signal) => {
-          session.active = false;
-          this.broadcastToSession(wsInfo.claudeSessionId, {
+          const currentSession = this.claudeSessions.get(sessionId);
+          if (currentSession) {
+            currentSession.active = false;
+          }
+          this.broadcastToSession(sessionId, {
             type: 'exit',
             code,
             signal
           });
         },
         onError: (error) => {
-          session.active = false;
-          this.broadcastToSession(wsInfo.claudeSessionId, {
+          const currentSession = this.claudeSessions.get(sessionId);
+          if (currentSession) {
+            currentSession.active = false;
+          }
+          this.broadcastToSession(sessionId, {
             type: 'error',
             message: error.message
           });
@@ -569,9 +590,9 @@ class ClaudeCodeWebServer {
       session.active = true;
       session.lastActivity = new Date();
 
-      this.broadcastToSession(wsInfo.claudeSessionId, {
+      this.broadcastToSession(sessionId, {
         type: 'claude_started',
-        sessionId: wsInfo.claudeSessionId
+        sessionId: sessionId
       });
 
     } catch (error) {
@@ -610,7 +631,10 @@ class ClaudeCodeWebServer {
 
     session.connections.forEach(wsId => {
       const wsInfo = this.webSocketConnections.get(wsId);
-      if (wsInfo && wsInfo.ws.readyState === WebSocket.OPEN) {
+      // Double-check that this WebSocket is actually part of this session
+      if (wsInfo && 
+          wsInfo.claudeSessionId === claudeSessionId && 
+          wsInfo.ws.readyState === WebSocket.OPEN) {
         this.sendToWebSocket(wsInfo.ws, data);
       }
     });
