@@ -33,11 +33,11 @@ class ClaudeCodeWebInterface {
                 this.showFolderBrowser();
             } else {
                 // Connect normally
-                this.connect();
+                this.connect().catch(err => console.error('Connection failed:', err));
             }
         } catch (error) {
             console.error('Failed to fetch config:', error);
-            this.connect();
+            this.connect().catch(err => console.error('Connection failed:', err));
         }
         
         window.addEventListener('resize', () => {
@@ -213,37 +213,40 @@ class ClaudeCodeWebInterface {
     }
 
     connect(sessionId = null) {
-        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-        let wsUrl = `${protocol}//${location.host}`;
-        if (sessionId) {
-            wsUrl += `?sessionId=${sessionId}`;
-        }
-        
-        this.updateStatus('Connecting...');
-        this.showOverlay('loadingSpinner');
-        
-        try {
-            this.socket = new WebSocket(wsUrl);
+        return new Promise((resolve, reject) => {
+            const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            let wsUrl = `${protocol}//${location.host}`;
+            if (sessionId) {
+                wsUrl += `?sessionId=${sessionId}`;
+            }
             
-            this.socket.onopen = () => {
-                this.reconnectAttempts = 0;
-                this.updateStatus('Connected');
-                console.log('Connected to server');
+            this.updateStatus('Connecting...');
+            this.showOverlay('loadingSpinner');
+            
+            try {
+                this.socket = new WebSocket(wsUrl);
                 
-                // Load available sessions
-                this.loadSessions();
-                
-                // Show appropriate overlay based on session state
-                if (!this.currentClaudeSessionId) {
-                    this.showOverlay('startPrompt');
-                }
-                
-                // Show close session button if in folder mode
-                if (this.folderMode && this.selectedWorkingDir) {
-                    document.getElementById('closeSessionBtn').style.display = 'block';
-                    document.getElementById('closeSessionBtnMobile').style.display = 'block';
-                }
-            };
+                this.socket.onopen = () => {
+                    this.reconnectAttempts = 0;
+                    this.updateStatus('Connected');
+                    console.log('Connected to server');
+                    
+                    // Load available sessions
+                    this.loadSessions();
+                    
+                    // Show appropriate overlay based on session state
+                    if (!this.currentClaudeSessionId) {
+                        this.showOverlay('startPrompt');
+                    }
+                    
+                    // Show close session button if in folder mode
+                    if (this.folderMode && this.selectedWorkingDir) {
+                        document.getElementById('closeSessionBtn').style.display = 'block';
+                        document.getElementById('closeSessionBtnMobile').style.display = 'block';
+                    }
+                    
+                    resolve();
+                };
             
             this.socket.onmessage = (event) => {
                 this.handleMessage(JSON.parse(event.data));
@@ -264,12 +267,15 @@ class ClaudeCodeWebInterface {
             this.socket.onerror = (error) => {
                 console.error('WebSocket error:', error);
                 this.showError('Failed to connect to the server');
+                reject(error);
             };
             
         } catch (error) {
             console.error('Failed to create WebSocket:', error);
             this.showError('Failed to create connection');
+            reject(error);
         }
+        });
     }
 
     disconnect() {
@@ -281,7 +287,9 @@ class ClaudeCodeWebInterface {
 
     reconnect() {
         this.disconnect();
-        setTimeout(() => this.connect(), 1000);
+        setTimeout(() => {
+            this.connect().catch(err => console.error('Reconnection failed:', err));
+        }, 1000);
         document.getElementById('reconnectBtn').disabled = true;
     }
 
@@ -737,7 +745,7 @@ class ClaudeCodeWebInterface {
             
             // Close folder browser and connect
             this.closeFolderBrowser();
-            this.connect();
+            await this.connect();
         } catch (error) {
             console.error('Failed to set working directory:', error);
             this.showError(`Failed to set working directory: ${error.message}`);
@@ -964,7 +972,14 @@ class ClaudeCodeWebInterface {
         }
     }
     
-    joinSession(sessionId) {
+    async joinSession(sessionId) {
+        // Ensure we're connected first
+        if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+            await this.connect();
+            // Wait a bit for connection to establish
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
         this.send({ type: 'join_session', sessionId });
         document.getElementById('sessionDropdown').classList.remove('active');
     }
