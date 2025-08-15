@@ -255,6 +255,8 @@ body {
     z-index: 2000;
     align-items: center;
     justify-content: center;
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
 }
 
 .session-modal.active {
@@ -501,6 +503,8 @@ body {
     align-items: center;
     justify-content: center;
     z-index: 1000;
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
 }
 
 .settings-modal.active {
@@ -515,6 +519,9 @@ body {
     max-width: 90vw;
     max-height: 80vh;
     overflow-y: auto;
+    position: relative;
+    margin: 20px auto;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
 }
 
 .modal-header {
@@ -530,19 +537,22 @@ body {
     font-weight: 600;
 }
 
-.close-btn {
+.close-btn, .modal-close {
     background: none;
     border: none;
     font-size: 24px;
     color: var(--text-secondary);
     cursor: pointer;
     padding: 0;
-    width: 32px;
-    height: 32px;
+    min-width: 44px;
+    min-height: 44px;
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 4px;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .close-btn:hover {
@@ -1006,6 +1016,95 @@ pre, code {
     overflow-wrap: break-word;
 }
 
+/* Mobile Modal Fixes */
+@media (max-width: 768px) {
+    /* Base modal fixes */
+    .settings-modal,
+    .session-modal,
+    .folder-browser-modal {
+        padding: 10px;
+        align-items: flex-start;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .modal-content {
+        width: calc(100% - 20px);
+        max-width: none;
+        max-height: calc(100vh - 20px);
+        margin: 10px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .folder-browser-content {
+        width: calc(100% - 20px);
+        max-width: none;
+        max-height: calc(100vh - 20px);
+        height: auto;
+    }
+    
+    .modal-header {
+        padding: 15px;
+        position: sticky;
+        top: 0;
+        background-color: var(--bg-secondary);
+        z-index: 10;
+    }
+    
+    .modal-body {
+        padding: 15px;
+    }
+    
+    .modal-footer {
+        padding: 15px;
+        position: sticky;
+        bottom: 0;
+        background-color: var(--bg-secondary);
+        z-index: 10;
+        gap: 10px;
+    }
+    
+    /* Ensure buttons in modals are touch-friendly */
+    .modal-footer .btn {
+        min-height: 44px;
+        padding: 12px 20px;
+    }
+    
+    /* Fix folder browser specific issues */
+    .folder-list-container {
+        max-height: 40vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .folder-item {
+        min-height: 44px;
+        padding: 12px;
+    }
+    
+    /* Session modal fixes */
+    .session-list {
+        max-height: 50vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .session-item {
+        min-height: 44px;
+        padding: 10px;
+    }
+    
+    /* Ensure close buttons are easily tappable */
+    .close-btn,
+    .modal-close {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+}
+
 /* Mobile Responsive Styles */
 @media (max-width: 768px) {
     .hamburger-btn {
@@ -1092,32 +1191,7 @@ pre, code {
         font-size: 14px;
     }
     
-    .modal-content {
-        width: 95%;
-        max-width: none;
-        margin: 10px;
-    }
-    
-    .folder-browser-content {
-        width: 95%;
-        max-width: none;
-        max-height: 90vh;
-    }
-    
-    .settings-modal .modal-content {
-        width: 90%;
-    }
-    
-    .folder-browser-modal .modal-content {
-        width: 95%;
-        height: 90vh;
-        max-height: 90vh;
-    }
-    
-    .folder-list-container {
-        max-height: 50vh;
-        min-height: 150px;
-    }
+    /* Modal styles are handled in the Mobile Modal Fixes section above */
 }
 
 /* Extra small devices (phones in portrait) */

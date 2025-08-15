@@ -575,6 +575,11 @@ class ClaudeCodeWebInterface {
         const modal = document.getElementById('settingsModal');
         modal.classList.add('active');
         
+        // Prevent body scroll on mobile when modal is open
+        if (this.isMobile) {
+            document.body.style.overflow = 'hidden';
+        }
+        
         const settings = this.loadSettings();
         document.getElementById('fontSize').value = settings.fontSize;
         document.getElementById('fontSizeValue').textContent = settings.fontSize + 'px';
@@ -584,6 +589,11 @@ class ClaudeCodeWebInterface {
 
     hideSettings() {
         document.getElementById('settingsModal').classList.remove('active');
+        
+        // Restore body scroll
+        if (this.isMobile) {
+            document.body.style.overflow = '';
+        }
     }
 
     loadSettings() {
@@ -678,6 +688,11 @@ class ClaudeCodeWebInterface {
         const modal = document.getElementById('folderBrowserModal');
         modal.classList.add('active');
         
+        // Prevent body scroll on mobile when modal is open
+        if (this.isMobile) {
+            document.body.style.overflow = 'hidden';
+        }
+        
         // Load home directory by default
         await this.loadFolders();
     }
@@ -685,6 +700,11 @@ class ClaudeCodeWebInterface {
     closeFolderBrowser() {
         const modal = document.getElementById('folderBrowserModal');
         modal.classList.remove('active');
+        
+        // Restore body scroll
+        if (this.isMobile) {
+            document.body.style.overflow = '';
+        }
         
         // Reset the creating new session flag if canceling
         this.isCreatingNewSession = false;
@@ -917,11 +937,22 @@ class ClaudeCodeWebInterface {
     
     showMobileSessionsModal() {
         document.getElementById('mobileSessionsModal').classList.add('active');
+        
+        // Prevent body scroll on mobile when modal is open
+        if (this.isMobile) {
+            document.body.style.overflow = 'hidden';
+        }
+        
         this.loadMobileSessions();
     }
     
     hideMobileSessionsModal() {
         document.getElementById('mobileSessionsModal').classList.remove('active');
+        
+        // Restore body scroll
+        if (this.isMobile) {
+            document.body.style.overflow = '';
+        }
     }
     
     async loadMobileSessions() {
@@ -1181,11 +1212,23 @@ class ClaudeCodeWebInterface {
     showNewSessionModal() {
         document.getElementById('newSessionModal').classList.add('active');
         document.getElementById('sessionDropdown').classList.remove('active');
+        
+        // Prevent body scroll on mobile when modal is open
+        if (this.isMobile) {
+            document.body.style.overflow = 'hidden';
+        }
+        
         document.getElementById('sessionName').focus();
     }
     
     hideNewSessionModal() {
         document.getElementById('newSessionModal').classList.remove('active');
+        
+        // Restore body scroll
+        if (this.isMobile) {
+            document.body.style.overflow = '';
+        }
+        
         document.getElementById('sessionName').value = '';
         document.getElementById('sessionWorkingDir').value = '';
     }
