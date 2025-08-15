@@ -1,0 +1,42 @@
+{
+  "name": "claude-code-web",
+  "version": "1.4.0",
+  "description": "Web-based interface for Claude Code CLI accessible via browser",
+  "main": "src/server.js",
+  "bin": {
+    "cc-web": "./bin/cc-web.js"
+  },
+  "scripts": {
+    "start": "node bin/cc-web.js",
+    "dev": "node bin/cc-web.js --dev",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "web",
+    "terminal",
+    "browser",
+    "remote",
+    "ai"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.19.2",
+    "ws": "^8.18.0",
+    "node-pty": "^1.0.0",
+    "commander": "^12.1.0",
+    "open": "^10.1.0",
+    "uuid": "^10.0.0",
+    "cors": "^2.8.5"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/claude-code-web.git"
+  },
+  "homepage": "https://github.com/yourusername/claude-code-web#readme"
+}
