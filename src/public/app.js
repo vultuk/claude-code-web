@@ -160,6 +160,13 @@ class ClaudeCodeWebInterface {
             this.closeMobileMenu();
         });
         
+        // Mobile sessions button
+        const sessionsBtnMobile = document.getElementById('sessionsBtnMobile');
+        sessionsBtnMobile.addEventListener('click', () => {
+            this.showMobileSessionsModal();
+            this.closeMobileMenu();
+        });
+        
         // Close dropdown when clicking outside
         document.addEventListener('click', (e) => {
             const dropdown = document.getElementById('sessionDropdown');
@@ -172,6 +179,7 @@ class ClaudeCodeWebInterface {
         this.setupSettingsModal();
         this.setupFolderBrowser();
         this.setupNewSessionModal();
+        this.setupMobileSessionsModal();
     }
 
     setupSettingsModal() {
@@ -769,6 +777,91 @@ class ClaudeCodeWebInterface {
         }
     }
     
+    showMobileSessionsModal() {
+        document.getElementById('mobileSessionsModal').classList.add('active');
+        this.loadMobileSessions();
+    }
+    
+    hideMobileSessionsModal() {
+        document.getElementById('mobileSessionsModal').classList.remove('active');
+    }
+    
+    async loadMobileSessions() {
+        try {
+            const response = await fetch('/api/sessions/list');
+            if (!response.ok) throw new Error('Failed to load sessions');
+            
+            const data = await response.json();
+            this.claudeSessions = data.sessions;
+            this.renderMobileSessionList();
+        } catch (error) {
+            console.error('Failed to load sessions:', error);
+        }
+    }
+    
+    renderMobileSessionList() {
+        const sessionList = document.getElementById('mobileSessionList');
+        sessionList.innerHTML = '';
+        
+        if (this.claudeSessions.length === 0) {
+            sessionList.innerHTML = '<div class="no-sessions">No active sessions</div>';
+            return;
+        }
+        
+        this.claudeSessions.forEach(session => {
+            const sessionItem = document.createElement('div');
+            sessionItem.className = 'session-item';
+            if (session.id === this.currentClaudeSessionId) {
+                sessionItem.classList.add('active');
+            }
+            
+            const statusIcon = session.active ? '🟢' : '⚪';
+            const clientsText = session.connectedClients === 1 ? '1 client' : `${session.connectedClients} clients`;
+            
+            sessionItem.innerHTML = `
+                <div class="session-info">
+                    <span class="session-status">${statusIcon}</span>
+                    <div class="session-details">
+                        <div class="session-name">${session.name}</div>
+                        <div class="session-meta">${clientsText} • ${new Date(session.created).toLocaleTimeString()}</div>
+                        ${session.workingDir ? `<div class="session-folder" title="${session.workingDir}">📁 ${session.workingDir.split('/').pop() || '/'}</div>` : ''}
+                    </div>
+                </div>
+                <div class="session-actions">
+                    ${session.id === this.currentClaudeSessionId ? 
+                        '<button class="btn-icon" title="Leave session" data-action="leave"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>' :
+                        '<button class="btn-icon" title="Join session" data-action="join"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg></button>'
+                    }
+                    <button class="btn-icon" title="Delete session" data-action="delete">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                        </svg>
+                    </button>
+                </div>
+            `;
+            
+            sessionItem.querySelectorAll('button').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const action = btn.dataset.action;
+                    if (action === 'join') {
+                        this.joinSession(session.id);
+                        this.hideMobileSessionsModal();
+                    } else if (action === 'leave') {
+                        this.leaveSession(session.id);
+                        this.hideMobileSessionsModal();
+                    } else if (action === 'delete') {
+                        if (confirm(`Delete session "${session.name}"?`)) {
+                            this.deleteSession(session.id);
+                        }
+                    }
+                });
+            });
+            
+            sessionList.appendChild(sessionItem);
+        });
+    }
+    
     async loadSessions() {
         try {
             const response = await fetch('/api/sessions/list');
@@ -807,6 +900,7 @@ class ClaudeCodeWebInterface {
                     <div class="session-details">
                         <div class="session-name">${session.name}</div>
                         <div class="session-meta">${clientsText} • ${new Date(session.created).toLocaleTimeString()}</div>
+                        ${session.workingDir ? `<div class="session-folder" title="${session.workingDir}">📁 ${session.workingDir.split('/').pop() || '/'}</div>` : ''}
                     </div>
                 </div>
                 <div class="session-actions">
@@ -919,6 +1013,21 @@ class ClaudeCodeWebInterface {
         });
     }
     
+    setupMobileSessionsModal() {
+        const closeMobileSessionsBtn = document.getElementById('closeMobileSessionsModal');
+        const newSessionBtnMobile = document.getElementById('newSessionBtnMobile');
+        
+        if (closeMobileSessionsBtn) {
+            closeMobileSessionsBtn.addEventListener('click', () => this.hideMobileSessionsModal());
+        }
+        if (newSessionBtnMobile) {
+            newSessionBtnMobile.addEventListener('click', () => {
+                this.hideMobileSessionsModal();
+                this.showNewSessionModal();
+            });
+        }
+    }
+    
     showNewSessionModal() {
         document.getElementById('newSessionModal').classList.add('active');
         document.getElementById('sessionDropdown').classList.remove('active');
@@ -946,9 +1055,18 @@ class ClaudeCodeWebInterface {
             
             const data = await response.json();
             
-            // Join the newly created session
-            this.joinSession(data.sessionId);
+            // Hide the modal first
             this.hideNewSessionModal();
+            
+            // Reset state to show folder picker
+            this.selectedWorkingDir = null;
+            this.currentFolderPath = null;
+            
+            // Clear terminal and show folder browser
+            this.clearTerminal();
+            this.showFolderBrowser();
+            
+            // Update sessions list
             this.loadSessions();
         } catch (error) {
             console.error('Failed to create session:', error);

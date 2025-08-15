@@ -209,6 +209,16 @@ body {
     color: var(--text-secondary);
 }
 
+.session-folder {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
 .session-actions {
     display: flex;
     gap: 4px;

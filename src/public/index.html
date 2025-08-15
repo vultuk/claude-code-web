@@ -71,6 +71,7 @@
                 <button class="close-menu-btn" id="closeMenuBtn">&times;</button>
             </div>
             <div class="mobile-menu-content">
+                <button id="sessionsBtnMobile" class="mobile-menu-btn">Sessions</button>
                 <button id="closeSessionBtnMobile" class="mobile-menu-btn btn-danger" style="display: none;">Close Session</button>
                 <button id="reconnectBtnMobile" class="mobile-menu-btn" disabled>Reconnect</button>
                 <button id="clearBtnMobile" class="mobile-menu-btn">Clear Terminal</button>
@@ -211,6 +212,22 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Sessions Modal -->
+    <div class="modal" id="mobileSessionsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Sessions</h2>
+                <button class="modal-close" id="closeMobileSessionsModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="mobileSessionList" class="session-list">
+                    <!-- Sessions will be dynamically added here -->
+                </div>
+                <button class="btn btn-primary" id="newSessionBtnMobile" style="width: 100%; margin-top: 10px;">New Session</button>
             </div>
         </div>
     </div>
