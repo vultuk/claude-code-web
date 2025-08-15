@@ -13,6 +13,7 @@ class ClaudeCodeWebInterface {
         this.folderMode = false;
         this.currentFolderPath = null;
         this.claudeSessions = [];
+        this.isCreatingNewSession = false;
         
         this.init();
     }
@@ -139,6 +140,7 @@ class ClaudeCodeWebInterface {
         sessionBtn.addEventListener('click', () => this.toggleSessionDropdown());
         newSessionBtn.addEventListener('click', () => {
             // Show folder picker for new session
+            this.isCreatingNewSession = true;
             this.folderMode = true;
             this.selectedWorkingDir = null;
             this.currentFolderPath = null;
@@ -580,6 +582,9 @@ class ClaudeCodeWebInterface {
         const modal = document.getElementById('folderBrowserModal');
         modal.classList.remove('active');
         
+        // Reset the creating new session flag if canceling
+        this.isCreatingNewSession = false;
+        
         // If in folder mode and no folder selected, exit
         if (this.folderMode && !this.currentFolderPath) {
             this.showError('You must select a folder to continue');
@@ -716,12 +721,13 @@ class ClaudeCodeWebInterface {
         // Store the selected working directory
         this.selectedWorkingDir = this.currentFolderPath;
         
-        // If we're creating a new session (no active session), show the session name modal
-        if (!this.currentClaudeSessionId) {
+        // If we're creating a new session (either no active session OR explicitly creating new)
+        if (!this.currentClaudeSessionId || this.isCreatingNewSession) {
             this.closeFolderBrowser();
             this.showNewSessionModal();
             // Pre-fill the working directory field
             document.getElementById('sessionWorkingDir').value = this.currentFolderPath;
+            this.isCreatingNewSession = false; // Reset the flag
             return;
         }
         
@@ -1059,6 +1065,7 @@ class ClaudeCodeWebInterface {
             newSessionBtnMobile.addEventListener('click', () => {
                 this.hideMobileSessionsModal();
                 // Show folder picker for new session
+                this.isCreatingNewSession = true;
                 this.folderMode = true;
                 this.selectedWorkingDir = null;
                 this.currentFolderPath = null;
