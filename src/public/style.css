@@ -83,6 +83,7 @@ body {
     padding: 2px 8px;
     border-radius: 4px;
     font-weight: 500;
+    display: inline-block;
 }
 
 .status.connected {
@@ -625,39 +626,7 @@ body {
     justify-content: flex-end;
 }
 
-@media (max-width: 768px) {
-    .header {
-        padding: 8px 16px;
-        flex-direction: column;
-        gap: 8px;
-        align-items: stretch;
-    }
-    
-    .header-content {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    
-    .header-info {
-        flex-direction: column;
-        gap: 4px;
-        font-size: 11px;
-    }
-    
-    .header-controls {
-        justify-content: center;
-    }
-    
-    #terminal {
-        padding: 8px;
-    }
-    
-    .overlay-content {
-        margin: 16px;
-        padding: 24px;
-    }
-}
+/* Legacy mobile styles - removed in favor of comprehensive mobile styles section below */
 
 .xterm .xterm-viewport {
     background-color: transparent !important;
@@ -884,27 +853,38 @@ body {
 .hamburger-btn {
     display: none;
     flex-direction: column;
-    justify-content: space-between;
-    width: 30px;
-    height: 24px;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    min-width: 44px;
+    min-height: 44px;
+    width: 44px;
+    height: 44px;
     background: transparent;
     border: none;
     cursor: pointer;
-    padding: 0;
-    margin-right: 12px;
+    padding: 10px;
+    margin: 0;
+    border-radius: 4px;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 0.2s ease;
+}
+
+.hamburger-btn:hover {
+    background-color: var(--bg-tertiary);
 }
 
 .hamburger-line {
     display: block;
-    width: 100%;
-    height: 3px;
+    width: 24px;
+    height: 2px;
     background-color: var(--text-primary);
     border-radius: 2px;
     transition: all 0.3s ease;
 }
 
 .hamburger-btn.active .hamburger-line:nth-child(1) {
-    transform: translateY(10.5px) rotate(45deg);
+    transform: translateY(6px) rotate(45deg);
 }
 
 .hamburger-btn.active .hamburger-line:nth-child(2) {
@@ -912,7 +892,7 @@ body {
 }
 
 .hamburger-btn.active .hamburger-line:nth-child(3) {
-    transform: translateY(-10.5px) rotate(-45deg);
+    transform: translateY(-6px) rotate(-45deg);
 }
 
 .mobile-menu {
@@ -1109,6 +1089,7 @@ pre, code {
 @media (max-width: 768px) {
     .hamburger-btn {
         display: flex;
+        flex-shrink: 0;
     }
     
     .desktop-only {
@@ -1117,29 +1098,40 @@ pre, code {
     
     .header {
         padding: 8px 12px;
-        flex-wrap: nowrap;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 0;
     }
     
     .header-content {
         flex: 1;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-end;
         min-width: 0;
     }
     
     .header-info {
-        flex-direction: column;
-        gap: 4px;
-        align-items: flex-start;
+        display: flex;
+        flex-direction: row;
+        gap: 8px;
+        align-items: center;
+        justify-content: flex-end;
     }
     
     .status {
         font-size: 11px;
-        padding: 1px 6px;
+        padding: 2px 6px;
+        white-space: nowrap;
     }
     
     .working-dir {
         font-size: 11px;
-        padding: 1px 6px;
-        max-width: 100%;
+        padding: 2px 6px;
+        max-width: 150px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -1198,14 +1190,32 @@ pre, code {
 @media (max-width: 480px) {
     .header {
         padding: 6px 8px;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+    }
+    
+    .hamburger-btn {
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+        min-height: 40px;
+        padding: 8px;
+    }
+    
+    .header-info {
+        gap: 6px;
     }
     
     .status {
         font-size: 10px;
+        padding: 1px 4px;
     }
     
     .working-dir {
         font-size: 10px;
+        padding: 1px 4px;
+        max-width: 120px;
     }
     
     .btn {
