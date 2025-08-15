@@ -137,7 +137,14 @@ class ClaudeCodeWebInterface {
         
         // Session management event listeners
         sessionBtn.addEventListener('click', () => this.toggleSessionDropdown());
-        newSessionBtn.addEventListener('click', () => this.showNewSessionModal());
+        newSessionBtn.addEventListener('click', () => {
+            // Show folder picker for new session
+            this.folderMode = true;
+            this.selectedWorkingDir = null;
+            this.currentFolderPath = null;
+            this.showFolderBrowser();
+            document.getElementById('sessionDropdown').classList.remove('active');
+        });
         refreshSessionsBtn.addEventListener('click', () => this.loadSessions());
         
         // Mobile menu event listeners
@@ -698,6 +705,19 @@ class ClaudeCodeWebInterface {
             return;
         }
         
+        // Store the selected working directory
+        this.selectedWorkingDir = this.currentFolderPath;
+        
+        // If we're creating a new session (no active session), show the session name modal
+        if (!this.currentClaudeSessionId) {
+            this.closeFolderBrowser();
+            this.showNewSessionModal();
+            // Pre-fill the working directory field
+            document.getElementById('sessionWorkingDir').value = this.currentFolderPath;
+            return;
+        }
+        
+        // Otherwise, set working directory for current session
         try {
             const response = await fetch('/api/set-working-dir', {
                 method: 'POST',
@@ -1023,7 +1043,11 @@ class ClaudeCodeWebInterface {
         if (newSessionBtnMobile) {
             newSessionBtnMobile.addEventListener('click', () => {
                 this.hideMobileSessionsModal();
-                this.showNewSessionModal();
+                // Show folder picker for new session
+                this.folderMode = true;
+                this.selectedWorkingDir = null;
+                this.currentFolderPath = null;
+                this.showFolderBrowser();
             });
         }
     }
@@ -1044,6 +1068,11 @@ class ClaudeCodeWebInterface {
         const name = document.getElementById('sessionName').value.trim() || `Session ${new Date().toLocaleString()}`;
         const workingDir = document.getElementById('sessionWorkingDir').value.trim() || this.selectedWorkingDir;
         
+        if (!workingDir) {
+            this.showError('Please select a working directory first');
+            return;
+        }
+        
         try {
             const response = await fetch('/api/sessions/create', {
                 method: 'POST',
@@ -1055,16 +1084,11 @@ class ClaudeCodeWebInterface {
             
             const data = await response.json();
             
-            // Hide the modal first
+            // Hide the modal
             this.hideNewSessionModal();
             
-            // Reset state to show folder picker
-            this.selectedWorkingDir = null;
-            this.currentFolderPath = null;
-            
-            // Clear terminal and show folder browser
-            this.clearTerminal();
-            this.showFolderBrowser();
+            // Join the newly created session
+            await this.joinSession(data.sessionId);
             
             // Update sessions list
             this.loadSessions();
