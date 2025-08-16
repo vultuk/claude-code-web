@@ -111,6 +111,13 @@ class ClaudeCodeWebInterface {
             modeSwitcher.id = 'modeSwitcher';
             modeSwitcher.className = 'mode-switcher';
             modeSwitcher.innerHTML = `
+                <button id="escapeBtn" class="escape-btn" title="Send Escape key">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="8" x2="12" y2="12"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                </button>
                 <button id="modeSwitcherBtn" class="mode-switcher-btn" data-mode="${this.currentMode}" title="Switch mode (Shift+Tab)">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
@@ -121,10 +128,32 @@ class ClaudeCodeWebInterface {
             `;
             document.body.appendChild(modeSwitcher);
             
-            // Add event listener
+            // Add event listener for mode switcher
             document.getElementById('modeSwitcherBtn').addEventListener('click', () => {
                 this.switchMode();
             });
+            
+            // Add event listener for escape button
+            document.getElementById('escapeBtn').addEventListener('click', () => {
+                this.sendEscape();
+            });
+        }
+    }
+    
+    sendEscape() {
+        // Send ESC key to terminal
+        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+            // Send ESC key (ASCII 27 or \x1b)
+            this.send({ type: 'input', data: '\x1b' });
+        }
+        
+        // Add visual feedback
+        const btn = document.getElementById('escapeBtn');
+        if (btn) {
+            btn.classList.add('pressed');
+            setTimeout(() => {
+                btn.classList.remove('pressed');
+            }, 200);
         }
     }
     

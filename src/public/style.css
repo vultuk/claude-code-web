@@ -1442,13 +1442,15 @@ pre, code {
     right: 20px;
     z-index: 1000;
     display: none;
+    flex-direction: column;
+    gap: 10px;
 }
 
 /* Show mode switcher on mobile devices */
 @media (max-width: 1024px) and (hover: none) and (pointer: coarse),
        (max-width: 768px) {
     .mode-switcher {
-        display: block;
+        display: flex;
     }
 }
 
@@ -1514,4 +1516,56 @@ pre, code {
 
 .mode-switcher-btn[data-mode="plan"] {
     border-color: var(--warning);
+}
+
+/* Escape Button Styles */
+.escape-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 2px solid var(--error);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+    width: 56px;
+    height: 56px;
+}
+
+.escape-btn:hover {
+    background-color: var(--bg-tertiary);
+    border-color: #ff4444;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(255, 68, 68, 0.2);
+}
+
+.escape-btn:active {
+    transform: translateY(0);
+}
+
+.escape-btn.pressed {
+    animation: escapeBtnPress 0.2s ease;
+}
+
+@keyframes escapeBtnPress {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(0.9);
+        background-color: var(--error);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.escape-btn svg {
+    width: 24px;
+    height: 24px;
+    stroke: var(--error);
+    flex-shrink: 0;
 }
