@@ -546,7 +546,6 @@ class ClaudeCodeWebInterface {
                     // User can click to focus when ready
                 } else {
                     // Session exists but Claude is not running
-                    // Show start prompt for new sessions, but not for restored/existing sessions
                     // Check if this is a brand new session (empty output buffer indicates new)
                     const isNewSession = !message.outputBuffer || message.outputBuffer.length === 0;
                     
@@ -554,9 +553,11 @@ class ClaudeCodeWebInterface {
                         console.log('[session_joined] New session detected, showing start prompt');
                         this.showOverlay('startPrompt');
                     } else {
-                        console.log('[session_joined] Existing session with output, NOT showing start prompt');
-                        // For existing sessions, just ensure overlay is hidden
-                        this.hideOverlay();
+                        console.log('[session_joined] Existing session with stopped Claude, showing restart prompt');
+                        // For existing sessions where Claude has stopped, show start prompt
+                        // This allows the user to restart Claude in the same session
+                        this.terminal.writeln('\r\n\x1b[33mClaude Code has stopped in this session. Click "Start Claude Code" to restart.\x1b[0m');
+                        this.showOverlay('startPrompt');
                     }
                 }
                 break;
