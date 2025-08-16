@@ -248,19 +248,14 @@ class SessionTabManager {
 
     async loadSessions() {
         try {
-            console.log('[SessionManager] Loading sessions from server...');
             const response = await fetch('/api/sessions/list');
             const data = await response.json();
-            
-            console.log('[SessionManager] Server returned sessions:', data);
             
             // Sort sessions by creation time (assuming older sessions should be less recent)
             // This provides a default order that will be updated as tabs are accessed
             const sessions = data.sessions || [];
-            console.log('[SessionManager] Processing', sessions.length, 'sessions');
             
             sessions.forEach((session, index) => {
-                console.log('[SessionManager] Adding tab for session:', session.id, session.name);
                 this.addTab(session.id, session.name, session.active ? 'active' : 'idle', session.workingDir);
                 // Set initial timestamps based on order (older sessions get older timestamps)
                 const sessionData = this.activeSessions.get(session.id);
@@ -272,7 +267,6 @@ class SessionTabManager {
             // Reorder tabs based on the initial timestamps
             this.reorderTabsByLastAccessed();
             
-            console.log('[SessionManager] Final tab count:', this.tabs.size);
             return sessions;
         } catch (error) {
             console.error('Failed to load sessions:', error);

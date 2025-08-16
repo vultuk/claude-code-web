@@ -33,16 +33,12 @@ class ClaudeCodeWebInterface {
         this.loadSettings();
         this.disablePullToRefresh();
         
-        console.log('[Init] Starting initialization...');
-        
         // Show loading while we initialize
         this.showOverlay('loadingSpinner');
         
         // Initialize the session tab manager and wait for sessions to load
         this.sessionTabManager = new SessionTabManager(this);
         await this.sessionTabManager.init();
-        
-        console.log('[Init] Session tabs loaded:', this.sessionTabManager.tabs.size);
         
         // Show mode switcher on mobile
         if (this.isMobile) {
@@ -51,18 +47,14 @@ class ClaudeCodeWebInterface {
         
         // Check if there are existing sessions
         if (this.sessionTabManager.tabs.size > 0) {
-            console.log('[Init] Found existing sessions, connecting...');
             // Sessions exist - connect and join the first one
             await this.connect();
             const firstTabId = this.sessionTabManager.tabs.keys().next().value;
-            console.log('[Init] Switching to first tab:', firstTabId);
             await this.sessionTabManager.switchToTab(firstTabId);
             
             // Hide overlay completely since we have sessions
-            console.log('[Init] Hiding overlay');
             this.hideOverlay();
         } else {
-            console.log('[Init] No sessions found, showing folder browser');
             // No sessions - show folder picker to create first session
             this.showFolderBrowser();
         }
@@ -419,21 +411,15 @@ class ClaudeCodeWebInterface {
                 this.socket.onopen = () => {
                     this.reconnectAttempts = 0;
                     this.updateStatus('Connected');
-                    console.log('[Connect] WebSocket connected to server');
+                    console.log('Connected to server');
                     
                     // Load available sessions
                     this.loadSessions();
                     
-                    console.log('[Connect] Current session ID:', this.currentClaudeSessionId);
-                    console.log('[Connect] Session manager tabs:', this.sessionTabManager?.tabs.size);
-                    
                     // Only show start prompt if we don't have sessions AND no current session
                     // The init() method will handle showing/hiding overlays for restored sessions
                     if (!this.currentClaudeSessionId && (!this.sessionTabManager || this.sessionTabManager.tabs.size === 0)) {
-                        console.log('[Connect] No sessions, showing start prompt');
                         this.showOverlay('startPrompt');
-                    } else {
-                        console.log('[Connect] Have sessions or current session, not showing start prompt');
                     }
                     
                     // Show close session button if we have a selected working directory
@@ -546,12 +532,19 @@ class ClaudeCodeWebInterface {
                 }
                 
                 // Show appropriate UI based on session state
+                // For restored sessions, Claude won't be active but we still hide the overlay
+                // to let users see their session and start Claude when ready
                 if (message.active) {
                     this.hideOverlay();
                     // Don't auto-focus to avoid focus tracking sequences
                     // User can click to focus when ready
                 } else {
-                    this.showOverlay('startPrompt');
+                    // Session exists but Claude is not running - show start prompt
+                    // BUT only if we don't have restored sessions (checked in init)
+                    // If this is a restored session, the overlay was already hidden in init()
+                    if (!this.sessionTabManager || this.sessionTabManager.tabs.size === 0) {
+                        this.showOverlay('startPrompt');
+                    }
                 }
                 break;
                 
@@ -730,10 +723,7 @@ class ClaudeCodeWebInterface {
     }
 
     hideOverlay() {
-        const overlay = document.getElementById('overlay');
-        console.log('[HideOverlay] Current overlay display:', overlay.style.display);
-        overlay.style.display = 'none';
-        console.log('[HideOverlay] Overlay hidden');
+        document.getElementById('overlay').style.display = 'none';
     }
 
     showError(message) {
@@ -1249,58 +1239,10 @@ class ClaudeCodeWebInterface {
     }
     
     renderSessionList() {
-        const sessionList = document.getElementById('sessionList');
-        sessionList.innerHTML = '';
-        
-        if (this.claudeSessions.length === 0) {
-            sessionList.innerHTML = '<div class="no-sessions">No active sessions</div>';
-            return;
-        }
-        
-        this.claudeSessions.forEach(session => {
-            const sessionItem = document.createElement('div');
-            sessionItem.className = 'session-item';
-            if (session.id === this.currentClaudeSessionId) {
-                sessionItem.classList.add('active');
-            }
-            
-            const statusIcon = session.active ? '🟢' : '⚪';
-            const clientsText = session.connectedClients === 1 ? '1 client' : `${session.connectedClients} clients`;
-            
-            sessionItem.innerHTML = `
-                <div class="session-info">
-                    <span class="session-status">${statusIcon}</span>
-                    <div class="session-details">
-                        <div class="session-name">${session.name}</div>
-                        <div class="session-meta">${clientsText} • ${new Date(session.created).toLocaleTimeString()}</div>
-                        ${session.workingDir ? `<div class="session-folder" title="${session.workingDir}">📁 ${session.workingDir.split('/').pop() || '/'}</div>` : ''}
-                    </div>
-                </div>
-                <div class="session-actions">
-                    ${session.id === this.currentClaudeSessionId ? 
-                        '<button class="btn-icon" title="Leave session" data-action="leave"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>' :
-                        '<button class="btn-icon" title="Join session" data-action="join"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg></button>'
-                    }
-                    <button class="btn-icon" title="Delete session" data-action="delete">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="3 6 5 6 21 6"/>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                        </svg>
-                    </button>
-                </div>
-            `;
-            
-            // Add event listeners for actions
-            sessionItem.querySelectorAll('button').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const action = btn.getAttribute('data-action');
-                    this.handleSessionAction(action, session.id);
-                });
-            });
-            
-            sessionList.appendChild(sessionItem);
-        });
+        // This method is deprecated - sessions are now displayed as tabs
+        // The sessionList element no longer exists as we use tabs instead
+        // Keeping empty method to avoid errors from old code references
+        return;
     }
     
     handleSessionAction(action, sessionId) {
