@@ -635,6 +635,13 @@ class ClaudeCodeWebInterface {
                 }
                 break;
                 
+            case 'info':
+                // Info message - show the start prompt if Claude is not running
+                if (message.message.includes('not running')) {
+                    this.showOverlay('startPrompt');
+                }
+                break;
+                
             case 'session_deleted':
                 this.showError(message.message);
                 this.currentClaudeSessionId = null;

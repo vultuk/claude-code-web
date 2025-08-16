@@ -397,12 +397,14 @@ body {
     position: relative;
     display: flex;
     flex-direction: column;
+    min-height: 0; /* Fix for flexbox overflow */
 }
 
 .terminal-wrapper {
     flex: 1;
     overflow: hidden;
     position: relative;
+    min-height: 0; /* Fix for flexbox overflow */
 }
 
 
@@ -697,6 +699,7 @@ body {
     flex: 1;
     display: flex;
     overflow: hidden;
+    min-height: 0; /* Fix for flexbox overflow */
 }
 
 .terminal-container {
@@ -712,6 +715,11 @@ body {
     height: 100%;
     padding: 16px;
     box-sizing: border-box;
+    position: absolute; /* Fix scrollbar overflow */
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
 }
 
 .terminal-overlay {
@@ -1082,20 +1090,43 @@ body {
 .xterm .xterm-viewport {
     background-color: transparent !important;
     overflow-x: auto !important;
+    overflow-y: auto !important;
+    height: 100% !important;
 }
 
 .xterm .xterm-screen {
     background-color: transparent !important;
+    height: 100% !important;
 }
 
 /* Fix xterm canvas width on mobile */
 .xterm {
     max-width: 100%;
     overflow-x: auto;
+    height: 100%;
 }
 
 .xterm-screen canvas {
     max-width: 100%;
+}
+
+/* Fix scrollbar extending beyond viewport */
+.xterm-viewport::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.xterm-viewport::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+}
+
+.xterm-viewport::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 5px;
+}
+
+.xterm-viewport::-webkit-scrollbar-thumb:hover {
+    background: var(--border-hover);
 }
 
 /* Folder Browser Modal */
@@ -1621,10 +1652,12 @@ pre, code {
     .xterm {
         width: 100% !important;
         max-width: 100vw !important;
+        height: 100% !important;
     }
     
     .xterm-viewport {
         width: 100% !important;
+        height: 100% !important;
         overflow-x: auto !important;
     }
     

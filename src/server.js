@@ -497,7 +497,28 @@ class ClaudeCodeWebServer {
           // Verify the session exists and the WebSocket is part of it
           const session = this.claudeSessions.get(wsInfo.claudeSessionId);
           if (session && session.connections.has(wsId)) {
-            await this.claudeBridge.sendInput(wsInfo.claudeSessionId, data.data);
+            // Check if Claude is actually running in this session
+            if (session.active) {
+              try {
+                await this.claudeBridge.sendInput(wsInfo.claudeSessionId, data.data);
+              } catch (error) {
+                // Handle error gracefully - Claude might have stopped
+                if (this.dev) {
+                  console.error(`Failed to send input to session ${wsInfo.claudeSessionId}:`, error.message);
+                }
+                // Inform the client that Claude is not running
+                this.sendToWebSocket(wsInfo.ws, {
+                  type: 'error',
+                  message: 'Claude is not running in this session. Please start Claude first.'
+                });
+              }
+            } else {
+              // Claude is not running - inform the user
+              this.sendToWebSocket(wsInfo.ws, {
+                type: 'info',
+                message: 'Claude is not running. Click "Start Claude Code" to begin.'
+              });
+            }
           }
         }
         break;
@@ -507,7 +528,17 @@ class ClaudeCodeWebServer {
           // Verify the session exists and the WebSocket is part of it
           const session = this.claudeSessions.get(wsInfo.claudeSessionId);
           if (session && session.connections.has(wsId)) {
-            await this.claudeBridge.resize(wsInfo.claudeSessionId, data.cols, data.rows);
+            // Only resize if Claude is actually running
+            if (session.active) {
+              try {
+                await this.claudeBridge.resize(wsInfo.claudeSessionId, data.cols, data.rows);
+              } catch (error) {
+                // Silently ignore resize errors when Claude is not running
+                if (this.dev) {
+                  console.log(`Resize ignored - Claude not active in session ${wsInfo.claudeSessionId}`);
+                }
+              }
+            }
           }
         }
         break;
