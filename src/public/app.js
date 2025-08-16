@@ -570,7 +570,11 @@ class ClaudeCodeWebInterface {
                     this.sessionTabManager.updateTabStatus(message.sessionId, 'disconnected');
                 }
                 
-                this.showOverlay('startPrompt');
+                // Only show start prompt if we don't have any tabs
+                // When switching tabs, we leave one and join another, so don't show prompt
+                if (!this.sessionTabManager || this.sessionTabManager.tabs.size === 0) {
+                    this.showOverlay('startPrompt');
+                }
                 break;
                 
             case 'claude_started':
@@ -587,6 +591,7 @@ class ClaudeCodeWebInterface {
                 
             case 'claude_stopped':
                 this.terminal.writeln(`\r\n\x1b[33mClaude Code stopped\x1b[0m`);
+                // Show start prompt to allow restarting Claude in this session
                 this.showOverlay('startPrompt');
                 this.loadSessions(); // Refresh session list
                 break;
