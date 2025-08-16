@@ -33,6 +33,9 @@ class ClaudeCodeWebInterface {
         this.loadSettings();
         this.disablePullToRefresh();
         
+        // Show loading while we initialize
+        this.showOverlay('loadingSpinner');
+        
         // Initialize the session tab manager and wait for sessions to load
         this.sessionTabManager = new SessionTabManager(this);
         await this.sessionTabManager.init();
@@ -49,7 +52,7 @@ class ClaudeCodeWebInterface {
             const firstTabId = this.sessionTabManager.tabs.keys().next().value;
             await this.sessionTabManager.switchToTab(firstTabId);
             
-            // Hide any overlays since we have sessions
+            // Hide overlay completely since we have sessions
             this.hideOverlay();
         } else {
             // No sessions - show folder picker to create first session
@@ -396,7 +399,11 @@ class ClaudeCodeWebInterface {
             }
             
             this.updateStatus('Connecting...');
-            this.showOverlay('loadingSpinner');
+            // Only show loading spinner if overlay is already visible
+            // Don't force it to show if we're handling restored sessions
+            if (document.getElementById('overlay').style.display !== 'none') {
+                this.showOverlay('loadingSpinner');
+            }
             
             try {
                 this.socket = new WebSocket(wsUrl);
