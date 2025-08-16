@@ -4,6 +4,43 @@ class SessionTabManager {
         this.tabs = new Map(); // sessionId -> tab element
         this.activeSessions = new Map(); // sessionId -> session data
         this.activeTabId = null;
+        this.notificationsEnabled = false;
+        this.requestNotificationPermission();
+    }
+    
+    requestNotificationPermission() {
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission().then(permission => {
+                this.notificationsEnabled = permission === 'granted';
+            });
+        } else if ('Notification' in window && Notification.permission === 'granted') {
+            this.notificationsEnabled = true;
+        }
+    }
+    
+    sendNotification(title, body, sessionId) {
+        // Don't send notification for active tab
+        if (sessionId === this.activeTabId) return;
+        
+        // Check if notifications are enabled and we have permission
+        if (this.notificationsEnabled && 'Notification' in window && Notification.permission === 'granted') {
+            const notification = new Notification(title, {
+                body: body,
+                icon: '/favicon.ico',
+                tag: sessionId, // Prevents duplicate notifications
+                requireInteraction: false
+            });
+            
+            // Click to focus on that session
+            notification.onclick = () => {
+                window.focus();
+                this.switchToTab(sessionId);
+                notification.close();
+            };
+            
+            // Auto-close after 5 seconds
+            setTimeout(() => notification.close(), 5000);
+        }
     }
 
     async init() {
@@ -290,13 +327,16 @@ class SessionTabManager {
         tabsContainer.appendChild(tab);
         this.tabs.set(sessionId, tab);
         
-        // Store session data with timestamp
+        // Store session data with timestamp and activity tracking
         this.activeSessions.set(sessionId, {
             id: sessionId,
             name: sessionName,
             status: status,
             workingDir: workingDir,
-            lastAccessed: Date.now()
+            lastAccessed: Date.now(),
+            lastActivity: Date.now(),
+            unreadOutput: false,
+            hasError: false
         });
         
         // Update overflow on mobile
@@ -318,10 +358,15 @@ class SessionTabManager {
             tab.classList.add('active');
             this.activeTabId = sessionId;
             
-            // Update last accessed timestamp
+            // Update last accessed timestamp and clear unread indicator
             const session = this.activeSessions.get(sessionId);
             if (session) {
                 session.lastAccessed = Date.now();
+                
+                // Clear unread indicator for this tab
+                if (session.unreadOutput) {
+                    this.updateUnreadIndicator(sessionId, false);
+                }
             }
             
             // Reorder tabs based on last accessed time
@@ -501,6 +546,149 @@ class SessionTabManager {
             const session = this.activeSessions.get(sessionId);
             if (session) {
                 session.status = status;
+                session.lastActivity = Date.now();
+                
+                // Update visual indicator based on status
+                if (status === 'active') {
+                    statusEl.classList.add('pulse');
+                } else {
+                    statusEl.classList.remove('pulse');
+                }
+                
+                // Clear error state if status is not error
+                if (status !== 'error') {
+                    session.hasError = false;
+                }
+            }
+        }
+    }
+    
+    markSessionActivity(sessionId, hasOutput = false, outputData = '') {
+        const session = this.activeSessions.get(sessionId);
+        if (!session) return;
+        
+        const previousActivity = session.lastActivity || 0;
+        session.lastActivity = Date.now();
+        
+        // If this isn't the active tab and there's output, mark as unread
+        if (hasOutput && sessionId !== this.activeTabId) {
+            session.unreadOutput = true;
+            this.updateUnreadIndicator(sessionId, true);
+        }
+        
+        // Check for command completion patterns
+        if (hasOutput && outputData) {
+            this.checkForCommandCompletion(sessionId, outputData, previousActivity);
+        }
+        
+        // Update status to active if there's output
+        if (hasOutput) {
+            this.updateTabStatus(sessionId, 'active');
+            
+            // Set a timeout to mark as idle after 3 seconds of no activity
+            clearTimeout(session.idleTimeout);
+            session.idleTimeout = setTimeout(() => {
+                const currentSession = this.activeSessions.get(sessionId);
+                if (currentSession && currentSession.status === 'active') {
+                    this.updateTabStatus(sessionId, 'idle');
+                    
+                    // Check if this was a long-running command
+                    const duration = Date.now() - previousActivity;
+                    if (duration > 10000 && sessionId !== this.activeTabId) {
+                        // Command took more than 10 seconds
+                        const sessionName = session.name || 'Session';
+                        this.sendNotification(
+                            `Command completed in ${sessionName}`,
+                            `Process finished after ${Math.round(duration / 1000)} seconds`,
+                            sessionId
+                        );
+                    }
+                }
+            }, 3000);
+        }
+    }
+    
+    checkForCommandCompletion(sessionId, outputData, previousActivity) {
+        const session = this.activeSessions.get(sessionId);
+        if (!session) return;
+        
+        // Pattern matching for common completion indicators
+        const completionPatterns = [
+            /build\s+successful/i,
+            /compilation\s+finished/i,
+            /tests?\s+passed/i,
+            /deployment\s+complete/i,
+            /npm\s+install.*completed/i,
+            /successfully\s+compiled/i,
+            /✓\s+All\s+tests\s+passed/i,
+            /Done\s+in\s+\d+\.\d+s/i
+        ];
+        
+        const hasCompletion = completionPatterns.some(pattern => pattern.test(outputData));
+        
+        if (hasCompletion && sessionId !== this.activeTabId) {
+            const duration = Date.now() - previousActivity;
+            const sessionName = session.name || 'Session';
+            
+            // Extract a meaningful message from the output
+            let message = 'Task completed successfully';
+            if (/build\s+successful/i.test(outputData)) {
+                message = 'Build completed successfully';
+            } else if (/tests?\s+passed/i.test(outputData)) {
+                message = 'All tests passed';
+            } else if (/deployment\s+complete/i.test(outputData)) {
+                message = 'Deployment completed';
+            }
+            
+            this.sendNotification(
+                `✅ ${sessionName}`,
+                message,
+                sessionId
+            );
+        }
+    }
+    
+    updateUnreadIndicator(sessionId, hasUnread) {
+        const tab = this.tabs.get(sessionId);
+        if (tab) {
+            if (hasUnread) {
+                tab.classList.add('has-unread');
+                
+                // Add unread dot if it doesn't exist
+                if (!tab.querySelector('.unread-indicator')) {
+                    const unreadDot = document.createElement('span');
+                    unreadDot.className = 'unread-indicator';
+                    tab.querySelector('.tab-content').appendChild(unreadDot);
+                }
+            } else {
+                tab.classList.remove('has-unread');
+                const unreadDot = tab.querySelector('.unread-indicator');
+                if (unreadDot) {
+                    unreadDot.remove();
+                }
+            }
+        }
+        
+        const session = this.activeSessions.get(sessionId);
+        if (session) {
+            session.unreadOutput = hasUnread;
+        }
+    }
+    
+    markSessionError(sessionId, hasError = true) {
+        const session = this.activeSessions.get(sessionId);
+        if (session) {
+            session.hasError = hasError;
+            if (hasError) {
+                this.updateTabStatus(sessionId, 'error');
+                
+                // Send notification for error in background session
+                const sessionName = session.name || 'Session';
+                this.sendNotification(
+                    `Error in ${sessionName}`,
+                    'A command has failed or the session encountered an error',
+                    sessionId
+                );
             }
         }
     }

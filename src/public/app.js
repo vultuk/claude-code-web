@@ -566,6 +566,12 @@ class ClaudeCodeWebInterface {
                 // Filter out focus tracking sequences (^[[I and ^[[O)
                 const filteredData = message.data.replace(/\x1b\[\[?[IO]/g, '');
                 this.terminal.write(filteredData);
+                
+                // Update session activity indicator with output data
+                if (this.sessionTabManager && this.currentClaudeSessionId) {
+                    this.sessionTabManager.markSessionActivity(this.currentClaudeSessionId, true, message.data);
+                }
+                
                 // Pass output to plan detector
                 if (this.planDetector) {
                     this.planDetector.processOutput(message.data);
@@ -574,12 +580,23 @@ class ClaudeCodeWebInterface {
                 
             case 'exit':
                 this.terminal.writeln(`\r\n\x1b[33mClaude Code exited with code ${message.code}\x1b[0m`);
+                
+                // Mark session as error if non-zero exit code
+                if (this.sessionTabManager && this.currentClaudeSessionId && message.code !== 0) {
+                    this.sessionTabManager.markSessionError(this.currentClaudeSessionId, true);
+                }
+                
                 this.showOverlay('startPrompt');
                 this.loadSessions(); // Refresh session list
                 break;
                 
             case 'error':
                 this.showError(message.message);
+                
+                // Mark session as having an error
+                if (this.sessionTabManager && this.currentClaudeSessionId) {
+                    this.sessionTabManager.markSessionError(this.currentClaudeSessionId, true);
+                }
                 break;
                 
             case 'session_deleted':

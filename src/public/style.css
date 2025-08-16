@@ -143,6 +143,7 @@ body {
     gap: 6px;
     flex: 1;
     overflow: hidden;
+    position: relative;
 }
 
 .tab-icon {
@@ -156,6 +157,8 @@ body {
     height: 8px;
     border-radius: 50%;
     flex-shrink: 0;
+    transition: all 0.3s ease;
+    position: relative;
 }
 
 .tab-status.active {
@@ -168,6 +171,53 @@ body {
 
 .tab-status.disconnected {
     background-color: var(--error);
+}
+
+.tab-status.error {
+    background-color: var(--error);
+}
+
+/* Pulse animation for active sessions */
+.tab-status.pulse {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+}
+
+/* Unread indicator */
+.unread-indicator {
+    position: absolute;
+    top: 4px;
+    right: 28px;
+    width: 6px;
+    height: 6px;
+    background: #3b82f6;
+    border-radius: 50%;
+    animation: unread-pulse 1.5s infinite;
+}
+
+@keyframes unread-pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.session-tab.has-unread .tab-name {
+    color: #3b82f6;
+    font-weight: 600;
 }
 
 .tab-name {
