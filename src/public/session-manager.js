@@ -262,7 +262,8 @@ class SessionTabManager {
             
             sessions.forEach((session, index) => {
                 console.log('[SessionManager.loadSessions] Adding tab for:', session.id);
-                this.addTab(session.id, session.name, session.active ? 'active' : 'idle', session.workingDir);
+                // Don't auto-switch when loading existing sessions
+                this.addTab(session.id, session.name, session.active ? 'active' : 'idle', session.workingDir, false);
                 // Set initial timestamps based on order (older sessions get older timestamps)
                 const sessionData = this.activeSessions.get(session.id);
                 if (sessionData) {
@@ -282,7 +283,7 @@ class SessionTabManager {
         }
     }
 
-    addTab(sessionId, sessionName, status = 'idle', workingDir = null) {
+    addTab(sessionId, sessionName, status = 'idle', workingDir = null, autoSwitch = true) {
         const tabsContainer = document.getElementById('tabsContainer');
         if (!tabsContainer) return;
         
@@ -351,8 +352,8 @@ class SessionTabManager {
         // Update overflow on mobile
         this.updateTabOverflow();
         
-        // If this is the first tab, make it active
-        if (this.tabs.size === 1) {
+        // If this is the first tab and autoSwitch is enabled, make it active
+        if (this.tabs.size === 1 && autoSwitch) {
             this.switchToTab(sessionId);
         }
     }

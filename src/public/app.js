@@ -1458,11 +1458,12 @@ class ClaudeCodeWebInterface {
             // Add tab for the new session
             if (this.sessionTabManager) {
                 this.sessionTabManager.addTab(data.sessionId, name, 'idle', workingDir);
-                this.sessionTabManager.switchToTab(data.sessionId);
+                // switchToTab will handle joining the session
+                await this.sessionTabManager.switchToTab(data.sessionId);
+            } else {
+                // No tab manager, join directly
+                await this.joinSession(data.sessionId);
             }
-            
-            // Join the newly created session
-            await this.joinSession(data.sessionId);
             
             // Update sessions list
             this.loadSessions();
