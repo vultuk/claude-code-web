@@ -115,7 +115,7 @@ body {
     color: var(--text-secondary);
     font-size: 12px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.3s ease;
     min-width: 120px;
     max-width: 200px;
     position: relative;
@@ -343,14 +343,7 @@ body {
 
 /* Mobile-specific styles */
 @media (max-width: 768px) {
-    .tab-overflow-wrapper {
-        display: flex !important;
-    }
-    
-    /* Hide tabs beyond the second one on mobile */
-    .session-tab:nth-child(n+3) {
-        display: none !important;
-    }
+    /* Overflow wrapper visibility is controlled by JavaScript */
 }
 
 /* Terminal Container */

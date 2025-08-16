@@ -503,6 +503,13 @@ class ClaudeCodeWebInterface {
                     this.sessionTabManager.updateTabStatus(message.sessionId, message.active ? 'active' : 'idle');
                 }
                 
+                // Resolve pending join promise if it exists
+                if (this.pendingJoinResolve && this.pendingJoinSessionId === message.sessionId) {
+                    this.pendingJoinResolve();
+                    this.pendingJoinResolve = null;
+                    this.pendingJoinSessionId = null;
+                }
+                
                 // Replay output buffer if available
                 if (message.outputBuffer && message.outputBuffer.length > 0) {
                     this.terminal.clear();
@@ -1273,8 +1280,24 @@ class ClaudeCodeWebInterface {
             await new Promise(resolve => setTimeout(resolve, 100));
         }
         
-        this.send({ type: 'join_session', sessionId });
-        // Session dropdown removed - using tabs
+        // Create a promise that resolves when we receive session_joined message
+        return new Promise((resolve) => {
+            // Store the resolve function to call when we get the response
+            this.pendingJoinResolve = resolve;
+            this.pendingJoinSessionId = sessionId;
+            
+            // Send the join request
+            this.send({ type: 'join_session', sessionId });
+            
+            // Set a timeout in case the response never comes
+            setTimeout(() => {
+                if (this.pendingJoinResolve) {
+                    this.pendingJoinResolve = null;
+                    this.pendingJoinSessionId = null;
+                    resolve(); // Resolve anyway after timeout
+                }
+            }, 2000);
+        });
     }
     
     leaveSession() {

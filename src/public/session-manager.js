@@ -81,18 +81,37 @@ class SessionTabManager {
     
     updateTabOverflow() {
         const isMobile = window.innerWidth <= 768;
-        if (!isMobile) return;
-        
-        const tabs = Array.from(this.tabs.values());
         const overflowWrapper = document.getElementById('tabOverflowWrapper');
         const overflowCount = document.querySelector('.tab-overflow-count');
         
-        if (tabs.length > 2) {
+        if (!isMobile) {
+            // On desktop, show all tabs and hide overflow
+            this.tabs.forEach(tab => {
+                tab.style.display = '';
+            });
+            if (overflowWrapper) {
+                overflowWrapper.style.display = 'none';
+            }
+            return;
+        }
+        
+        // On mobile, show only first 2 tabs
+        const tabsArray = Array.from(this.tabs.values());
+        
+        tabsArray.forEach((tab, index) => {
+            if (index < 2) {
+                tab.style.display = ''; // Show first 2 tabs
+            } else {
+                tab.style.display = 'none'; // Hide rest
+            }
+        });
+        
+        if (tabsArray.length > 2) {
             // Show overflow button with count
             if (overflowWrapper) {
                 overflowWrapper.style.display = 'flex';
                 if (overflowCount) {
-                    overflowCount.textContent = tabs.length - 2;
+                    overflowCount.textContent = tabsArray.length - 2;
                 }
             }
         } else {
@@ -128,10 +147,15 @@ class SessionTabManager {
             `;
             
             // Click to switch to tab
-            item.addEventListener('click', (e) => {
+            item.addEventListener('click', async (e) => {
                 if (!e.target.classList.contains('overflow-tab-close')) {
-                    this.switchToTab(sessionId);
+                    await this.switchToTab(sessionId);
                     menu.classList.remove('active');
+                    // Update menu contents after switching - use a slightly longer delay to ensure UI updates
+                    setTimeout(() => {
+                        this.updateTabOverflow();
+                        this.updateOverflowMenu();
+                    }, 150);
                 }
             });
             
@@ -190,11 +214,22 @@ class SessionTabManager {
             const response = await fetch('/api/sessions/list');
             const data = await response.json();
             
-            data.sessions.forEach(session => {
+            // Sort sessions by creation time (assuming older sessions should be less recent)
+            // This provides a default order that will be updated as tabs are accessed
+            const sessions = data.sessions || [];
+            sessions.forEach((session, index) => {
                 this.addTab(session.id, session.name, session.active ? 'active' : 'idle', session.workingDir);
+                // Set initial timestamps based on order (older sessions get older timestamps)
+                const sessionData = this.activeSessions.get(session.id);
+                if (sessionData) {
+                    sessionData.lastAccessed = Date.now() - (sessions.length - index) * 1000;
+                }
             });
             
-            return data.sessions || [];
+            // Reorder tabs based on the initial timestamps
+            this.reorderTabsByLastAccessed();
+            
+            return sessions;
         } catch (error) {
             console.error('Failed to load sessions:', error);
             return [];
@@ -232,9 +267,9 @@ class SessionTabManager {
         `;
         
         // Tab click handler
-        tab.addEventListener('click', (e) => {
+        tab.addEventListener('click', async (e) => {
             if (!e.target.classList.contains('tab-close')) {
-                this.switchToTab(sessionId);
+                await this.switchToTab(sessionId);
             }
         });
         
@@ -255,12 +290,13 @@ class SessionTabManager {
         tabsContainer.appendChild(tab);
         this.tabs.set(sessionId, tab);
         
-        // Store session data
+        // Store session data with timestamp
         this.activeSessions.set(sessionId, {
             id: sessionId,
             name: sessionName,
             status: status,
-            workingDir: workingDir
+            workingDir: workingDir,
+            lastAccessed: Date.now()
         });
         
         // Update overflow on mobile
@@ -272,7 +308,7 @@ class SessionTabManager {
         }
     }
 
-    switchToTab(sessionId) {
+    async switchToTab(sessionId) {
         // Remove active class from all tabs
         this.tabs.forEach(tab => tab.classList.remove('active'));
         
@@ -282,12 +318,53 @@ class SessionTabManager {
             tab.classList.add('active');
             this.activeTabId = sessionId;
             
+            // Update last accessed timestamp
+            const session = this.activeSessions.get(sessionId);
+            if (session) {
+                session.lastAccessed = Date.now();
+            }
+            
+            // Reorder tabs based on last accessed time
+            this.reorderTabsByLastAccessed();
+            
             // Switch the main terminal to this session
-            this.claudeInterface.joinSession(sessionId);
+            await this.claudeInterface.joinSession(sessionId);
             
             // Update header info
             this.updateHeaderInfo(sessionId);
+            
+            // Force update the overflow menu on mobile
+            if (window.innerWidth <= 768) {
+                this.updateOverflowMenu();
+            }
         }
+    }
+    
+    reorderTabsByLastAccessed() {
+        const tabsContainer = document.getElementById('tabsContainer');
+        if (!tabsContainer) return;
+        
+        // Get all tabs sorted by last accessed time (most recent first)
+        const sortedTabs = Array.from(this.tabs.entries())
+            .sort((a, b) => {
+                const sessionA = this.activeSessions.get(a[0]);
+                const sessionB = this.activeSessions.get(b[0]);
+                const timeA = sessionA ? sessionA.lastAccessed : 0;
+                const timeB = sessionB ? sessionB.lastAccessed : 0;
+                return timeB - timeA; // Most recent first
+            });
+        
+        // Clear and rebuild tabs map in the new order
+        this.tabs.clear();
+        
+        // Reorder DOM elements and rebuild map
+        sortedTabs.forEach(([sessionId, tabElement]) => {
+            tabsContainer.appendChild(tabElement);
+            this.tabs.set(sessionId, tabElement);
+        });
+        
+        // Update overflow on mobile
+        this.updateTabOverflow();
     }
 
     closeSession(sessionId) {
