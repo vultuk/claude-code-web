@@ -194,15 +194,9 @@ body {
     }
 }
 
-/* Unread indicator */
-.unread-indicator {
-    position: absolute;
-    top: 4px;
-    right: 28px;
-    width: 6px;
-    height: 6px;
-    background: #3b82f6;
-    border-radius: 50%;
+/* Unread indicator - changes status dot to blue */
+.tab-status.unread {
+    background-color: #3b82f6 !important;
     animation: unread-pulse 1.5s infinite;
 }
 

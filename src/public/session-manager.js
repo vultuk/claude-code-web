@@ -585,7 +585,7 @@ class SessionTabManager {
         if (hasOutput) {
             this.updateTabStatus(sessionId, 'active');
             
-            // Set a timeout to mark as idle after 3 seconds of no activity
+            // Set a timeout to mark as idle after 5 minutes of no activity
             clearTimeout(session.idleTimeout);
             session.idleTimeout = setTimeout(() => {
                 const currentSession = this.activeSessions.get(sessionId);
@@ -604,7 +604,7 @@ class SessionTabManager {
                         );
                     }
                 }
-            }, 3000);
+            }, 300000); // 5 minutes
         }
     }
     
@@ -651,20 +651,18 @@ class SessionTabManager {
     updateUnreadIndicator(sessionId, hasUnread) {
         const tab = this.tabs.get(sessionId);
         if (tab) {
+            const statusEl = tab.querySelector('.tab-status');
             if (hasUnread) {
                 tab.classList.add('has-unread');
-                
-                // Add unread dot if it doesn't exist
-                if (!tab.querySelector('.unread-indicator')) {
-                    const unreadDot = document.createElement('span');
-                    unreadDot.className = 'unread-indicator';
-                    tab.querySelector('.tab-content').appendChild(unreadDot);
+                // Add unread class to status indicator instead of creating new element
+                if (statusEl) {
+                    statusEl.classList.add('unread');
                 }
             } else {
                 tab.classList.remove('has-unread');
-                const unreadDot = tab.querySelector('.unread-indicator');
-                if (unreadDot) {
-                    unreadDot.remove();
+                // Remove unread class from status indicator
+                if (statusEl) {
+                    statusEl.classList.remove('unread');
                 }
             }
         }
