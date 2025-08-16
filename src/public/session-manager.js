@@ -271,8 +271,10 @@ class SessionTabManager {
                 }
             });
             
-            // Reorder tabs based on the initial timestamps
-            this.reorderTabsByLastAccessed();
+            // Reorder tabs based on the initial timestamps (mobile only)
+            if (window.innerWidth <= 768) {
+                this.reorderTabsByLastAccessed();
+            }
             
             console.log('[SessionManager.loadSessions] Final tabs.size:', this.tabs.size);
             
@@ -379,8 +381,11 @@ class SessionTabManager {
                 }
             }
             
-            // Reorder tabs based on last accessed time
-            this.reorderTabsByLastAccessed();
+            // Reorder tabs based on last accessed time (mobile only)
+            // On desktop, keep tabs in fixed positions for better orientation
+            if (window.innerWidth <= 768) {
+                this.reorderTabsByLastAccessed();
+            }
             
             // Switch the main terminal to this session
             await this.claudeInterface.joinSession(sessionId);
