@@ -540,13 +540,12 @@ class SessionTabManager {
         if (tab) {
             const statusEl = tab.querySelector('.tab-status');
             if (statusEl) {
+                // Preserve unread class if it exists
+                const hasUnread = statusEl.classList.contains('unread');
                 statusEl.className = `tab-status ${status}`;
-            }
-            
-            const session = this.activeSessions.get(sessionId);
-            if (session) {
-                session.status = status;
-                session.lastActivity = Date.now();
+                if (hasUnread) {
+                    statusEl.classList.add('unread');
+                }
                 
                 // Update visual indicator based on status
                 if (status === 'active') {
@@ -554,6 +553,12 @@ class SessionTabManager {
                 } else {
                     statusEl.classList.remove('pulse');
                 }
+            }
+            
+            const session = this.activeSessions.get(sessionId);
+            if (session) {
+                session.status = status;
+                session.lastActivity = Date.now();
                 
                 // Clear error state if status is not error
                 if (status !== 'error') {
@@ -570,20 +575,16 @@ class SessionTabManager {
         const previousActivity = session.lastActivity || 0;
         session.lastActivity = Date.now();
         
-        // If this isn't the active tab and there's output, mark as unread
-        if (hasOutput && sessionId !== this.activeTabId) {
-            session.unreadOutput = true;
-            this.updateUnreadIndicator(sessionId, true);
-        }
-        
-        // Check for command completion patterns
-        if (hasOutput && outputData) {
-            this.checkForCommandCompletion(sessionId, outputData, previousActivity);
-        }
-        
         // Update status to active if there's output
         if (hasOutput) {
             this.updateTabStatus(sessionId, 'active');
+            
+            // If this isn't the active tab and there's output, mark as unread
+            // Do this AFTER updating status so unread class takes precedence
+            if (sessionId !== this.activeTabId) {
+                session.unreadOutput = true;
+                this.updateUnreadIndicator(sessionId, true);
+            }
             
             // Set a timeout to mark as idle after 5 minutes of no activity
             clearTimeout(session.idleTimeout);
@@ -591,6 +592,11 @@ class SessionTabManager {
                 const currentSession = this.activeSessions.get(sessionId);
                 if (currentSession && currentSession.status === 'active') {
                     this.updateTabStatus(sessionId, 'idle');
+                    
+                    // Restore unread indicator if it was set
+                    if (currentSession.unreadOutput) {
+                        this.updateUnreadIndicator(sessionId, true);
+                    }
                     
                     // Check if this was a long-running command
                     const duration = Date.now() - previousActivity;
@@ -605,6 +611,11 @@ class SessionTabManager {
                     }
                 }
             }, 300000); // 5 minutes
+        }
+        
+        // Check for command completion patterns
+        if (hasOutput && outputData) {
+            this.checkForCommandCompletion(sessionId, outputData, previousActivity);
         }
     }
     
