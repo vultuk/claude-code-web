@@ -47,7 +47,10 @@ class ClaudeCodeWebInterface {
             // Sessions exist - connect and join the first one
             await this.connect();
             const firstTabId = this.sessionTabManager.tabs.keys().next().value;
-            this.sessionTabManager.switchToTab(firstTabId);
+            await this.sessionTabManager.switchToTab(firstTabId);
+            
+            // Hide any overlays since we have sessions
+            this.hideOverlay();
         } else {
             // No sessions - show folder picker to create first session
             this.showFolderBrowser();
@@ -406,8 +409,9 @@ class ClaudeCodeWebInterface {
                     // Load available sessions
                     this.loadSessions();
                     
-                    // Show appropriate overlay based on session state
-                    if (!this.currentClaudeSessionId) {
+                    // Only show start prompt if we don't have sessions AND no current session
+                    // The init() method will handle showing/hiding overlays for restored sessions
+                    if (!this.currentClaudeSessionId && (!this.sessionTabManager || this.sessionTabManager.tabs.size === 0)) {
                         this.showOverlay('startPrompt');
                     }
                     
