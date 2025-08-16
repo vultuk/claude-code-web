@@ -538,8 +538,6 @@ class ClaudeCodeWebInterface {
                 }
                 
                 // Show appropriate UI based on session state
-                // For restored sessions, Claude won't be active but we still hide the overlay
-                // to let users see their session and start Claude when ready
                 console.log('[session_joined] Checking if should show overlay. Active:', message.active);
                 if (message.active) {
                     console.log('[session_joined] Session is active, hiding overlay');
@@ -547,14 +545,18 @@ class ClaudeCodeWebInterface {
                     // Don't auto-focus to avoid focus tracking sequences
                     // User can click to focus when ready
                 } else {
-                    // Session exists but Claude is not running - show start prompt
-                    // BUT only if we don't have restored sessions (checked in init)
-                    // If this is a restored session, the overlay was already hidden in init()
-                    if (!this.sessionTabManager || this.sessionTabManager.tabs.size === 0) {
-                        console.log('[session_joined] No tabs, showing start prompt');
+                    // Session exists but Claude is not running
+                    // Show start prompt for new sessions, but not for restored/existing sessions
+                    // Check if this is a brand new session (empty output buffer indicates new)
+                    const isNewSession = !message.outputBuffer || message.outputBuffer.length === 0;
+                    
+                    if (isNewSession) {
+                        console.log('[session_joined] New session detected, showing start prompt');
                         this.showOverlay('startPrompt');
                     } else {
-                        console.log('[session_joined] Have tabs, NOT showing start prompt');
+                        console.log('[session_joined] Existing session with output, NOT showing start prompt');
+                        // For existing sessions, just ensure overlay is hidden
+                        this.hideOverlay();
                     }
                 }
                 break;
