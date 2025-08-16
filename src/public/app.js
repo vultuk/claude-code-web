@@ -46,15 +46,21 @@ class ClaudeCodeWebInterface {
         }
         
         // Check if there are existing sessions
+        console.log('[Init] Checking sessions, tabs.size:', this.sessionTabManager.tabs.size);
         if (this.sessionTabManager.tabs.size > 0) {
+            console.log('[Init] Found sessions, connecting...');
             // Sessions exist - connect and join the first one
             await this.connect();
             const firstTabId = this.sessionTabManager.tabs.keys().next().value;
+            console.log('[Init] Switching to tab:', firstTabId);
             await this.sessionTabManager.switchToTab(firstTabId);
             
             // Hide overlay completely since we have sessions
+            console.log('[Init] About to hide overlay');
             this.hideOverlay();
+            console.log('[Init] Overlay should be hidden now');
         } else {
+            console.log('[Init] No sessions found, showing folder browser');
             // No sessions - show folder picker to create first session
             this.showFolderBrowser();
         }
@@ -504,6 +510,7 @@ class ClaudeCodeWebInterface {
                 break;
                 
             case 'session_joined':
+                console.log('[session_joined] Message received, active:', message.active, 'tabs:', this.sessionTabManager?.tabs.size);
                 this.currentClaudeSessionId = message.sessionId;
                 this.currentClaudeSessionName = message.sessionName;
                 this.updateWorkingDir(message.workingDir);
@@ -534,7 +541,9 @@ class ClaudeCodeWebInterface {
                 // Show appropriate UI based on session state
                 // For restored sessions, Claude won't be active but we still hide the overlay
                 // to let users see their session and start Claude when ready
+                console.log('[session_joined] Checking if should show overlay. Active:', message.active);
                 if (message.active) {
+                    console.log('[session_joined] Session is active, hiding overlay');
                     this.hideOverlay();
                     // Don't auto-focus to avoid focus tracking sequences
                     // User can click to focus when ready
@@ -543,7 +552,10 @@ class ClaudeCodeWebInterface {
                     // BUT only if we don't have restored sessions (checked in init)
                     // If this is a restored session, the overlay was already hidden in init()
                     if (!this.sessionTabManager || this.sessionTabManager.tabs.size === 0) {
+                        console.log('[session_joined] No tabs, showing start prompt');
                         this.showOverlay('startPrompt');
+                    } else {
+                        console.log('[session_joined] Have tabs, NOT showing start prompt');
                     }
                 }
                 break;
@@ -723,7 +735,14 @@ class ClaudeCodeWebInterface {
     }
 
     hideOverlay() {
-        document.getElementById('overlay').style.display = 'none';
+        const overlay = document.getElementById('overlay');
+        if (overlay) {
+            console.log('[hideOverlay] Hiding overlay, current display:', overlay.style.display);
+            overlay.style.display = 'none';
+            console.log('[hideOverlay] Overlay hidden, new display:', overlay.style.display);
+        } else {
+            console.error('[hideOverlay] Overlay element not found!');
+        }
     }
 
     showError(message) {
