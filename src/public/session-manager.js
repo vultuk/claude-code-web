@@ -381,10 +381,16 @@ class SessionTabManager {
                 }
             }
             
-            // Reorder tabs based on last accessed time (mobile only)
-            // On desktop, keep tabs in fixed positions for better orientation
+            // Reorder tabs on mobile only when accessing hidden tabs
+            // This brings overflow tabs to the front for easier access
             if (window.innerWidth <= 768) {
-                this.reorderTabsByLastAccessed();
+                // Check if the clicked tab was in the overflow (position 3+)
+                const tabIndex = Array.from(this.tabs.keys()).indexOf(sessionId);
+                if (tabIndex >= 2) {
+                    // Tab was in overflow, bring it to front
+                    this.reorderTabsByLastAccessed();
+                }
+                // If tab was already visible (position 0-1), keep positions unchanged
             }
             
             // Switch the main terminal to this session
