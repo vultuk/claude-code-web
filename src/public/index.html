@@ -15,55 +15,41 @@
 </head>
 <body>
     <div id="app">
-        <header class="header">
-            <button class="hamburger-btn" id="hamburgerBtn">
-                <span class="hamburger-line"></span>
-                <span class="hamburger-line"></span>
-                <span class="hamburger-line"></span>
+        <!-- Session Tabs Bar -->
+        <div class="session-tabs-bar" id="sessionTabsBar">
+            <div class="tabs-section">
+                <div class="tabs-container" id="tabsContainer">
+                    <!-- Tabs will be dynamically added here -->
+                </div>
+                <button class="tab-new" id="tabNewBtn" title="New Session (Ctrl+T)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                </button>
+            </div>
+            <!-- Overflow dropdown for mobile - outside tabs-section to prevent scrolling issues -->
+            <div class="tab-overflow-wrapper" id="tabOverflowWrapper" style="display: none;">
+                <button class="tab-overflow-btn" id="tabOverflowBtn" title="More tabs">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="5" r="1"/>
+                        <circle cx="12" cy="12" r="1"/>
+                        <circle cx="12" cy="19" r="1"/>
+                    </svg>
+                    <span class="tab-overflow-count">0</span>
+                </button>
+                <div class="tab-overflow-menu" id="tabOverflowMenu">
+                    <!-- Overflow tabs will be listed here -->
+                </div>
+            </div>
+            <button class="tab-settings" id="settingsBtn" title="Settings">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
+                </svg>
             </button>
-            <div class="header-content">
-                <h1 class="desktop-only">🤖 Claude Code Web Interface</h1>
-                <div class="header-info">
-                    <span class="status" id="status">Connecting...</span>
-                    <span class="working-dir" id="workingDir"></span>
-                </div>
-            </div>
-            <div class="header-controls desktop-only">
-                <div class="session-dropdown">
-                    <button id="sessionBtn" class="btn btn-secondary session-btn">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
-                            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-                        </svg>
-                        <span id="sessionBtnText">Sessions</span>
-                        <svg class="dropdown-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="6 9 12 15 18 9"/>
-                        </svg>
-                    </button>
-                    <div class="session-dropdown-menu" id="sessionDropdown">
-                        <div class="session-dropdown-header">
-                            <h3>Claude Sessions</h3>
-                            <button class="btn-icon" id="refreshSessionsBtn" title="Refresh sessions">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polyline points="23 4 23 10 17 10"/>
-                                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-                                </svg>
-                            </button>
-                        </div>
-                        <div class="session-list" id="sessionList">
-                            <!-- Sessions will be dynamically added here -->
-                        </div>
-                        <div class="session-dropdown-footer">
-                            <button class="btn btn-primary btn-small" id="newSessionBtn">New Session</button>
-                        </div>
-                    </div>
-                </div>
-                <button id="closeSessionBtn" class="btn btn-danger" style="display: none;">Close Session</button>
-                <button id="reconnectBtn" class="btn btn-secondary" disabled>Reconnect</button>
-                <button id="clearBtn" class="btn btn-secondary">Clear</button>
-                <button id="settingsBtn" class="btn btn-secondary">Settings</button>
-            </div>
-        </header>
+        </div>
+
 
         <div class="mobile-menu" id="mobileMenu">
             <div class="mobile-menu-header">
@@ -80,8 +66,10 @@
         </div>
 
         <main class="main">
-            <div class="terminal-container">
-                <div id="terminal"></div>
+            <div class="terminal-container" id="terminalContainer">
+                <div class="terminal-wrapper">
+                    <div id="terminal"></div>
+                </div>
                 <div class="terminal-overlay" id="overlay">
                     <div class="overlay-content">
                         <div class="loading-spinner" id="loadingSpinner">
@@ -254,42 +242,9 @@
         </div>
     </div>
 
-    <!-- Initial Choice Modal -->
-    <div class="session-modal" id="initialChoiceModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Welcome to Claude Code Web Interface</h2>
-            </div>
-            <div class="modal-body" style="text-align: center;">
-                <p style="margin-bottom: 30px;">Choose how you want to start:</p>
-                <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
-                    <div style="flex: 1; min-width: 200px;">
-                        <button id="loadFolderBtn" class="btn btn-primary" style="width: 100%; padding: 20px; font-size: 16px;">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom: 10px;">
-                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                            </svg>
-                            <br>
-                            Load a Folder
-                        </button>
-                        <p style="margin-top: 10px; font-size: 14px; color: #666;">Start a new session with a specific folder</p>
-                    </div>
-                    <div style="flex: 1; min-width: 200px;">
-                        <button id="openSessionBtn" class="btn btn-secondary" style="width: 100%; padding: 20px; font-size: 16px;">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom: 10px;">
-                                <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
-                                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-                            </svg>
-                            <br>
-                            Open Existing Session
-                        </button>
-                        <p style="margin-top: 10px; font-size: 14px; color: #666;">Continue working with an active session</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <script src="plan-detector.js"></script>
+    <script src="session-manager.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

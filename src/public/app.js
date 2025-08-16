@@ -19,11 +19,9 @@ class ClaudeCodeWebInterface {
         this.planDetector = null;
         this.planModal = null;
         
-        // Multi-session tiling support
-        this.tiledSessions = new Map(); // Map of sessionId -> {terminal, socket, fitAddon, container}
-        this.activeTileId = null;
-        this.maxTiles = 4; // Maximum number of tiled sessions
-        this.tileLayout = 'single'; // 'single', 'split-2', 'grid-4'
+        
+        // Initialize the session tab manager
+        this.sessionTabManager = null;
         
         this.init();
     }
@@ -35,13 +33,25 @@ class ClaudeCodeWebInterface {
         this.loadSettings();
         this.disablePullToRefresh();
         
+        // Initialize the session tab manager and wait for sessions to load
+        this.sessionTabManager = new SessionTabManager(this);
+        await this.sessionTabManager.init();
+        
         // Show mode switcher on mobile
         if (this.isMobile) {
             this.showModeSwitcher();
         }
         
-        // Show initial choice modal on startup
-        this.showInitialChoiceModal();
+        // Check if there are existing sessions
+        if (this.sessionTabManager.tabs.size > 0) {
+            // Sessions exist - connect and join the first one
+            await this.connect();
+            const firstTabId = this.sessionTabManager.tabs.keys().next().value;
+            this.sessionTabManager.switchToTab(firstTabId);
+        } else {
+            // No sessions - show folder picker to create first session
+            this.showFolderBrowser();
+        }
         
         window.addEventListener('resize', () => {
             this.fitTerminal();
@@ -212,7 +222,11 @@ class ClaudeCodeWebInterface {
             allowProposedApi: true,
             scrollback: 10000,
             rightClickSelectsWord: false,
-            allowTransparency: true
+            allowTransparency: true,
+            // Disable focus tracking to prevent ^[[I and ^[[O sequences
+            windowOptions: {
+                reportFocus: false
+            }
         });
 
         this.fitAddon = new FitAddon.FitAddon();
@@ -226,7 +240,11 @@ class ClaudeCodeWebInterface {
 
         this.terminal.onData((data) => {
             if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-                this.send({ type: 'input', data });
+                // Filter out focus tracking sequences before sending
+                const filteredData = data.replace(/\x1b\[\[?[IO]/g, '');
+                if (filteredData) {
+                    this.send({ type: 'input', data: filteredData });
+                }
             }
         });
 
@@ -287,7 +305,7 @@ class ClaudeCodeWebInterface {
         
         document.getElementById('closeSessionSelection').addEventListener('click', () => {
             modal.remove();
-            this.showInitialChoiceModal();
+            this.showFolderBrowser();
         });
         
         document.getElementById('selectSessionNewFolder').addEventListener('click', () => {
@@ -299,50 +317,6 @@ class ClaudeCodeWebInterface {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 modal.remove();
-                this.showInitialChoiceModal();
-            }
-        });
-    }
-    
-    showInitialChoiceModal() {
-        const modal = document.getElementById('initialChoiceModal');
-        modal.classList.add('active');
-        
-        // Set up event listeners for the choice buttons
-        const loadFolderBtn = document.getElementById('loadFolderBtn');
-        const openSessionBtn = document.getElementById('openSessionBtn');
-        
-        loadFolderBtn.addEventListener('click', () => {
-            modal.classList.remove('active');
-            this.showFolderBrowser();
-        });
-        
-        openSessionBtn.addEventListener('click', async () => {
-            modal.classList.remove('active');
-            
-            try {
-                // Try to load sessions directly from the API first
-                const response = await fetch('/api/sessions/list');
-                if (!response.ok) throw new Error('Failed to load sessions');
-                
-                const data = await response.json();
-                this.claudeSessions = data.sessions;
-                
-                // If there are existing sessions, show a session selection modal
-                if (this.claudeSessions && this.claudeSessions.length > 0) {
-                    // Connect to server
-                    await this.connect();
-                    
-                    // Show session selection modal
-                    this.showSessionSelectionModal();
-                } else {
-                    // No sessions available, inform user and show folder browser
-                    alert('No existing sessions found. Please load a folder to start a new session.');
-                    this.showFolderBrowser();
-                }
-            } catch (error) {
-                console.error('Failed to check sessions:', error);
-                // Fall back to showing folder browser
                 this.showFolderBrowser();
             }
         });
@@ -351,80 +325,35 @@ class ClaudeCodeWebInterface {
     setupUI() {
         const startBtn = document.getElementById('startBtn');
         const dangerousSkipBtn = document.getElementById('dangerousSkipBtn');
-        const reconnectBtn = document.getElementById('reconnectBtn');
-        const clearBtn = document.getElementById('clearBtn');
         const settingsBtn = document.getElementById('settingsBtn');
         const retryBtn = document.getElementById('retryBtn');
-        const closeSessionBtn = document.getElementById('closeSessionBtn');
         
-        // Session management buttons
-        const sessionBtn = document.getElementById('sessionBtn');
-        const newSessionBtn = document.getElementById('newSessionBtn');
-        const refreshSessionsBtn = document.getElementById('refreshSessionsBtn');
-        
-        // Mobile menu buttons
-        const hamburgerBtn = document.getElementById('hamburgerBtn');
+        // Mobile menu buttons (keeping for mobile support)
         const closeMenuBtn = document.getElementById('closeMenuBtn');
-        const reconnectBtnMobile = document.getElementById('reconnectBtnMobile');
-        const clearBtnMobile = document.getElementById('clearBtnMobile');
         const settingsBtnMobile = document.getElementById('settingsBtnMobile');
-        const closeSessionBtnMobile = document.getElementById('closeSessionBtnMobile');
         
-        startBtn.addEventListener('click', () => this.startClaudeSession());
-        dangerousSkipBtn.addEventListener('click', () => this.startClaudeSession({ dangerouslySkipPermissions: true }));
-        reconnectBtn.addEventListener('click', () => this.reconnect());
-        clearBtn.addEventListener('click', () => this.clearTerminal());
-        settingsBtn.addEventListener('click', () => this.showSettings());
-        retryBtn.addEventListener('click', () => this.reconnect());
-        closeSessionBtn.addEventListener('click', () => this.closeSession());
-        
-        // Session management event listeners
-        sessionBtn.addEventListener('click', () => this.toggleSessionDropdown());
-        newSessionBtn.addEventListener('click', () => {
-            // Show folder picker for new session
-            this.isCreatingNewSession = true;
-            this.selectedWorkingDir = null;
-            this.currentFolderPath = null;
-            this.showFolderBrowser();
-            document.getElementById('sessionDropdown').classList.remove('active');
-        });
-        refreshSessionsBtn.addEventListener('click', () => this.loadSessions());
+        if (startBtn) startBtn.addEventListener('click', () => this.startClaudeSession());
+        if (dangerousSkipBtn) dangerousSkipBtn.addEventListener('click', () => this.startClaudeSession({ dangerouslySkipPermissions: true }));
+        if (settingsBtn) settingsBtn.addEventListener('click', () => this.showSettings());
+        if (retryBtn) retryBtn.addEventListener('click', () => this.reconnect());
         
         // Mobile menu event listeners
-        hamburgerBtn.addEventListener('click', () => this.toggleMobileMenu());
-        closeMenuBtn.addEventListener('click', () => this.closeMobileMenu());
-        reconnectBtnMobile.addEventListener('click', () => {
-            this.reconnect();
-            this.closeMobileMenu();
-        });
-        clearBtnMobile.addEventListener('click', () => {
-            this.clearTerminal();
-            this.closeMobileMenu();
-        });
-        settingsBtnMobile.addEventListener('click', () => {
-            this.showSettings();
-            this.closeMobileMenu();
-        });
-        closeSessionBtnMobile.addEventListener('click', () => {
-            this.closeSession();
-            this.closeMobileMenu();
-        });
+        if (closeMenuBtn) closeMenuBtn.addEventListener('click', () => this.closeMobileMenu());
+        if (settingsBtnMobile) {
+            settingsBtnMobile.addEventListener('click', () => {
+                this.showSettings();
+                this.closeMobileMenu();
+            });
+        }
         
         // Mobile sessions button
         const sessionsBtnMobile = document.getElementById('sessionsBtnMobile');
-        sessionsBtnMobile.addEventListener('click', () => {
-            this.showMobileSessionsModal();
-            this.closeMobileMenu();
-        });
-        
-        // Close dropdown when clicking outside
-        document.addEventListener('click', (e) => {
-            const dropdown = document.getElementById('sessionDropdown');
-            const sessionBtn = document.getElementById('sessionBtn');
-            if (!dropdown.contains(e.target) && !sessionBtn.contains(e.target)) {
-                dropdown.classList.remove('active');
-            }
-        });
+        if (sessionsBtnMobile) {
+            sessionsBtnMobile.addEventListener('click', () => {
+                this.showMobileSessionsModal();
+                this.closeMobileMenu();
+            });
+        }
         
         this.setupSettingsModal();
         this.setupFolderBrowser();
@@ -484,8 +413,7 @@ class ClaudeCodeWebInterface {
                     
                     // Show close session button if we have a selected working directory
                     if (this.selectedWorkingDir) {
-                        document.getElementById('closeSessionBtn').style.display = 'block';
-                        document.getElementById('closeSessionBtnMobile').style.display = 'block';
+                        // Close session buttons removed with header
                     }
                     
                     resolve();
@@ -497,7 +425,7 @@ class ClaudeCodeWebInterface {
             
             this.socket.onclose = (event) => {
                 this.updateStatus('Disconnected');
-                document.getElementById('reconnectBtn').disabled = false;
+                // Reconnect button removed with header
                 
                 if (!event.wasClean && this.reconnectAttempts < this.maxReconnectAttempts) {
                     setTimeout(() => this.reconnect(), this.reconnectDelay * Math.pow(2, this.reconnectAttempts));
@@ -533,7 +461,7 @@ class ClaudeCodeWebInterface {
         setTimeout(() => {
             this.connect().catch(err => console.error('Reconnection failed:', err));
         }, 1000);
-        document.getElementById('reconnectBtn').disabled = true;
+        // Reconnect button removed with header
     }
 
     send(data) {
@@ -554,6 +482,13 @@ class ClaudeCodeWebInterface {
                 this.updateWorkingDir(message.workingDir);
                 this.updateSessionButton(message.sessionName);
                 this.loadSessions();
+                
+                // Add tab for the new session if using tab manager
+                if (this.sessionTabManager) {
+                    this.sessionTabManager.addTab(message.sessionId, message.sessionName, 'idle', message.workingDir);
+                    this.sessionTabManager.switchToTab(message.sessionId);
+                }
+                
                 this.showOverlay('startPrompt');
                 break;
                 
@@ -563,18 +498,26 @@ class ClaudeCodeWebInterface {
                 this.updateWorkingDir(message.workingDir);
                 this.updateSessionButton(message.sessionName);
                 
+                // Update tab status
+                if (this.sessionTabManager) {
+                    this.sessionTabManager.updateTabStatus(message.sessionId, message.active ? 'active' : 'idle');
+                }
+                
                 // Replay output buffer if available
                 if (message.outputBuffer && message.outputBuffer.length > 0) {
                     this.terminal.clear();
                     message.outputBuffer.forEach(data => {
-                        this.terminal.write(data);
+                        // Filter out focus tracking sequences (^[[I and ^[[O)
+                        const filteredData = data.replace(/\x1b\[\[?[IO]/g, '');
+                        this.terminal.write(filteredData);
                     });
                 }
                 
                 // Show appropriate UI based on session state
                 if (message.active) {
                     this.hideOverlay();
-                    this.terminal.focus();
+                    // Don't auto-focus to avoid focus tracking sequences
+                    // User can click to focus when ready
                 } else {
                     this.showOverlay('startPrompt');
                 }
@@ -585,13 +528,25 @@ class ClaudeCodeWebInterface {
                 this.currentClaudeSessionName = null;
                 this.updateSessionButton('Sessions');
                 this.terminal.clear();
+                
+                // Update tab status
+                if (this.sessionTabManager && message.sessionId) {
+                    this.sessionTabManager.updateTabStatus(message.sessionId, 'disconnected');
+                }
+                
                 this.showOverlay('startPrompt');
                 break;
                 
             case 'claude_started':
                 this.hideOverlay();
-                this.terminal.focus();
+                // Don't auto-focus to avoid focus tracking sequences
+                // User can click to focus when ready
                 this.loadSessions(); // Refresh session list
+                
+                // Update tab status to active
+                if (this.sessionTabManager && this.currentClaudeSessionId) {
+                    this.sessionTabManager.updateTabStatus(this.currentClaudeSessionId, 'active');
+                }
                 break;
                 
             case 'claude_stopped':
@@ -601,7 +556,9 @@ class ClaudeCodeWebInterface {
                 break;
                 
             case 'output':
-                this.terminal.write(message.data);
+                // Filter out focus tracking sequences (^[[I and ^[[O)
+                const filteredData = message.data.replace(/\x1b\[\[?[IO]/g, '');
+                this.terminal.write(filteredData);
                 // Pass output to plan detector
                 if (this.planDetector) {
                     this.planDetector.processOutput(message.data);
@@ -703,13 +660,13 @@ class ClaudeCodeWebInterface {
     }
 
     updateStatus(status) {
-        const statusElement = document.getElementById('status');
-        statusElement.textContent = status;
-        statusElement.className = 'status ' + status.toLowerCase().replace(/[^a-z]/g, '');
+        // Status display removed with header - status now shown in tabs
+        console.log('Status:', status);
     }
 
     updateWorkingDir(dir) {
-        document.getElementById('workingDir').textContent = dir;
+        // Working dir display removed with header - shown in tab titles
+        console.log('Working directory:', dir);
     }
 
     showOverlay(contentId) {
@@ -1023,15 +980,19 @@ class ClaudeCodeWebInterface {
                 const data = await response.json();
                 this.selectedWorkingDir = data.workingDir;
                 
-                // Update UI
-                document.getElementById('workingDir').textContent = this.selectedWorkingDir;
+                // Update UI - working dir now shown in tab titles
                 
-                // Close folder browser and connect
+                // Close folder browser
                 this.closeFolderBrowser();
+                
+                // Connect to the server
                 await this.connect();
                 
-                // Show start prompt to begin a new session
-                this.showOverlay('startPrompt');
+                // Show new session modal with folder name pre-filled
+                this.showNewSessionModal();
+                const folderName = this.selectedWorkingDir.split('/').pop() || 'Session';
+                document.getElementById('sessionName').value = folderName;
+                document.getElementById('sessionWorkingDir').value = this.selectedWorkingDir;
                 return;
             } catch (error) {
                 console.error('Failed to set working directory:', error);
@@ -1044,7 +1005,9 @@ class ClaudeCodeWebInterface {
         if (!this.currentClaudeSessionId || this.isCreatingNewSession) {
             this.closeFolderBrowser();
             this.showNewSessionModal();
-            // Pre-fill the working directory field
+            // Pre-fill the session name with folder name and working directory
+            const folderName = this.currentFolderPath.split('/').pop() || 'Session';
+            document.getElementById('sessionName').value = folderName;
             document.getElementById('sessionWorkingDir').value = this.currentFolderPath;
             this.isCreatingNewSession = false; // Reset the flag
             return;
@@ -1102,8 +1065,7 @@ class ClaudeCodeWebInterface {
             this.currentFolderPath = null;
             
             // Hide the close session button
-            document.getElementById('closeSessionBtn').style.display = 'none';
-            document.getElementById('closeSessionBtnMobile').style.display = 'none';
+            // Close session buttons removed with header
             
             // Disconnect WebSocket
             this.disconnect();
@@ -1122,12 +1084,7 @@ class ClaudeCodeWebInterface {
 
     // Session Management Methods
     toggleSessionDropdown() {
-        const dropdown = document.getElementById('sessionDropdown');
-        dropdown.classList.toggle('active');
-        
-        if (dropdown.classList.contains('active')) {
-            this.loadSessions();
-        }
+        // Session dropdown removed with header - using tabs instead
     }
     
     showMobileSessionsModal() {
@@ -1181,9 +1138,6 @@ class ClaudeCodeWebInterface {
             
             const statusIcon = session.active ? '🟢' : '⚪';
             const clientsText = session.connectedClients === 1 ? '1 client' : `${session.connectedClients} clients`;
-            const isTiled = this.tiledSessions.has(session.id);
-            const isDesktop = !this.isMobile;
-            const canTile = isDesktop && !isTiled && this.tiledSessions.size < this.maxTiles;
             
             sessionItem.innerHTML = `
                 <div class="session-info">
@@ -1195,25 +1149,6 @@ class ClaudeCodeWebInterface {
                     </div>
                 </div>
                 <div class="session-actions">
-                    ${canTile ? `
-                        <button class="btn-icon" title="Open in tile" data-action="tile">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="3" y="3" width="8" height="8"/>
-                                <rect x="13" y="3" width="8" height="8"/>
-                                <rect x="3" y="13" width="8" height="8"/>
-                                <rect x="13" y="13" width="8" height="8"/>
-                            </svg>
-                        </button>
-                    ` : ''}
-                    ${isTiled ? `
-                        <button class="btn-icon" title="Close tile" data-action="untile">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="3" y="3" width="18" height="18"/>
-                                <line x1="9" y1="3" x2="9" y2="21"/>
-                                <line x1="15" y1="3" x2="15" y2="21"/>
-                            </svg>
-                        </button>
-                    ` : ''}
                     ${session.id === this.currentClaudeSessionId ? 
                         '<button class="btn-icon" title="Leave session" data-action="leave"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>' :
                         '<button class="btn-icon" title="Join session" data-action="join"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg></button>'
@@ -1279,9 +1214,6 @@ class ClaudeCodeWebInterface {
             
             const statusIcon = session.active ? '🟢' : '⚪';
             const clientsText = session.connectedClients === 1 ? '1 client' : `${session.connectedClients} clients`;
-            const isTiled = this.tiledSessions.has(session.id);
-            const isDesktop = !this.isMobile;
-            const canTile = isDesktop && !isTiled && this.tiledSessions.size < this.maxTiles;
             
             sessionItem.innerHTML = `
                 <div class="session-info">
@@ -1293,25 +1225,6 @@ class ClaudeCodeWebInterface {
                     </div>
                 </div>
                 <div class="session-actions">
-                    ${canTile ? `
-                        <button class="btn-icon" title="Open in tile" data-action="tile">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="3" y="3" width="8" height="8"/>
-                                <rect x="13" y="3" width="8" height="8"/>
-                                <rect x="3" y="13" width="8" height="8"/>
-                                <rect x="13" y="13" width="8" height="8"/>
-                            </svg>
-                        </button>
-                    ` : ''}
-                    ${isTiled ? `
-                        <button class="btn-icon" title="Close tile" data-action="untile">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="3" y="3" width="18" height="18"/>
-                                <line x1="9" y1="3" x2="9" y2="21"/>
-                                <line x1="15" y1="3" x2="15" y2="21"/>
-                            </svg>
-                        </button>
-                    ` : ''}
                     ${session.id === this.currentClaudeSessionId ? 
                         '<button class="btn-icon" title="Leave session" data-action="leave"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>' :
                         '<button class="btn-icon" title="Join session" data-action="join"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg></button>'
@@ -1349,12 +1262,6 @@ class ClaudeCodeWebInterface {
             case 'delete':
                 this.deleteSession(sessionId);
                 break;
-            case 'tile':
-                this.tileSession(sessionId);
-                break;
-            case 'untile':
-                this.untileSession(sessionId);
-                break;
         }
     }
     
@@ -1367,12 +1274,12 @@ class ClaudeCodeWebInterface {
         }
         
         this.send({ type: 'join_session', sessionId });
-        document.getElementById('sessionDropdown').classList.remove('active');
+        // Session dropdown removed - using tabs
     }
     
     leaveSession() {
         this.send({ type: 'leave_session' });
-        document.getElementById('sessionDropdown').classList.remove('active');
+        // Session dropdown removed - using tabs
     }
     
     async deleteSession(sessionId) {
@@ -1403,7 +1310,8 @@ class ClaudeCodeWebInterface {
     }
     
     updateSessionButton(text) {
-        document.getElementById('sessionBtnText').textContent = text || 'Sessions';
+        // Session button removed with header - using tabs instead
+        console.log('Session:', text);
     }
     
     setupNewSessionModal() {
@@ -1455,7 +1363,7 @@ class ClaudeCodeWebInterface {
     
     showNewSessionModal() {
         document.getElementById('newSessionModal').classList.add('active');
-        document.getElementById('sessionDropdown').classList.remove('active');
+        // Session dropdown removed - using tabs
         
         // Prevent body scroll on mobile when modal is open
         if (this.isMobile) {
@@ -1499,6 +1407,12 @@ class ClaudeCodeWebInterface {
             
             // Hide the modal
             this.hideNewSessionModal();
+            
+            // Add tab for the new session
+            if (this.sessionTabManager) {
+                this.sessionTabManager.addTab(data.sessionId, name, 'idle', workingDir);
+                this.sessionTabManager.switchToTab(data.sessionId);
+            }
             
             // Join the newly created session
             await this.joinSession(data.sessionId);
@@ -1646,283 +1560,6 @@ class ClaudeCodeWebInterface {
         } catch (e) {
             // Ignore sound errors
         }
-    }
-    
-    // Multi-session tiling methods
-    async tileSession(sessionId) {
-        if (this.tiledSessions.size >= this.maxTiles) {
-            this.showError('Maximum number of tiled sessions reached');
-            return;
-        }
-        
-        // Find the session details
-        const session = this.claudeSessions.find(s => s.id === sessionId);
-        if (!session) {
-            this.showError('Session not found');
-            return;
-        }
-        
-        // Update layout based on number of tiles
-        this.updateTileLayout();
-        
-        // Create a new terminal container for this tile
-        const tileContainer = this.createTileContainer(sessionId, session.name);
-        
-        // Create terminal instance for this tile
-        const terminalInfo = this.createTileTerminal(tileContainer, sessionId);
-        
-        // Create WebSocket connection for this tile
-        const socket = await this.createTileSocket(sessionId, terminalInfo);
-        
-        // Store the tile session
-        this.tiledSessions.set(sessionId, {
-            ...terminalInfo,
-            socket,
-            container: tileContainer,
-            session
-        });
-        
-        // Refresh session list to update buttons
-        this.renderSessionList();
-        
-        // Close dropdown
-        document.getElementById('sessionDropdown').classList.remove('active');
-    }
-    
-    createTileContainer(sessionId, sessionName) {
-        const tilesContainer = this.ensureTilesContainer();
-        
-        const tileContainer = document.createElement('div');
-        tileContainer.className = 'tile-session';
-        tileContainer.id = `tile-${sessionId}`;
-        tileContainer.innerHTML = `
-            <div class="tile-header">
-                <span class="tile-title">${sessionName}</span>
-                <button class="tile-close" data-session-id="${sessionId}">×</button>
-            </div>
-            <div class="tile-terminal" id="tile-terminal-${sessionId}"></div>
-        `;
-        
-        // Add close button listener
-        tileContainer.querySelector('.tile-close').addEventListener('click', () => {
-            this.untileSession(sessionId);
-        });
-        
-        // Add click listener to focus this tile
-        tileContainer.addEventListener('click', () => {
-            this.focusTile(sessionId);
-        });
-        
-        tilesContainer.appendChild(tileContainer);
-        return tileContainer;
-    }
-    
-    ensureTilesContainer() {
-        let tilesContainer = document.getElementById('tilesContainer');
-        if (!tilesContainer) {
-            const mainTerminal = document.getElementById('terminal');
-            const terminalContainer = mainTerminal.parentElement;
-            
-            // Create tiles container
-            tilesContainer = document.createElement('div');
-            tilesContainer.id = 'tilesContainer';
-            tilesContainer.className = 'tiles-container';
-            
-            // Insert before main terminal
-            terminalContainer.insertBefore(tilesContainer, mainTerminal);
-        }
-        return tilesContainer;
-    }
-    
-    createTileTerminal(container, sessionId) {
-        const terminal = new Terminal({
-            cursorBlink: true,
-            fontSize: 12,
-            fontFamily: 'JetBrains Mono, Fira Code, Monaco, Consolas, monospace',
-            theme: {
-                background: 'transparent',
-                foreground: '#f0f6fc',
-                cursor: '#58a6ff',
-                cursorAccent: '#0d1117',
-                selection: 'rgba(88, 166, 255, 0.3)',
-                black: '#484f58',
-                red: '#ff7b72',
-                green: '#7ee787',
-                yellow: '#ffa657',
-                blue: '#79c0ff',
-                magenta: '#d2a8ff',
-                cyan: '#a5f3fc',
-                white: '#b1bac4',
-                brightBlack: '#6e7681',
-                brightRed: '#ffa198',
-                brightGreen: '#56d364',
-                brightYellow: '#ffdf5d',
-                brightBlue: '#79c0ff',
-                brightMagenta: '#d2a8ff',
-                brightCyan: '#a5f3fc',
-                brightWhite: '#f0f6fc'
-            },
-            allowProposedApi: true,
-            scrollback: 10000,
-            rightClickSelectsWord: false,
-            allowTransparency: true
-        });
-        
-        const fitAddon = new FitAddon.FitAddon();
-        const webLinksAddon = new WebLinksAddon.WebLinksAddon();
-        
-        terminal.loadAddon(fitAddon);
-        terminal.loadAddon(webLinksAddon);
-        
-        const terminalElement = container.querySelector(`#tile-terminal-${sessionId}`);
-        terminal.open(terminalElement);
-        
-        // Fit terminal after a brief delay
-        setTimeout(() => fitAddon.fit(), 100);
-        
-        return { terminal, fitAddon };
-    }
-    
-    async createTileSocket(sessionId, terminalInfo) {
-        return new Promise((resolve, reject) => {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const socket = new WebSocket(`${protocol}//${window.location.host}/terminal`);
-            
-            socket.onopen = () => {
-                // Join the specific session
-                socket.send(JSON.stringify({ type: 'join_session', sessionId }));
-                resolve(socket);
-            };
-            
-            socket.onerror = (error) => {
-                console.error('Tile socket error:', error);
-                reject(error);
-            };
-            
-            socket.onmessage = (event) => {
-                try {
-                    const message = JSON.parse(event.data);
-                    if (message.type === 'output') {
-                        terminalInfo.terminal.write(message.data);
-                    }
-                } catch (e) {
-                    // Plain text output
-                    terminalInfo.terminal.write(event.data);
-                }
-            };
-            
-            // Set up terminal input handler
-            terminalInfo.terminal.onData((data) => {
-                if (socket.readyState === WebSocket.OPEN) {
-                    socket.send(JSON.stringify({ type: 'input', data }));
-                }
-            });
-        });
-    }
-    
-    untileSession(sessionId) {
-        const tileInfo = this.tiledSessions.get(sessionId);
-        if (!tileInfo) return;
-        
-        // Close socket
-        if (tileInfo.socket) {
-            tileInfo.socket.close();
-        }
-        
-        // Dispose terminal
-        if (tileInfo.terminal) {
-            tileInfo.terminal.dispose();
-        }
-        
-        // Remove container
-        if (tileInfo.container) {
-            tileInfo.container.remove();
-        }
-        
-        // Remove from map
-        this.tiledSessions.delete(sessionId);
-        
-        // Update layout
-        this.updateTileLayout();
-        
-        // Refresh session list
-        this.renderSessionList();
-        
-        // If no more tiles, remove tiles container
-        if (this.tiledSessions.size === 0) {
-            const tilesContainer = document.getElementById('tilesContainer');
-            if (tilesContainer) {
-                tilesContainer.remove();
-            }
-            // Show main terminal again
-            document.getElementById('terminal').style.display = 'block';
-        }
-    }
-    
-    focusTile(sessionId) {
-        // Remove active class from all tiles
-        document.querySelectorAll('.tile-session').forEach(tile => {
-            tile.classList.remove('active');
-        });
-        
-        // Add active class to selected tile
-        const tile = document.getElementById(`tile-${sessionId}`);
-        if (tile) {
-            tile.classList.add('active');
-            this.activeTileId = sessionId;
-            
-            // Focus the terminal
-            const tileInfo = this.tiledSessions.get(sessionId);
-            if (tileInfo && tileInfo.terminal) {
-                tileInfo.terminal.focus();
-            }
-        }
-    }
-    
-    updateTileLayout() {
-        const tilesContainer = document.getElementById('tilesContainer');
-        const mainTerminal = document.getElementById('terminal');
-        
-        if (!tilesContainer) return;
-        
-        const tileCount = this.tiledSessions.size;
-        
-        // Update layout class based on number of tiles
-        tilesContainer.className = 'tiles-container';
-        
-        if (tileCount === 0) {
-            mainTerminal.style.display = 'block';
-            tilesContainer.style.display = 'none';
-        } else if (tileCount === 1) {
-            // Single tile with main terminal
-            mainTerminal.style.display = 'block';
-            tilesContainer.style.display = 'grid';
-            tilesContainer.classList.add('tiles-split-2');
-        } else if (tileCount === 2) {
-            // Two tiles, hide main
-            mainTerminal.style.display = 'none';
-            tilesContainer.style.display = 'grid';
-            tilesContainer.classList.add('tiles-split-2');
-        } else if (tileCount <= 4) {
-            // Grid layout for 3-4 tiles
-            mainTerminal.style.display = 'none';
-            tilesContainer.style.display = 'grid';
-            tilesContainer.classList.add('tiles-grid-4');
-        }
-        
-        // Refit all terminals
-        setTimeout(() => {
-            this.tiledSessions.forEach((tileInfo) => {
-                if (tileInfo.fitAddon) {
-                    tileInfo.fitAddon.fit();
-                }
-            });
-            
-            // Also refit main terminal if visible
-            if (mainTerminal.style.display !== 'none' && this.fitAddon) {
-                this.fitAddon.fit();
-            }
-        }, 100);
     }
 }
 

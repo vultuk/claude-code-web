@@ -63,67 +63,316 @@ body {
     max-height: 100dvh;
 }
 
-.header {
+/* Header styles removed - using tab-based interface */
+
+/* Session Tabs Bar */
+.session-tabs-bar {
     background-color: var(--bg-secondary);
     border-bottom: 1px solid var(--border);
-    padding: 12px 20px;
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
+    padding: 0 10px;
+    min-height: 36px;
+    position: relative;
+    overflow: visible; /* Ensure dropdown can overflow */
+}
+
+.tabs-section {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: visible; /* Allow dropdown to overflow vertically */
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+
+.tabs-section::-webkit-scrollbar {
+    height: 4px;
+}
+
+.tabs-section::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+    border-radius: 2px;
+}
+
+.tabs-container {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 0;
+}
+
+.session-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 6px 6px 0 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 120px;
+    max-width: 200px;
+    position: relative;
+    user-select: none;
+}
+
+.session-tab:hover {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.session-tab.active {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    border-bottom-color: var(--bg-primary);
+}
+
+.session-tab.dragging {
+    opacity: 0.5;
+}
+
+.tab-content {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    overflow: hidden;
+}
+
+.tab-icon {
+    width: 14px;
+    height: 14px;
     flex-shrink: 0;
 }
 
-.header-content h1 {
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 4px;
+.tab-status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
 }
 
-.header-info {
-    display: flex;
-    gap: 16px;
-    font-size: 12px;
-    color: var(--text-secondary);
-}
-
-.status {
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-weight: 500;
-    display: inline-block;
-}
-
-.status.connected {
+.tab-status.active {
     background-color: var(--success);
-    color: white;
 }
 
-.status.connecting {
+.tab-status.idle {
     background-color: var(--warning);
-    color: white;
 }
 
-.status.disconnected {
+.tab-status.disconnected {
+    background-color: var(--error);
+}
+
+.tab-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tab-close {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    opacity: 0;
+    transition: opacity 0.2s;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.session-tab:hover .tab-close {
+    opacity: 0.6;
+}
+
+.tab-close:hover {
+    opacity: 1;
+    background-color: var(--border);
+}
+
+.tab-new {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: transparent;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    margin-left: 4px;
+}
+
+.tab-new:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.tab-settings {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.tab-settings:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+/* Tab Overflow Dropdown for Mobile */
+.tab-overflow-wrapper {
+    position: relative;
+    display: none;
+}
+
+.tab-overflow-btn {
+    width: auto;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 8px;
+    background-color: transparent;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-left: 4px;
+}
+
+.tab-overflow-btn:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.tab-overflow-count {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.tab-overflow-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: 200px;
+    max-width: 300px;
+    z-index: 10000; /* Higher z-index to ensure it appears above everything */
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.tab-overflow-menu.active {
+    display: block;
+}
+
+.overflow-tab-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border-bottom: 1px solid var(--border);
+}
+
+.overflow-tab-item:last-child {
+    border-bottom: none;
+}
+
+.overflow-tab-item:hover {
+    background-color: var(--bg-tertiary);
+}
+
+.overflow-tab-item.active {
+    background-color: var(--bg-tertiary);
+    color: var(--accent);
+}
+
+.overflow-tab-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+}
+
+.overflow-tab-close {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.overflow-tab-close:hover {
     background-color: var(--error);
     color: white;
 }
 
-.working-dir {
-    font-family: var(--font-mono);
-    background-color: var(--bg-tertiary);
-    padding: 2px 8px;
-    border-radius: 4px;
-    border: 1px solid var(--border);
+/* Mobile-specific styles */
+@media (max-width: 768px) {
+    .tab-overflow-wrapper {
+        display: flex !important;
+    }
+    
+    /* Hide tabs beyond the second one on mobile */
+    .session-tab:nth-child(n+3) {
+        display: none !important;
+    }
 }
 
-.header-controls {
+/* Terminal Container */
+.terminal-container {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
     display: flex;
-    gap: 8px;
+    flex-direction: column;
 }
 
-/* Session Dropdown Styles */
+.terminal-wrapper {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+}
+
+
+/* Session Dropdown Styles - Hidden when using tabs */
 .session-dropdown {
     position: relative;
+    display: none; /* Hide dropdown when using tabs */
 }
 
 .session-btn {
@@ -1570,122 +1819,3 @@ pre, code {
     flex-shrink: 0;
 }
 
-/* Tiled Sessions Styles */
-.tiles-container {
-    display: none;
-    gap: 10px;
-    height: 100%;
-    width: 100%;
-    padding: 0;
-    background: var(--bg-primary);
-}
-
-.tiles-container.tiles-split-2 {
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr;
-}
-
-.tiles-container.tiles-grid-4 {
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr;
-}
-
-.tile-session {
-    display: flex;
-    flex-direction: column;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    overflow: hidden;
-    min-height: 200px;
-    transition: border-color 0.2s ease;
-}
-
-.tile-session:hover {
-    border-color: var(--accent-dimmed);
-}
-
-.tile-session.active {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 1px var(--accent);
-}
-
-.tile-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 12px;
-    background: var(--bg-tertiary);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-}
-
-.tile-title {
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.tile-close {
-    background: transparent;
-    border: none;
-    color: var(--text-secondary);
-    font-size: 20px;
-    line-height: 1;
-    padding: 0;
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    border-radius: 4px;
-    transition: all 0.2s ease;
-}
-
-.tile-close:hover {
-    background: var(--error);
-    color: var(--text-primary);
-}
-
-.tile-terminal {
-    flex: 1;
-    overflow: hidden;
-    padding: 8px;
-}
-
-/* Hide tiles on mobile */
-@media (max-width: 768px) {
-    .tiles-container {
-        display: none !important;
-    }
-    
-    /* Hide tile buttons on mobile */
-    .session-actions button[data-action="tile"],
-    .session-actions button[data-action="untile"] {
-        display: none;
-    }
-}
-
-/* Adjust main terminal when tiles are present */
-.terminal-container:has(.tiles-container.tiles-split-2) #terminal {
-    display: none;
-}
-
-.terminal-container:has(.tiles-container.tiles-grid-4) #terminal {
-    display: none;
-}
-
-/* When only one tile with main terminal */
-.terminal-container:has(.tiles-container.tiles-split-2:has(.tile-session:only-child)) {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-}
-
-.terminal-container:has(.tiles-container.tiles-split-2:has(.tile-session:only-child)) #terminal {
-    display: block;
-}
