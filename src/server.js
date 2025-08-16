@@ -7,6 +7,7 @@ const WebSocket = require('ws');
 const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
 const ClaudeBridge = require('./claude-bridge');
+const SessionStore = require('./utils/session-store');
 
 class ClaudeCodeWebServer {
   constructor(options = {}) {
@@ -23,8 +24,52 @@ class ClaudeCodeWebServer {
     this.claudeSessions = new Map(); // Persistent Claude sessions
     this.webSocketConnections = new Map(); // Maps WebSocket connection ID to session info
     this.claudeBridge = new ClaudeBridge();
+    this.sessionStore = new SessionStore();
+    this.autoSaveInterval = null;
     
     this.setupExpress();
+    this.loadPersistedSessions();
+    this.setupAutoSave();
+  }
+  
+  async loadPersistedSessions() {
+    try {
+      const sessions = await this.sessionStore.loadSessions();
+      this.claudeSessions = sessions;
+      if (sessions.size > 0) {
+        console.log(`Loaded ${sessions.size} persisted sessions`);
+      }
+    } catch (error) {
+      console.error('Failed to load persisted sessions:', error);
+    }
+  }
+  
+  setupAutoSave() {
+    // Auto-save sessions every 30 seconds
+    this.autoSaveInterval = setInterval(() => {
+      this.saveSessionsToDisk();
+    }, 30000);
+    
+    // Also save on process exit
+    process.on('SIGINT', () => this.handleShutdown());
+    process.on('SIGTERM', () => this.handleShutdown());
+    process.on('beforeExit', () => this.saveSessionsToDisk());
+  }
+  
+  async saveSessionsToDisk() {
+    if (this.claudeSessions.size > 0) {
+      await this.sessionStore.saveSessions(this.claudeSessions);
+    }
+  }
+  
+  async handleShutdown() {
+    console.log('\nGracefully shutting down...');
+    await this.saveSessionsToDisk();
+    if (this.autoSaveInterval) {
+      clearInterval(this.autoSaveInterval);
+    }
+    this.close();
+    process.exit(0);
   }
 
   setupExpress() {
@@ -47,6 +92,17 @@ class ClaudeCodeWebServer {
         status: 'ok', 
         claudeSessions: this.claudeSessions.size,
         activeConnections: this.webSocketConnections.size 
+      });
+    });
+    
+    // Get session persistence info
+    this.app.get('/api/sessions/persistence', async (req, res) => {
+      const metadata = await this.sessionStore.getSessionMetadata();
+      res.json({
+        ...metadata,
+        currentSessions: this.claudeSessions.size,
+        autoSaveEnabled: true,
+        autoSaveInterval: 30000
       });
     });
 
@@ -82,6 +138,9 @@ class ClaudeCodeWebServer {
       };
       
       this.claudeSessions.set(sessionId, session);
+      
+      // Save sessions after creating new one
+      this.saveSessionsToDisk();
       
       if (this.dev) {
         console.log(`Created new Claude session: ${sessionId} (${session.name})`);
@@ -143,6 +202,9 @@ class ClaudeCodeWebServer {
       });
       
       this.claudeSessions.delete(sessionId);
+      
+      // Save sessions after deletion
+      this.saveSessionsToDisk();
       
       res.json({ success: true, message: 'Session deleted' });
     });
@@ -488,6 +550,9 @@ class ClaudeCodeWebServer {
     this.claudeSessions.set(sessionId, session);
     wsInfo.claudeSessionId = sessionId;
     
+    // Save sessions after creating new one
+    this.saveSessionsToDisk();
+    
     this.sendToWebSocket(wsInfo.ws, {
       type: 'session_created',
       sessionId,
@@ -518,6 +583,7 @@ class ClaudeCodeWebServer {
     wsInfo.claudeSessionId = claudeSessionId;
     session.connections.add(wsId);
     session.lastActivity = new Date();
+    session.lastAccessed = Date.now();
 
     // Send session info and replay buffer
     this.sendToWebSocket(wsInfo.ws, {
@@ -694,6 +760,14 @@ class ClaudeCodeWebServer {
   }
 
   close() {
+    // Save sessions before closing
+    this.saveSessionsToDisk();
+    
+    // Clear auto-save interval
+    if (this.autoSaveInterval) {
+      clearInterval(this.autoSaveInterval);
+    }
+    
     if (this.wss) {
       this.wss.close();
     }
