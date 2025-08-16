@@ -142,6 +142,28 @@
             </div>
         </div>
 
+        <div class="plan-modal" id="planModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>📋 Claude's Plan</h2>
+                    <button class="close-btn" id="closePlanBtn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="plan-status" id="planStatus">
+                        <span class="plan-status-indicator"></span>
+                        <span class="plan-status-text">Plan Mode Active</span>
+                    </div>
+                    <div class="plan-content" id="planContent">
+                        <!-- Plan will be inserted here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-success" id="acceptPlanBtn">✅ Accept Plan</button>
+                    <button class="btn btn-danger" id="rejectPlanBtn">❌ Reject Plan</button>
+                </div>
+            </div>
+        </div>
+
         <div class="session-modal" id="newSessionModal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -232,6 +254,7 @@
         </div>
     </div>
 
+    <script src="plan-detector.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

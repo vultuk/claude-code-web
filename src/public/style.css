@@ -633,6 +633,164 @@ body {
     justify-content: flex-end;
 }
 
+/* Plan Modal Styles */
+.plan-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.75);
+    z-index: 10001;
+    animation: fadeIn 0.3s ease;
+}
+
+.plan-modal.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.plan-modal .modal-content {
+    background-color: var(--bg-secondary);
+    border-radius: 12px;
+    width: 90%;
+    max-width: 800px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.plan-modal .modal-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.plan-modal .modal-header h2 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+}
+
+.plan-modal .modal-body {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.plan-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 15px;
+    background-color: var(--bg-tertiary);
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.plan-status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #10b981;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.plan-status-text {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.plan-content {
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    color: var(--text-primary);
+}
+
+.plan-content h2 {
+    color: var(--accent);
+    font-size: 1.2rem;
+    margin: 1rem 0;
+}
+
+.plan-content h3 {
+    color: var(--text-primary);
+    font-size: 1rem;
+    margin: 0.8rem 0;
+}
+
+.plan-content ul,
+.plan-content ol {
+    margin: 0.5rem 0 0.5rem 1.5rem;
+}
+
+.plan-content li {
+    margin: 0.3rem 0;
+}
+
+.plan-content code {
+    background-color: var(--bg-tertiary);
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: var(--accent);
+}
+
+.plan-content pre {
+    background-color: var(--bg-tertiary);
+    padding: 10px;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 10px 0;
+}
+
+.plan-modal .modal-footer {
+    padding: 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+}
+
+.plan-modal .btn {
+    padding: 10px 30px;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.plan-modal .btn-success {
+    background-color: #10b981;
+    color: white;
+}
+
+.plan-modal .btn-success:hover {
+    background-color: #059669;
+}
+
+.plan-modal .btn-danger {
+    background-color: #ef4444;
+    color: white;
+}
+
+.plan-modal .btn-danger:hover {
+    background-color: #dc2626;
+}
+
 /* Legacy mobile styles - removed in favor of comprehensive mobile styles section below */
 
 .xterm .xterm-viewport {
