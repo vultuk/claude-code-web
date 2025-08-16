@@ -250,6 +250,38 @@ class ClaudeCodeWebServer {
       }
     });
 
+    this.app.post('/api/folders/select', (req, res) => {
+      try {
+        const { path: selectedPath } = req.body;
+        
+        if (!selectedPath) {
+          return res.status(400).json({ 
+            error: 'Path is required' 
+          });
+        }
+        
+        // Verify the path exists and is a directory
+        if (!fs.existsSync(selectedPath) || !fs.statSync(selectedPath).isDirectory()) {
+          return res.status(400).json({ 
+            error: 'Invalid directory path' 
+          });
+        }
+        
+        // Store the selected working directory
+        this.selectedWorkingDir = selectedPath;
+        
+        res.json({ 
+          success: true,
+          workingDir: this.selectedWorkingDir
+        });
+      } catch (error) {
+        res.status(500).json({ 
+          error: 'Failed to set working directory',
+          message: error.message 
+        });
+      }
+    });
+
     this.app.post('/api/close-session', (req, res) => {
       try {
         // Clear the selected working directory
