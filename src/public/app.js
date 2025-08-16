@@ -48,9 +48,8 @@ class ClaudeCodeWebInterface {
         // Check if there are existing sessions
         console.log('[Init] Checking sessions, tabs.size:', this.sessionTabManager.tabs.size);
         if (this.sessionTabManager.tabs.size > 0) {
-            console.log('[Init] Found sessions, connecting...');
-            // Sessions exist - connect and join the first one
-            await this.connect();
+            console.log('[Init] Found sessions, switching to first tab...');
+            // Sessions exist - switch to the first one (this will handle connecting)
             const firstTabId = this.sessionTabManager.tabs.keys().next().value;
             console.log('[Init] Switching to tab:', firstTabId);
             await this.sessionTabManager.switchToTab(firstTabId);
