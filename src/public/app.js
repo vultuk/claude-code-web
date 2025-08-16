@@ -40,23 +40,8 @@ class ClaudeCodeWebInterface {
             this.showModeSwitcher();
         }
         
-        // Always show folder browser on startup
-        try {
-            const response = await fetch('/api/config');
-            const config = await response.json();
-            
-            if (!config.selectedWorkingDir) {
-                // Show folder browser if no directory selected
-                this.showFolderBrowser();
-            } else {
-                // Connect normally
-                this.connect().catch(err => console.error('Connection failed:', err));
-            }
-        } catch (error) {
-            console.error('Failed to fetch config:', error);
-            // Show folder browser as fallback
-            this.showFolderBrowser();
-        }
+        // Show initial choice modal on startup
+        this.showInitialChoiceModal();
         
         window.addEventListener('resize', () => {
             this.fitTerminal();
@@ -252,6 +237,117 @@ class ClaudeCodeWebInterface {
         });
     }
 
+    showSessionSelectionModal() {
+        // Create a simple modal to show existing sessions
+        const modal = document.createElement('div');
+        modal.className = 'session-modal active';
+        modal.id = 'sessionSelectionModal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Select a Session</h2>
+                    <button class="close-btn" id="closeSessionSelection">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="session-list">
+                        ${this.claudeSessions.map(session => {
+                            const statusIcon = session.active ? '🟢' : '⚪';
+                            const clientsText = session.connectedClients === 1 ? '1 client' : `${session.connectedClients} clients`;
+                            return `
+                                <div class="session-item" data-session-id="${session.id}" style="cursor: pointer; padding: 15px; border: 1px solid #333; border-radius: 5px; margin-bottom: 10px;">
+                                    <div class="session-info">
+                                        <span class="session-status">${statusIcon}</span>
+                                        <div class="session-details">
+                                            <div class="session-name">${session.name}</div>
+                                            <div class="session-meta">${clientsText} • ${new Date(session.created).toLocaleString()}</div>
+                                            ${session.workingDir ? `<div class="session-folder" title="${session.workingDir}">📁 ${session.workingDir}</div>` : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    <div style="margin-top: 20px; text-align: center;">
+                        <button class="btn btn-secondary" id="selectSessionNewFolder">Load a New Folder Instead</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Add event listeners
+        modal.querySelectorAll('.session-item').forEach(item => {
+            item.addEventListener('click', async () => {
+                const sessionId = item.dataset.sessionId;
+                await this.joinSession(sessionId);
+                modal.remove();
+            });
+        });
+        
+        document.getElementById('closeSessionSelection').addEventListener('click', () => {
+            modal.remove();
+            this.showInitialChoiceModal();
+        });
+        
+        document.getElementById('selectSessionNewFolder').addEventListener('click', () => {
+            modal.remove();
+            this.showFolderBrowser();
+        });
+        
+        // Close on background click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+                this.showInitialChoiceModal();
+            }
+        });
+    }
+    
+    showInitialChoiceModal() {
+        const modal = document.getElementById('initialChoiceModal');
+        modal.classList.add('active');
+        
+        // Set up event listeners for the choice buttons
+        const loadFolderBtn = document.getElementById('loadFolderBtn');
+        const openSessionBtn = document.getElementById('openSessionBtn');
+        
+        loadFolderBtn.addEventListener('click', () => {
+            modal.classList.remove('active');
+            this.showFolderBrowser();
+        });
+        
+        openSessionBtn.addEventListener('click', async () => {
+            modal.classList.remove('active');
+            
+            try {
+                // Try to load sessions directly from the API first
+                const response = await fetch('/api/sessions/list');
+                if (!response.ok) throw new Error('Failed to load sessions');
+                
+                const data = await response.json();
+                this.claudeSessions = data.sessions;
+                
+                // If there are existing sessions, show a session selection modal
+                if (this.claudeSessions && this.claudeSessions.length > 0) {
+                    // Connect to server
+                    await this.connect();
+                    
+                    // Show session selection modal
+                    this.showSessionSelectionModal();
+                } else {
+                    // No sessions available, inform user and show folder browser
+                    alert('No existing sessions found. Please load a folder to start a new session.');
+                    this.showFolderBrowser();
+                }
+            } catch (error) {
+                console.error('Failed to check sessions:', error);
+                // Fall back to showing folder browser
+                this.showFolderBrowser();
+            }
+        });
+    }
+    
     setupUI() {
         const startBtn = document.getElementById('startBtn');
         const dangerousSkipBtn = document.getElementById('dangerousSkipBtn');
@@ -909,6 +1005,40 @@ class ClaudeCodeWebInterface {
         
         // Store the selected working directory
         this.selectedWorkingDir = this.currentFolderPath;
+        
+        // If not connected yet, connect first with the selected directory
+        if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+            try {
+                // Set the working directory on the server
+                const response = await fetch('/api/folders/select', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ path: this.currentFolderPath })
+                });
+                
+                if (!response.ok) throw new Error('Failed to set working directory');
+                
+                const data = await response.json();
+                this.selectedWorkingDir = data.workingDir;
+                
+                // Update UI
+                document.getElementById('workingDir').textContent = this.selectedWorkingDir;
+                
+                // Close folder browser and connect
+                this.closeFolderBrowser();
+                await this.connect();
+                
+                // Show start prompt to begin a new session
+                this.showOverlay('startPrompt');
+                return;
+            } catch (error) {
+                console.error('Failed to set working directory:', error);
+                this.showError('Failed to set working directory');
+                return;
+            }
+        }
         
         // If we're creating a new session (either no active session OR explicitly creating new)
         if (!this.currentClaudeSessionId || this.isCreatingNewSession) {

@@ -254,6 +254,41 @@
         </div>
     </div>
 
+    <!-- Initial Choice Modal -->
+    <div class="session-modal" id="initialChoiceModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Welcome to Claude Code Web Interface</h2>
+            </div>
+            <div class="modal-body" style="text-align: center;">
+                <p style="margin-bottom: 30px;">Choose how you want to start:</p>
+                <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 200px;">
+                        <button id="loadFolderBtn" class="btn btn-primary" style="width: 100%; padding: 20px; font-size: 16px;">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom: 10px;">
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                            </svg>
+                            <br>
+                            Load a Folder
+                        </button>
+                        <p style="margin-top: 10px; font-size: 14px; color: #666;">Start a new session with a specific folder</p>
+                    </div>
+                    <div style="flex: 1; min-width: 200px;">
+                        <button id="openSessionBtn" class="btn btn-secondary" style="width: 100%; padding: 20px; font-size: 16px;">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom: 10px;">
+                                <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                            </svg>
+                            <br>
+                            Open Existing Session
+                        </button>
+                        <p style="margin-top: 10px; font-size: 14px; color: #666;">Continue working with an active session</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="plan-detector.js"></script>
     <script src="app.js"></script>
 </body>
