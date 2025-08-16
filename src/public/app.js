@@ -19,6 +19,12 @@ class ClaudeCodeWebInterface {
         this.planDetector = null;
         this.planModal = null;
         
+        // Multi-session tiling support
+        this.tiledSessions = new Map(); // Map of sessionId -> {terminal, socket, fitAddon, container}
+        this.activeTileId = null;
+        this.maxTiles = 4; // Maximum number of tiled sessions
+        this.tileLayout = 'single'; // 'single', 'split-2', 'grid-4'
+        
         this.init();
     }
 
@@ -1045,6 +1051,9 @@ class ClaudeCodeWebInterface {
             
             const statusIcon = session.active ? '🟢' : '⚪';
             const clientsText = session.connectedClients === 1 ? '1 client' : `${session.connectedClients} clients`;
+            const isTiled = this.tiledSessions.has(session.id);
+            const isDesktop = !this.isMobile;
+            const canTile = isDesktop && !isTiled && this.tiledSessions.size < this.maxTiles;
             
             sessionItem.innerHTML = `
                 <div class="session-info">
@@ -1056,6 +1065,25 @@ class ClaudeCodeWebInterface {
                     </div>
                 </div>
                 <div class="session-actions">
+                    ${canTile ? `
+                        <button class="btn-icon" title="Open in tile" data-action="tile">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="8" height="8"/>
+                                <rect x="13" y="3" width="8" height="8"/>
+                                <rect x="3" y="13" width="8" height="8"/>
+                                <rect x="13" y="13" width="8" height="8"/>
+                            </svg>
+                        </button>
+                    ` : ''}
+                    ${isTiled ? `
+                        <button class="btn-icon" title="Close tile" data-action="untile">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="18" height="18"/>
+                                <line x1="9" y1="3" x2="9" y2="21"/>
+                                <line x1="15" y1="3" x2="15" y2="21"/>
+                            </svg>
+                        </button>
+                    ` : ''}
                     ${session.id === this.currentClaudeSessionId ? 
                         '<button class="btn-icon" title="Leave session" data-action="leave"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>' :
                         '<button class="btn-icon" title="Join session" data-action="join"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg></button>'
@@ -1121,6 +1149,9 @@ class ClaudeCodeWebInterface {
             
             const statusIcon = session.active ? '🟢' : '⚪';
             const clientsText = session.connectedClients === 1 ? '1 client' : `${session.connectedClients} clients`;
+            const isTiled = this.tiledSessions.has(session.id);
+            const isDesktop = !this.isMobile;
+            const canTile = isDesktop && !isTiled && this.tiledSessions.size < this.maxTiles;
             
             sessionItem.innerHTML = `
                 <div class="session-info">
@@ -1132,6 +1163,25 @@ class ClaudeCodeWebInterface {
                     </div>
                 </div>
                 <div class="session-actions">
+                    ${canTile ? `
+                        <button class="btn-icon" title="Open in tile" data-action="tile">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="8" height="8"/>
+                                <rect x="13" y="3" width="8" height="8"/>
+                                <rect x="3" y="13" width="8" height="8"/>
+                                <rect x="13" y="13" width="8" height="8"/>
+                            </svg>
+                        </button>
+                    ` : ''}
+                    ${isTiled ? `
+                        <button class="btn-icon" title="Close tile" data-action="untile">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="18" height="18"/>
+                                <line x1="9" y1="3" x2="9" y2="21"/>
+                                <line x1="15" y1="3" x2="15" y2="21"/>
+                            </svg>
+                        </button>
+                    ` : ''}
                     ${session.id === this.currentClaudeSessionId ? 
                         '<button class="btn-icon" title="Leave session" data-action="leave"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>' :
                         '<button class="btn-icon" title="Join session" data-action="join"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg></button>'
@@ -1168,6 +1218,12 @@ class ClaudeCodeWebInterface {
                 break;
             case 'delete':
                 this.deleteSession(sessionId);
+                break;
+            case 'tile':
+                this.tileSession(sessionId);
+                break;
+            case 'untile':
+                this.untileSession(sessionId);
                 break;
         }
     }
@@ -1460,6 +1516,283 @@ class ClaudeCodeWebInterface {
         } catch (e) {
             // Ignore sound errors
         }
+    }
+    
+    // Multi-session tiling methods
+    async tileSession(sessionId) {
+        if (this.tiledSessions.size >= this.maxTiles) {
+            this.showError('Maximum number of tiled sessions reached');
+            return;
+        }
+        
+        // Find the session details
+        const session = this.claudeSessions.find(s => s.id === sessionId);
+        if (!session) {
+            this.showError('Session not found');
+            return;
+        }
+        
+        // Update layout based on number of tiles
+        this.updateTileLayout();
+        
+        // Create a new terminal container for this tile
+        const tileContainer = this.createTileContainer(sessionId, session.name);
+        
+        // Create terminal instance for this tile
+        const terminalInfo = this.createTileTerminal(tileContainer, sessionId);
+        
+        // Create WebSocket connection for this tile
+        const socket = await this.createTileSocket(sessionId, terminalInfo);
+        
+        // Store the tile session
+        this.tiledSessions.set(sessionId, {
+            ...terminalInfo,
+            socket,
+            container: tileContainer,
+            session
+        });
+        
+        // Refresh session list to update buttons
+        this.renderSessionList();
+        
+        // Close dropdown
+        document.getElementById('sessionDropdown').classList.remove('active');
+    }
+    
+    createTileContainer(sessionId, sessionName) {
+        const tilesContainer = this.ensureTilesContainer();
+        
+        const tileContainer = document.createElement('div');
+        tileContainer.className = 'tile-session';
+        tileContainer.id = `tile-${sessionId}`;
+        tileContainer.innerHTML = `
+            <div class="tile-header">
+                <span class="tile-title">${sessionName}</span>
+                <button class="tile-close" data-session-id="${sessionId}">×</button>
+            </div>
+            <div class="tile-terminal" id="tile-terminal-${sessionId}"></div>
+        `;
+        
+        // Add close button listener
+        tileContainer.querySelector('.tile-close').addEventListener('click', () => {
+            this.untileSession(sessionId);
+        });
+        
+        // Add click listener to focus this tile
+        tileContainer.addEventListener('click', () => {
+            this.focusTile(sessionId);
+        });
+        
+        tilesContainer.appendChild(tileContainer);
+        return tileContainer;
+    }
+    
+    ensureTilesContainer() {
+        let tilesContainer = document.getElementById('tilesContainer');
+        if (!tilesContainer) {
+            const mainTerminal = document.getElementById('terminal');
+            const terminalContainer = mainTerminal.parentElement;
+            
+            // Create tiles container
+            tilesContainer = document.createElement('div');
+            tilesContainer.id = 'tilesContainer';
+            tilesContainer.className = 'tiles-container';
+            
+            // Insert before main terminal
+            terminalContainer.insertBefore(tilesContainer, mainTerminal);
+        }
+        return tilesContainer;
+    }
+    
+    createTileTerminal(container, sessionId) {
+        const terminal = new Terminal({
+            cursorBlink: true,
+            fontSize: 12,
+            fontFamily: 'JetBrains Mono, Fira Code, Monaco, Consolas, monospace',
+            theme: {
+                background: 'transparent',
+                foreground: '#f0f6fc',
+                cursor: '#58a6ff',
+                cursorAccent: '#0d1117',
+                selection: 'rgba(88, 166, 255, 0.3)',
+                black: '#484f58',
+                red: '#ff7b72',
+                green: '#7ee787',
+                yellow: '#ffa657',
+                blue: '#79c0ff',
+                magenta: '#d2a8ff',
+                cyan: '#a5f3fc',
+                white: '#b1bac4',
+                brightBlack: '#6e7681',
+                brightRed: '#ffa198',
+                brightGreen: '#56d364',
+                brightYellow: '#ffdf5d',
+                brightBlue: '#79c0ff',
+                brightMagenta: '#d2a8ff',
+                brightCyan: '#a5f3fc',
+                brightWhite: '#f0f6fc'
+            },
+            allowProposedApi: true,
+            scrollback: 10000,
+            rightClickSelectsWord: false,
+            allowTransparency: true
+        });
+        
+        const fitAddon = new FitAddon.FitAddon();
+        const webLinksAddon = new WebLinksAddon.WebLinksAddon();
+        
+        terminal.loadAddon(fitAddon);
+        terminal.loadAddon(webLinksAddon);
+        
+        const terminalElement = container.querySelector(`#tile-terminal-${sessionId}`);
+        terminal.open(terminalElement);
+        
+        // Fit terminal after a brief delay
+        setTimeout(() => fitAddon.fit(), 100);
+        
+        return { terminal, fitAddon };
+    }
+    
+    async createTileSocket(sessionId, terminalInfo) {
+        return new Promise((resolve, reject) => {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const socket = new WebSocket(`${protocol}//${window.location.host}/terminal`);
+            
+            socket.onopen = () => {
+                // Join the specific session
+                socket.send(JSON.stringify({ type: 'join_session', sessionId }));
+                resolve(socket);
+            };
+            
+            socket.onerror = (error) => {
+                console.error('Tile socket error:', error);
+                reject(error);
+            };
+            
+            socket.onmessage = (event) => {
+                try {
+                    const message = JSON.parse(event.data);
+                    if (message.type === 'output') {
+                        terminalInfo.terminal.write(message.data);
+                    }
+                } catch (e) {
+                    // Plain text output
+                    terminalInfo.terminal.write(event.data);
+                }
+            };
+            
+            // Set up terminal input handler
+            terminalInfo.terminal.onData((data) => {
+                if (socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({ type: 'input', data }));
+                }
+            });
+        });
+    }
+    
+    untileSession(sessionId) {
+        const tileInfo = this.tiledSessions.get(sessionId);
+        if (!tileInfo) return;
+        
+        // Close socket
+        if (tileInfo.socket) {
+            tileInfo.socket.close();
+        }
+        
+        // Dispose terminal
+        if (tileInfo.terminal) {
+            tileInfo.terminal.dispose();
+        }
+        
+        // Remove container
+        if (tileInfo.container) {
+            tileInfo.container.remove();
+        }
+        
+        // Remove from map
+        this.tiledSessions.delete(sessionId);
+        
+        // Update layout
+        this.updateTileLayout();
+        
+        // Refresh session list
+        this.renderSessionList();
+        
+        // If no more tiles, remove tiles container
+        if (this.tiledSessions.size === 0) {
+            const tilesContainer = document.getElementById('tilesContainer');
+            if (tilesContainer) {
+                tilesContainer.remove();
+            }
+            // Show main terminal again
+            document.getElementById('terminal').style.display = 'block';
+        }
+    }
+    
+    focusTile(sessionId) {
+        // Remove active class from all tiles
+        document.querySelectorAll('.tile-session').forEach(tile => {
+            tile.classList.remove('active');
+        });
+        
+        // Add active class to selected tile
+        const tile = document.getElementById(`tile-${sessionId}`);
+        if (tile) {
+            tile.classList.add('active');
+            this.activeTileId = sessionId;
+            
+            // Focus the terminal
+            const tileInfo = this.tiledSessions.get(sessionId);
+            if (tileInfo && tileInfo.terminal) {
+                tileInfo.terminal.focus();
+            }
+        }
+    }
+    
+    updateTileLayout() {
+        const tilesContainer = document.getElementById('tilesContainer');
+        const mainTerminal = document.getElementById('terminal');
+        
+        if (!tilesContainer) return;
+        
+        const tileCount = this.tiledSessions.size;
+        
+        // Update layout class based on number of tiles
+        tilesContainer.className = 'tiles-container';
+        
+        if (tileCount === 0) {
+            mainTerminal.style.display = 'block';
+            tilesContainer.style.display = 'none';
+        } else if (tileCount === 1) {
+            // Single tile with main terminal
+            mainTerminal.style.display = 'block';
+            tilesContainer.style.display = 'grid';
+            tilesContainer.classList.add('tiles-split-2');
+        } else if (tileCount === 2) {
+            // Two tiles, hide main
+            mainTerminal.style.display = 'none';
+            tilesContainer.style.display = 'grid';
+            tilesContainer.classList.add('tiles-split-2');
+        } else if (tileCount <= 4) {
+            // Grid layout for 3-4 tiles
+            mainTerminal.style.display = 'none';
+            tilesContainer.style.display = 'grid';
+            tilesContainer.classList.add('tiles-grid-4');
+        }
+        
+        // Refit all terminals
+        setTimeout(() => {
+            this.tiledSessions.forEach((tileInfo) => {
+                if (tileInfo.fitAddon) {
+                    tileInfo.fitAddon.fit();
+                }
+            });
+            
+            // Also refit main terminal if visible
+            if (mainTerminal.style.display !== 'none' && this.fitAddon) {
+                this.fitAddon.fit();
+            }
+        }, 100);
     }
 }
 

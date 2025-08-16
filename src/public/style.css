@@ -1569,3 +1569,123 @@ pre, code {
     stroke: var(--error);
     flex-shrink: 0;
 }
+
+/* Tiled Sessions Styles */
+.tiles-container {
+    display: none;
+    gap: 10px;
+    height: 100%;
+    width: 100%;
+    padding: 0;
+    background: var(--bg-primary);
+}
+
+.tiles-container.tiles-split-2 {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr;
+}
+
+.tiles-container.tiles-grid-4 {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+}
+
+.tile-session {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    min-height: 200px;
+    transition: border-color 0.2s ease;
+}
+
+.tile-session:hover {
+    border-color: var(--accent-dimmed);
+}
+
+.tile-session.active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+}
+
+.tile-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.tile-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tile-close {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 20px;
+    line-height: 1;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.tile-close:hover {
+    background: var(--error);
+    color: var(--text-primary);
+}
+
+.tile-terminal {
+    flex: 1;
+    overflow: hidden;
+    padding: 8px;
+}
+
+/* Hide tiles on mobile */
+@media (max-width: 768px) {
+    .tiles-container {
+        display: none !important;
+    }
+    
+    /* Hide tile buttons on mobile */
+    .session-actions button[data-action="tile"],
+    .session-actions button[data-action="untile"] {
+        display: none;
+    }
+}
+
+/* Adjust main terminal when tiles are present */
+.terminal-container:has(.tiles-container.tiles-split-2) #terminal {
+    display: none;
+}
+
+.terminal-container:has(.tiles-container.tiles-grid-4) #terminal {
+    display: none;
+}
+
+/* When only one tile with main terminal */
+.terminal-container:has(.tiles-container.tiles-split-2:has(.tile-session:only-child)) {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.terminal-container:has(.tiles-container.tiles-split-2:has(.tile-session:only-child)) #terminal {
+    display: block;
+}
