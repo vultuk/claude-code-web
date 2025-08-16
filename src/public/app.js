@@ -1281,9 +1281,28 @@ class ClaudeCodeWebInterface {
     async joinSession(sessionId) {
         // Ensure we're connected first
         if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-            await this.connect();
-            // Wait a bit for connection to establish
-            await new Promise(resolve => setTimeout(resolve, 100));
+            // Check if we're already connecting (readyState === 0 means CONNECTING)
+            if (this.socket && this.socket.readyState === WebSocket.CONNECTING) {
+                // Wait for existing connection to complete
+                await new Promise((resolve) => {
+                    const checkConnection = setInterval(() => {
+                        if (this.socket.readyState === WebSocket.OPEN) {
+                            clearInterval(checkConnection);
+                            resolve();
+                        }
+                    }, 50);
+                    // Timeout after 5 seconds
+                    setTimeout(() => {
+                        clearInterval(checkConnection);
+                        resolve();
+                    }, 5000);
+                });
+            } else {
+                // No socket or socket is closed, create new connection
+                await this.connect();
+                // Wait a bit for connection to establish
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
         }
         
         // Create a promise that resolves when we receive session_joined message
