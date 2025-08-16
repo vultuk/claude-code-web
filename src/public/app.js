@@ -33,12 +33,16 @@ class ClaudeCodeWebInterface {
         this.loadSettings();
         this.disablePullToRefresh();
         
+        console.log('[Init] Starting initialization...');
+        
         // Show loading while we initialize
         this.showOverlay('loadingSpinner');
         
         // Initialize the session tab manager and wait for sessions to load
         this.sessionTabManager = new SessionTabManager(this);
         await this.sessionTabManager.init();
+        
+        console.log('[Init] Session tabs loaded:', this.sessionTabManager.tabs.size);
         
         // Show mode switcher on mobile
         if (this.isMobile) {
@@ -47,14 +51,18 @@ class ClaudeCodeWebInterface {
         
         // Check if there are existing sessions
         if (this.sessionTabManager.tabs.size > 0) {
+            console.log('[Init] Found existing sessions, connecting...');
             // Sessions exist - connect and join the first one
             await this.connect();
             const firstTabId = this.sessionTabManager.tabs.keys().next().value;
+            console.log('[Init] Switching to first tab:', firstTabId);
             await this.sessionTabManager.switchToTab(firstTabId);
             
             // Hide overlay completely since we have sessions
+            console.log('[Init] Hiding overlay');
             this.hideOverlay();
         } else {
+            console.log('[Init] No sessions found, showing folder browser');
             // No sessions - show folder picker to create first session
             this.showFolderBrowser();
         }
@@ -411,15 +419,21 @@ class ClaudeCodeWebInterface {
                 this.socket.onopen = () => {
                     this.reconnectAttempts = 0;
                     this.updateStatus('Connected');
-                    console.log('Connected to server');
+                    console.log('[Connect] WebSocket connected to server');
                     
                     // Load available sessions
                     this.loadSessions();
                     
+                    console.log('[Connect] Current session ID:', this.currentClaudeSessionId);
+                    console.log('[Connect] Session manager tabs:', this.sessionTabManager?.tabs.size);
+                    
                     // Only show start prompt if we don't have sessions AND no current session
                     // The init() method will handle showing/hiding overlays for restored sessions
                     if (!this.currentClaudeSessionId && (!this.sessionTabManager || this.sessionTabManager.tabs.size === 0)) {
+                        console.log('[Connect] No sessions, showing start prompt');
                         this.showOverlay('startPrompt');
+                    } else {
+                        console.log('[Connect] Have sessions or current session, not showing start prompt');
                     }
                     
                     // Show close session button if we have a selected working directory
@@ -716,7 +730,10 @@ class ClaudeCodeWebInterface {
     }
 
     hideOverlay() {
-        document.getElementById('overlay').style.display = 'none';
+        const overlay = document.getElementById('overlay');
+        console.log('[HideOverlay] Current overlay display:', overlay.style.display);
+        overlay.style.display = 'none';
+        console.log('[HideOverlay] Overlay hidden');
     }
 
     showError(message) {
