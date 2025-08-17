@@ -8,7 +8,7 @@ class UsageReader {
     this.claudeProjectsPath = path.join(process.env.HOME, '.claude', 'projects');
     this.cache = null;
     this.cacheTime = null;
-    this.cacheTimeout = 30000; // Cache for 30 seconds
+    this.cacheTimeout = 5000; // Cache for 5 seconds for more real-time updates
   }
 
   async getUsageStats(hoursBack = 24) {
@@ -247,6 +247,10 @@ class UsageReader {
         return null;
       }
       
+      // Clear cache to ensure fresh data for session stats
+      this.cache = null;
+      this.cacheTime = null;
+      
       const startTime = new Date(sessionStartTime);
       const entries = await this.readAllEntries(startTime);
       
@@ -261,7 +265,8 @@ class UsageReader {
         totalCost: 0,
         models: {},
         startTime: sessionStartTime,
-        lastUpdate: null
+        lastUpdate: null,
+        firstRequestTime: null
       };
       
       // Aggregate session data
@@ -274,6 +279,11 @@ class UsageReader {
           sessionStats.cacheReadTokens += entry.cacheReadTokens;
           sessionStats.totalCost += entry.totalCost;
           sessionStats.lastUpdate = entry.timestamp;
+          
+          // Track the first request timestamp
+          if (!sessionStats.firstRequestTime) {
+            sessionStats.firstRequestTime = entry.timestamp;
+          }
           
           // Track by model
           const model = entry.model || 'unknown';

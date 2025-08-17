@@ -1001,9 +1001,31 @@ class ClaudeCodeWebServer {
       if (wsInfo.claudeSessionId) {
         const session = this.claudeSessions.get(wsInfo.claudeSessionId);
         if (session) {
-          // Calculate session timer
-          if (session.sessionStartTime) {
-            const startTime = new Date(session.sessionStartTime);
+          // Get actual session usage from JSONL files
+          const actualUsage = await this.usageReader.getSessionUsage(session.sessionStartTime);
+          
+          if (actualUsage && actualUsage.requests > 0) {
+            // Use the first request timestamp as the actual session start
+            if (!session.actualSessionStartTime && actualUsage.firstRequestTime) {
+              session.actualSessionStartTime = actualUsage.firstRequestTime;
+            }
+            
+            // Update the session's usage data with actual data
+            session.sessionUsage = {
+              requests: actualUsage.requests,
+              inputTokens: actualUsage.inputTokens,
+              outputTokens: actualUsage.outputTokens,
+              cacheTokens: actualUsage.cacheTokens,
+              totalTokens: actualUsage.totalTokens,
+              totalCost: actualUsage.totalCost,
+              models: actualUsage.models
+            };
+          }
+          
+          // Calculate session timer based on actual session start time
+          const timerStartTime = session.actualSessionStartTime || session.sessionStartTime;
+          if (timerStartTime) {
+            const startTime = new Date(timerStartTime);
             const now = new Date();
             const elapsedMs = now - startTime;
             
@@ -1013,27 +1035,12 @@ class ClaudeCodeWebServer {
             const seconds = Math.floor((elapsedMs % (1000 * 60)) / 1000);
             
             sessionTimer = {
-              startTime: session.sessionStartTime,
+              startTime: timerStartTime,
               elapsed: elapsedMs,
               formatted: `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`,
               hours,
               minutes,
               seconds
-            };
-          }
-          
-          // Get actual session usage from JSONL files
-          const actualUsage = await this.usageReader.getSessionUsage(session.sessionStartTime);
-          
-          if (actualUsage) {
-            // Update the session's usage data with actual data
-            session.sessionUsage = {
-              requests: actualUsage.requests,
-              inputTokens: actualUsage.inputTokens,
-              outputTokens: actualUsage.outputTokens,
-              cacheTokens: actualUsage.cacheTokens,
-              totalCost: actualUsage.totalCost,
-              models: actualUsage.models
             };
           }
           

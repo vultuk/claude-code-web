@@ -1661,7 +1661,7 @@ class ClaudeCodeWebInterface {
         if (!this.usageUpdateTimer) {
             this.usageUpdateTimer = setInterval(() => {
                 this.requestUsageStats();
-            }, 60000); // Update every minute
+            }, 10000); // Update every 10 seconds for more real-time stats
         }
     }
 
