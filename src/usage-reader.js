@@ -40,45 +40,46 @@ class UsageReader {
 
   async getCurrentSessionStats() {
     try {
-      // Read from ALL projects within the current session time window
-      // Sessions span across projects, not just within a single project
+      // Get ALL entries from ALL projects to find the current session
+      // Claude sessions are global across all projects in 5-hour windows
       const oneDayAgo = new Date(Date.now() - (24 * 60 * 60 * 1000));
-      
-      // Get ALL entries from ALL projects in the last 24 hours
       const allRecentEntries = await this.readAllEntries(oneDayAgo);
       
       if (allRecentEntries.length === 0) {
         return null;
       }
       
-      // Find the most recent message that starts a new session
-      // A new session starts after a gap of sessionDurationHours
-      let sessionStartTime = null;
-      let currentSessionEntries = [];
-      
-      // Sort entries by timestamp (newest first)
+      // Sort all entries by timestamp (newest first) to find session boundaries
       const sortedEntries = [...allRecentEntries].sort((a, b) => 
         new Date(b.timestamp) - new Date(a.timestamp)
       );
       
-      // Find the current session by looking for gaps
+      // Find the current session by detecting gaps larger than 5 hours
+      let sessionStartTime = null;
+      let currentSessionEntries = [];
+      
       if (sortedEntries.length > 0) {
-        // Start with the most recent entry
+        // Start with the most recent entry across ALL projects
         currentSessionEntries.push(sortedEntries[0]);
         sessionStartTime = sortedEntries[0].timestamp;
         
-        // Work backwards to find all entries in the current session
+        // Work backwards through ALL entries to find session start
         for (let i = 1; i < sortedEntries.length; i++) {
           const currentTime = new Date(sortedEntries[i-1].timestamp);
           const prevTime = new Date(sortedEntries[i].timestamp);
           const gapHours = (currentTime - prevTime) / (1000 * 60 * 60);
           
-          // If gap is less than session duration, it's part of the same session
-          if (gapHours < this.sessionDurationHours) {
+          // Session continues if gap is less than threshold (typically 30 minutes)
+          // A new session starts after a gap larger than that
+          const sessionGapThreshold = 0.5; // 30 minutes gap indicates new session
+          
+          if (gapHours < sessionGapThreshold) {
+            // Still in the same session
             currentSessionEntries.push(sortedEntries[i]);
             sessionStartTime = sortedEntries[i].timestamp;
           } else {
-            // Found a gap larger than session duration, this is a different session
+            // Found a gap - this is the session boundary
+            console.log(`Found session gap of ${gapHours.toFixed(1)} hours at ${prevTime}`);
             break;
           }
         }
@@ -86,6 +87,9 @@ class UsageReader {
       
       // Reverse to get chronological order
       currentSessionEntries.reverse();
+      
+      console.log(`Current session: ${currentSessionEntries.length} entries from ${sessionStartTime || 'unknown'}`);
+      
       const entries = currentSessionEntries;
       
       // Calculate statistics for the current session window
@@ -106,15 +110,12 @@ class UsageReader {
         remainingTokens: null
       };
       
-      // Only include entries within 5 hours of session start
+      // Session window is 5 hours from the first entry
       const sessionEndTime = new Date(new Date(sessionStartTime).getTime() + (this.sessionDurationHours * 60 * 60 * 1000));
       const now = new Date();
       
-      // Filter entries to only those within the session window
-      const validEntries = entries.filter(entry => {
-        const entryTime = new Date(entry.timestamp);
-        return entryTime <= sessionEndTime && entryTime <= now;
-      });
+      // ALL entries are already within the session (filtered above)
+      const validEntries = entries;
       
       // Aggregate session data
       for (const entry of validEntries) {
