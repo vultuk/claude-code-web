@@ -89,7 +89,14 @@ class UsageReader {
       // Reverse to get chronological order
       currentSessionEntries.reverse();
       
-      console.log(`Current session: ${currentSessionEntries.length} entries from ${sessionStartTime || 'unknown'}`);
+      // Debug logging for timezone issues
+      if (sessionStartTime) {
+        const startDate = new Date(sessionStartTime);
+        console.log(`Current session: ${currentSessionEntries.length} entries from ${sessionStartTime}`);
+        console.log(`Session start: ${startDate.toISOString()} (UTC), ${startDate.toString()} (local)`);
+      } else {
+        console.log(`Current session: ${currentSessionEntries.length} entries from unknown`);
+      }
       
       const entries = currentSessionEntries;
       

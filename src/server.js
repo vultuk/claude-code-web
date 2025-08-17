@@ -1045,6 +1045,13 @@ class ClaudeCodeWebServer {
         const now = new Date();
         const elapsedMs = now - startTime;
         
+        // Debug logging for timezone issues
+        console.log(`Session timing debug:`);
+        console.log(`  Start time string: ${currentSessionStats.sessionStartTime}`);
+        console.log(`  Start time parsed: ${startTime.toISOString()} (UTC)`);
+        console.log(`  Current time: ${now.toISOString()} (UTC)`);
+        console.log(`  Elapsed: ${Math.floor(elapsedMs / 1000 / 60)} minutes`);
+        
         // Calculate remaining time in session window (5 hours from first message)
         const sessionDurationMs = this.sessionDurationHours * 60 * 60 * 1000;
         const remainingMs = Math.max(0, sessionDurationMs - elapsedMs);

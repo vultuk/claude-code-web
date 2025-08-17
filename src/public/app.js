@@ -1679,57 +1679,31 @@ class ClaudeCodeWebInterface {
             clearInterval(this.sessionTimerInterval);
         }
         
-        // Update timer every second
+        // Update timer every second - just show remaining time
         this.sessionTimerInterval = setInterval(() => {
             if (this.sessionTimer && this.sessionTimer.startTime) {
                 const startTime = new Date(this.sessionTimer.startTime);
                 const now = new Date();
                 const elapsedMs = now - startTime;
                 
-                // Check if mobile screen
-                const isMobile = window.innerWidth <= 768;
-                const isSmallMobile = window.innerWidth <= 480;
-                
                 // Use session duration from server if available, default to 5 hours
                 const sessionHours = (this.sessionTimer && this.sessionTimer.sessionDurationHours) || 5;
                 const sessionDurationMs = sessionHours * 60 * 60 * 1000;
                 const remainingMs = Math.max(0, sessionDurationMs - elapsedMs);
                 
-                // Format elapsed time (cap at session duration)
-                const cappedElapsedMs = Math.min(elapsedMs, sessionDurationMs);
-                const hours = Math.floor(cappedElapsedMs / (1000 * 60 * 60));
-                const minutes = Math.floor((cappedElapsedMs % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((cappedElapsedMs % (1000 * 60)) / 1000);
-                
-                // Format remaining time
-                const remainingHours = Math.floor(remainingMs / (1000 * 60 * 60));
-                const remainingMinutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
-                
-                // Format based on screen size
+                // Format remaining time only
                 let displayText;
-                if (isSmallMobile) {
-                    // Ultra compact: "2:15/5:00"
-                    const m = String(minutes).padStart(2, '0');
-                    displayText = `${hours}:${m}/5:00`;
-                } else if (isMobile) {
-                    // Compact: "2h15m/2h45m"
-                    displayText = `${hours}h${minutes}m`;
-                    if (remainingMs > 0) {
-                        displayText += `/${remainingHours}h${remainingMinutes}m`;
-                    } else {
-                        displayText += '/EXP';
-                    }
+                if (remainingMs > 0) {
+                    const remainingHours = Math.floor(remainingMs / (1000 * 60 * 60));
+                    const remainingMinutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+                    displayText = `${remainingHours}h ${remainingMinutes}m`;
                 } else {
-                    // Full desktop: "02:15:30 (02:45:30 left)" or "05:00:00 (EXPIRED)"
-                    const formatted = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-                    const isExpired = elapsedMs >= sessionDurationMs;
-                    const remainingFormatted = isExpired ? 'EXPIRED' : `${String(remainingHours).padStart(2, '0')}:${String(remainingMinutes).padStart(2, '0')} left`;
-                    displayText = `${formatted} (${remainingFormatted})`;
+                    displayText = '0h 0m';
                 }
                 
                 // Update the title element with remaining time
                 const titleElement = document.getElementById('usageTitle');
-                if (titleElement && this.sessionStats) {
+                if (titleElement) {
                     titleElement.textContent = displayText;
                 }
             }
