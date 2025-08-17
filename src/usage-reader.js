@@ -40,10 +40,12 @@ class UsageReader {
 
   async getCurrentSessionStats() {
     try {
-      // First, find only RECENT entries from files modified in last 24 hours
-      // This prevents reading old session data from past days
+      // Read from ALL projects within the current session time window
+      // Sessions span across projects, not just within a single project
       const oneDayAgo = new Date(Date.now() - (24 * 60 * 60 * 1000));
-      const allRecentEntries = await this.readRecentEntries(oneDayAgo);
+      
+      // Get ALL entries from ALL projects in the last 24 hours
+      const allRecentEntries = await this.readAllEntries(oneDayAgo);
       
       if (allRecentEntries.length === 0) {
         return null;
@@ -266,6 +268,52 @@ class UsageReader {
     }
   }
 
+  async getMostRecentSessionFile() {
+    try {
+      // Get the current working directory to find the right project folder
+      const cwd = process.cwd();
+      // Claude uses format: -home-ec2-user-Development-vultuk-claude-code-web
+      const projectDirName = cwd.replace(/\//g, '-'); // Keep leading dash
+      let projectPath = path.join(this.claudeProjectsPath, projectDirName);
+      
+      // Check if the project directory exists
+      try {
+        await fs.access(projectPath);
+      } catch (err) {
+        console.log(`Project directory not found: ${projectPath}`);
+        return null;
+      }
+      
+      // Get all JSONL files in the project directory
+      const files = await fs.readdir(projectPath);
+      const jsonlFiles = files.filter(f => f.endsWith('.jsonl'));
+      
+      if (jsonlFiles.length === 0) {
+        return null;
+      }
+      
+      // Get file stats and find the most recently modified
+      let mostRecentFile = null;
+      let mostRecentTime = 0;
+      
+      for (const file of jsonlFiles) {
+        const filePath = path.join(projectPath, file);
+        const stat = await fs.stat(filePath);
+        
+        if (stat.mtime.getTime() > mostRecentTime) {
+          mostRecentTime = stat.mtime.getTime();
+          mostRecentFile = filePath;
+        }
+      }
+      
+      console.log(`Using session file: ${path.basename(mostRecentFile)}`);
+      return mostRecentFile;
+    } catch (error) {
+      console.error('Error finding most recent session file:', error);
+      return null;
+    }
+  }
+  
   async findJsonlFiles(onlyRecent = false) {
     const files = [];
     
