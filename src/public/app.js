@@ -1682,9 +1682,10 @@ class ClaudeCodeWebInterface {
                 const isMobile = window.innerWidth <= 768;
                 const isSmallMobile = window.innerWidth <= 480;
                 
-                // Calculate remaining time in 5-hour window
-                const fiveHoursMs = 5 * 60 * 60 * 1000;
-                const remainingMs = Math.max(0, fiveHoursMs - elapsedMs);
+                // Use session duration from server if available, default to 5 hours
+                const sessionHours = (this.sessionTimer && this.sessionTimer.sessionDurationHours) || 5;
+                const sessionDurationMs = sessionHours * 60 * 60 * 1000;
+                const remainingMs = Math.max(0, sessionDurationMs - elapsedMs);
                 
                 // Format elapsed time
                 const hours = Math.floor(elapsedMs / (1000 * 60 * 60));
@@ -1735,7 +1736,7 @@ class ClaudeCodeWebInterface {
         // Show the usage container
         const container = document.getElementById('usageStatsContainer');
         if (container) {
-            container.style.display = 'block';
+            container.style.display = 'flex';
         }
         
         // Check if mobile screen
@@ -1752,15 +1753,16 @@ class ClaudeCodeWebInterface {
             return tokens.toString();
         };
         
-        // Update display for current 5-hour Claude session
+        // Update display for current Claude session
         if (sessionStats && sessionTimer) {
-            // Show current 5-hour session stats with timer
+            // Show current session stats with timer
             let sessionText;
             if (isSmallMobile) {
                 // Ultra compact for small screens: "2:15/5:00"
                 const h = sessionTimer.hours;
                 const m = String(sessionTimer.minutes).padStart(2, '0');
-                sessionText = `${h}:${m}/5:00`;
+                const totalHours = sessionTimer.sessionDurationHours || 5;
+                sessionText = `${h}:${m}/${totalHours}:00`;
             } else if (isMobile) {
                 // Compact for mobile: "2h15m"
                 sessionText = `${sessionTimer.hours}h${sessionTimer.minutes}m`;
@@ -1792,7 +1794,7 @@ class ClaudeCodeWebInterface {
             const rate = hours > 0 ? sessionStats.requests / hours : 0;
             document.getElementById('usageRate').textContent = rate > 0 ? `${rate.toFixed(1)}/h` : '0/h';
         } else {
-            // No active Claude session in the last 5 hours
+            // No active Claude session in the current window
             const noSessionText = isSmallMobile ? 'None' : (isMobile ? 'No Session' : 'No Active Session');
             document.getElementById('usageTitle').textContent = noSessionText;
             document.getElementById('usageTokens').textContent = '0';

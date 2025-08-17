@@ -21,13 +21,15 @@ class ClaudeCodeWebServer {
     this.folderMode = options.folderMode !== false; // Default to true
     this.selectedWorkingDir = null;
     this.baseFolder = process.cwd(); // The folder where the app runs from
+    // Session duration in hours (default to 5 hours from first message)
+    this.sessionDurationHours = parseFloat(process.env.CLAUDE_SESSION_HOURS || options.sessionHours || 5);
     
     this.app = express();
     this.claudeSessions = new Map(); // Persistent Claude sessions
     this.webSocketConnections = new Map(); // Maps WebSocket connection ID to session info
     this.claudeBridge = new ClaudeBridge();
     this.sessionStore = new SessionStore();
-    this.usageReader = new UsageReader();
+    this.usageReader = new UsageReader(this.sessionDurationHours);
     this.autoSaveInterval = null;
     this.startTime = Date.now(); // Track server start time
     
@@ -992,7 +994,7 @@ class ClaudeCodeWebServer {
 
   async handleGetUsage(wsInfo) {
     try {
-      // Get usage stats for the current 5-hour Claude session window
+      // Get usage stats for the current Claude session window
       const currentSessionStats = await this.usageReader.getCurrentSessionStats();
       
       // Get 24h stats for additional context
@@ -1005,9 +1007,9 @@ class ClaudeCodeWebServer {
         const now = new Date();
         const elapsedMs = now - startTime;
         
-        // Calculate remaining time in 5-hour window
-        const fiveHoursMs = 5 * 60 * 60 * 1000;
-        const remainingMs = Math.max(0, fiveHoursMs - elapsedMs);
+        // Calculate remaining time in session window (5 hours from first message)
+        const sessionDurationMs = this.sessionDurationHours * 60 * 60 * 1000;
+        const remainingMs = Math.max(0, sessionDurationMs - elapsedMs);
         
         const hours = Math.floor(elapsedMs / (1000 * 60 * 60));
         const minutes = Math.floor((elapsedMs % (1000 * 60 * 60)) / (1000 * 60));
@@ -1025,6 +1027,8 @@ class ClaudeCodeWebServer {
           hours,
           minutes,
           seconds,
+          remainingMs,
+          sessionDurationHours: this.sessionDurationHours,
           isExpired: remainingMs === 0
         };
       }

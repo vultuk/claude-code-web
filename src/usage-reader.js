@@ -4,11 +4,12 @@ const readline = require('readline');
 const { createReadStream } = require('fs');
 
 class UsageReader {
-  constructor() {
+  constructor(sessionDurationHours = 5) {
     this.claudeProjectsPath = path.join(process.env.HOME, '.claude', 'projects');
     this.cache = null;
     this.cacheTime = null;
     this.cacheTimeout = 5000; // Cache for 5 seconds for more real-time updates
+    this.sessionDurationHours = sessionDurationHours; // Default 5 hours from first message
   }
 
   async getUsageStats(hoursBack = 24) {
@@ -37,24 +38,53 @@ class UsageReader {
 
   async getCurrentSessionStats() {
     try {
-      // Claude sessions are 5-hour windows
-      // Find all entries from the last 5 hours
-      const fiveHoursAgo = new Date(Date.now() - (5 * 60 * 60 * 1000));
-      const entries = await this.readAllEntries(fiveHoursAgo);
+      // First, find all recent entries to determine session start
+      // Look back up to 24 hours to find session boundaries
+      const oneDayAgo = new Date(Date.now() - (24 * 60 * 60 * 1000));
+      const allRecentEntries = await this.readAllEntries(oneDayAgo);
       
-      if (entries.length === 0) {
+      if (allRecentEntries.length === 0) {
         return null;
       }
       
-      // Find the start of the current session (first request in the window)
+      // Find the most recent message that starts a new session
+      // A new session starts after a gap of sessionDurationHours
       let sessionStartTime = null;
-      for (const entry of entries) {
-        if (!sessionStartTime || new Date(entry.timestamp) < new Date(sessionStartTime)) {
-          sessionStartTime = entry.timestamp;
+      let currentSessionEntries = [];
+      
+      // Sort entries by timestamp (newest first)
+      const sortedEntries = [...allRecentEntries].sort((a, b) => 
+        new Date(b.timestamp) - new Date(a.timestamp)
+      );
+      
+      // Find the current session by looking for gaps
+      if (sortedEntries.length > 0) {
+        // Start with the most recent entry
+        currentSessionEntries.push(sortedEntries[0]);
+        sessionStartTime = sortedEntries[0].timestamp;
+        
+        // Work backwards to find all entries in the current session
+        for (let i = 1; i < sortedEntries.length; i++) {
+          const currentTime = new Date(sortedEntries[i-1].timestamp);
+          const prevTime = new Date(sortedEntries[i].timestamp);
+          const gapHours = (currentTime - prevTime) / (1000 * 60 * 60);
+          
+          // If gap is less than session duration, it's part of the same session
+          if (gapHours < this.sessionDurationHours) {
+            currentSessionEntries.push(sortedEntries[i]);
+            sessionStartTime = sortedEntries[i].timestamp;
+          } else {
+            // Found a gap larger than session duration, this is a different session
+            break;
+          }
         }
       }
       
-      // Calculate statistics for the current 5-hour session
+      // Reverse to get chronological order
+      currentSessionEntries.reverse();
+      const entries = currentSessionEntries;
+      
+      // Calculate statistics for the current session window
       const stats = {
         requests: 0,
         inputTokens: 0,
@@ -69,8 +99,18 @@ class UsageReader {
         lastUpdate: null
       };
       
+      // Only include entries within 5 hours of session start
+      const sessionEndTime = new Date(new Date(sessionStartTime).getTime() + (this.sessionDurationHours * 60 * 60 * 1000));
+      const now = new Date();
+      
+      // Filter entries to only those within the session window
+      const validEntries = entries.filter(entry => {
+        const entryTime = new Date(entry.timestamp);
+        return entryTime <= sessionEndTime && entryTime <= now;
+      });
+      
       // Aggregate session data
-      for (const entry of entries) {
+      for (const entry of validEntries) {
         stats.requests++;
         stats.inputTokens += entry.inputTokens;
         stats.outputTokens += entry.outputTokens;
@@ -97,7 +137,8 @@ class UsageReader {
       }
       
       stats.cacheTokens = stats.cacheCreationTokens + stats.cacheReadTokens;
-      stats.totalTokens = stats.inputTokens + stats.outputTokens + stats.cacheCreationTokens;
+      // Total tokens only includes input and output (matching claude-monitor behavior)
+      stats.totalTokens = stats.inputTokens + stats.outputTokens;
       
       return stats;
     } catch (error) {
@@ -161,7 +202,8 @@ class UsageReader {
       }
       
       stats.cacheTokens = stats.cacheCreationTokens + stats.cacheReadTokens;
-      stats.totalTokens = stats.inputTokens + stats.outputTokens + stats.cacheCreationTokens;
+      // Total tokens only includes input and output (matching claude-monitor behavior)
+      stats.totalTokens = stats.inputTokens + stats.outputTokens;
       
       return stats;
     } catch (error) {
@@ -238,7 +280,8 @@ class UsageReader {
             const usage = entry.usage || (entry.message && entry.message.usage);
             const model = entry.model || (entry.message && entry.message.model) || 'unknown';
             
-            if (entry.type === 'assistant' && usage) {
+            // Check if this is an assistant message with usage data
+            if ((entry.type === 'assistant' || (entry.message && entry.message.role === 'assistant')) && usage) {
               const inputTokens = usage.input_tokens || 0;
               const outputTokens = usage.output_tokens || 0;
               const cacheCreationTokens = usage.cache_creation_input_tokens || 0;
