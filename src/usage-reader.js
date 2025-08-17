@@ -35,6 +35,141 @@ class UsageReader {
     }
   }
 
+  async getCurrentSessionStats() {
+    try {
+      // Claude sessions are 5-hour windows
+      // Find all entries from the last 5 hours
+      const fiveHoursAgo = new Date(Date.now() - (5 * 60 * 60 * 1000));
+      const entries = await this.readAllEntries(fiveHoursAgo);
+      
+      if (entries.length === 0) {
+        return null;
+      }
+      
+      // Find the start of the current session (first request in the window)
+      let sessionStartTime = null;
+      for (const entry of entries) {
+        if (!sessionStartTime || new Date(entry.timestamp) < new Date(sessionStartTime)) {
+          sessionStartTime = entry.timestamp;
+        }
+      }
+      
+      // Calculate statistics for the current 5-hour session
+      const stats = {
+        requests: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheCreationTokens: 0,
+        cacheReadTokens: 0,
+        cacheTokens: 0,
+        totalTokens: 0,
+        totalCost: 0,
+        models: {},
+        sessionStartTime: sessionStartTime,
+        lastUpdate: null
+      };
+      
+      // Aggregate session data
+      for (const entry of entries) {
+        stats.requests++;
+        stats.inputTokens += entry.inputTokens;
+        stats.outputTokens += entry.outputTokens;
+        stats.cacheCreationTokens += entry.cacheCreationTokens;
+        stats.cacheReadTokens += entry.cacheReadTokens;
+        stats.totalCost += entry.totalCost;
+        stats.lastUpdate = entry.timestamp;
+        
+        // Track by model
+        const model = entry.model || 'unknown';
+        if (!stats.models[model]) {
+          stats.models[model] = {
+            requests: 0,
+            inputTokens: 0,
+            outputTokens: 0,
+            cost: 0
+          };
+        }
+        
+        stats.models[model].requests++;
+        stats.models[model].inputTokens += entry.inputTokens;
+        stats.models[model].outputTokens += entry.outputTokens;
+        stats.models[model].cost += entry.totalCost;
+      }
+      
+      stats.cacheTokens = stats.cacheCreationTokens + stats.cacheReadTokens;
+      stats.totalTokens = stats.inputTokens + stats.outputTokens + stats.cacheCreationTokens;
+      
+      return stats;
+    } catch (error) {
+      console.error('Error reading current session stats:', error);
+      return null;
+    }
+  }
+
+  async getAllTimeUsageStats() {
+    try {
+      // Read ALL entries from ALL projects (no time cutoff)
+      const entries = await this.readAllEntries(new Date(0));
+      
+      // Calculate statistics for all time
+      const stats = {
+        requests: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheCreationTokens: 0,
+        cacheReadTokens: 0,
+        cacheTokens: 0,
+        totalTokens: 0,
+        totalCost: 0,
+        models: {},
+        firstRequest: null,
+        lastRequest: null
+      };
+      
+      // Aggregate all data
+      for (const entry of entries) {
+        stats.requests++;
+        stats.inputTokens += entry.inputTokens;
+        stats.outputTokens += entry.outputTokens;
+        stats.cacheCreationTokens += entry.cacheCreationTokens;
+        stats.cacheReadTokens += entry.cacheReadTokens;
+        stats.totalCost += entry.totalCost;
+        
+        // Track first and last request times
+        if (!stats.firstRequest || new Date(entry.timestamp) < new Date(stats.firstRequest)) {
+          stats.firstRequest = entry.timestamp;
+        }
+        if (!stats.lastRequest || new Date(entry.timestamp) > new Date(stats.lastRequest)) {
+          stats.lastRequest = entry.timestamp;
+        }
+        
+        // Track by model
+        const model = entry.model || 'unknown';
+        if (!stats.models[model]) {
+          stats.models[model] = {
+            requests: 0,
+            inputTokens: 0,
+            outputTokens: 0,
+            cost: 0
+          };
+        }
+        
+        stats.models[model].requests++;
+        stats.models[model].inputTokens += entry.inputTokens;
+        stats.models[model].outputTokens += entry.outputTokens;
+        stats.models[model].cost += entry.totalCost;
+      }
+      
+      stats.cacheTokens = stats.cacheCreationTokens + stats.cacheReadTokens;
+      stats.totalTokens = stats.inputTokens + stats.outputTokens + stats.cacheCreationTokens;
+      
+      return stats;
+    } catch (error) {
+      console.error('Error reading all-time usage stats:', error);
+      return null;
+    }
+  }
+
   async readAllEntries(cutoffTime) {
     const entries = [];
     
@@ -240,19 +375,26 @@ class UsageReader {
     return stats;
   }
 
-  // Get usage for a specific session since a start time
-  async getSessionUsage(sessionStartTime) {
+  // Get usage for a specific Claude session ID
+  async getSessionUsageById(sessionId) {
     try {
-      if (!sessionStartTime) {
+      if (!sessionId) {
         return null;
       }
       
-      // Clear cache to ensure fresh data for session stats
-      this.cache = null;
-      this.cacheTime = null;
+      // Find the JSONL file for this session
+      const sessionFile = path.join(this.claudeProjectsPath, path.basename(process.cwd()).replace(/[^a-zA-Z0-9-]/g, '-'), `${sessionId}.jsonl`);
       
-      const startTime = new Date(sessionStartTime);
-      const entries = await this.readAllEntries(startTime);
+      // Check if the file exists
+      try {
+        await fs.access(sessionFile);
+      } catch (err) {
+        console.log(`Session file not found: ${sessionFile}`);
+        return null;
+      }
+      
+      // Read all entries from this session's file
+      const entries = await this.readJsonlFile(sessionFile, new Date(0)); // Read all entries
       
       // Calculate session-specific stats
       const sessionStats = {
@@ -264,43 +406,41 @@ class UsageReader {
         cacheTokens: 0,
         totalCost: 0,
         models: {},
-        startTime: sessionStartTime,
+        sessionId: sessionId,
         lastUpdate: null,
         firstRequestTime: null
       };
       
-      // Aggregate session data
+      // Aggregate all session data
       for (const entry of entries) {
-        if (new Date(entry.timestamp) >= startTime) {
-          sessionStats.requests++;
-          sessionStats.inputTokens += entry.inputTokens;
-          sessionStats.outputTokens += entry.outputTokens;
-          sessionStats.cacheCreationTokens += entry.cacheCreationTokens;
-          sessionStats.cacheReadTokens += entry.cacheReadTokens;
-          sessionStats.totalCost += entry.totalCost;
-          sessionStats.lastUpdate = entry.timestamp;
-          
-          // Track the first request timestamp
-          if (!sessionStats.firstRequestTime) {
-            sessionStats.firstRequestTime = entry.timestamp;
-          }
-          
-          // Track by model
-          const model = entry.model || 'unknown';
-          if (!sessionStats.models[model]) {
-            sessionStats.models[model] = {
-              requests: 0,
-              inputTokens: 0,
-              outputTokens: 0,
-              cost: 0
-            };
-          }
-          
-          sessionStats.models[model].requests++;
-          sessionStats.models[model].inputTokens += entry.inputTokens;
-          sessionStats.models[model].outputTokens += entry.outputTokens;
-          sessionStats.models[model].cost += entry.totalCost;
+        sessionStats.requests++;
+        sessionStats.inputTokens += entry.inputTokens;
+        sessionStats.outputTokens += entry.outputTokens;
+        sessionStats.cacheCreationTokens += entry.cacheCreationTokens;
+        sessionStats.cacheReadTokens += entry.cacheReadTokens;
+        sessionStats.totalCost += entry.totalCost;
+        sessionStats.lastUpdate = entry.timestamp;
+        
+        // Track the first request timestamp
+        if (!sessionStats.firstRequestTime) {
+          sessionStats.firstRequestTime = entry.timestamp;
         }
+        
+        // Track by model
+        const model = entry.model || 'unknown';
+        if (!sessionStats.models[model]) {
+          sessionStats.models[model] = {
+            requests: 0,
+            inputTokens: 0,
+            outputTokens: 0,
+            cost: 0
+          };
+        }
+        
+        sessionStats.models[model].requests++;
+        sessionStats.models[model].inputTokens += entry.inputTokens;
+        sessionStats.models[model].outputTokens += entry.outputTokens;
+        sessionStats.models[model].cost += entry.totalCost;
       }
       
       sessionStats.cacheTokens = sessionStats.cacheCreationTokens + sessionStats.cacheReadTokens;
@@ -311,6 +451,13 @@ class UsageReader {
       console.error('Error getting session usage:', error);
       return null;
     }
+  }
+  
+  // Legacy method - keeping for compatibility
+  async getSessionUsage(sessionStartTime) {
+    // This method is kept for backward compatibility
+    // New implementation uses getSessionUsageById
+    return null;
   }
 
   // Get recent sessions for display

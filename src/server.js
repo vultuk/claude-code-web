@@ -29,6 +29,7 @@ class ClaudeCodeWebServer {
     this.sessionStore = new SessionStore();
     this.usageReader = new UsageReader();
     this.autoSaveInterval = null;
+    this.startTime = Date.now(); // Track server start time
     
     this.setupExpress();
     this.loadPersistedSessions();
@@ -991,79 +992,53 @@ class ClaudeCodeWebServer {
 
   async handleGetUsage(wsInfo) {
     try {
-      // Get both global usage stats and session-specific stats
-      const globalStats = await this.usageReader.getUsageStats(24);
+      // Get usage stats for the current 5-hour Claude session window
+      const currentSessionStats = await this.usageReader.getCurrentSessionStats();
       
-      // Get current session stats if available
-      let sessionStats = null;
+      // Get 24h stats for additional context
+      const dailyStats = await this.usageReader.getUsageStats(24);
+      
+      // Calculate session timer if we have a current session
       let sessionTimer = null;
-      
-      if (wsInfo.claudeSessionId) {
-        const session = this.claudeSessions.get(wsInfo.claudeSessionId);
-        if (session) {
-          // Get actual session usage from JSONL files
-          const actualUsage = await this.usageReader.getSessionUsage(session.sessionStartTime);
-          
-          if (actualUsage && actualUsage.requests > 0) {
-            // Use the first request timestamp as the actual session start
-            if (!session.actualSessionStartTime && actualUsage.firstRequestTime) {
-              session.actualSessionStartTime = actualUsage.firstRequestTime;
-            }
-            
-            // Update the session's usage data with actual data
-            session.sessionUsage = {
-              requests: actualUsage.requests,
-              inputTokens: actualUsage.inputTokens,
-              outputTokens: actualUsage.outputTokens,
-              cacheTokens: actualUsage.cacheTokens,
-              totalTokens: actualUsage.totalTokens,
-              totalCost: actualUsage.totalCost,
-              models: actualUsage.models
-            };
-          }
-          
-          // Calculate session timer based on actual session start time
-          const timerStartTime = session.actualSessionStartTime || session.sessionStartTime;
-          if (timerStartTime) {
-            const startTime = new Date(timerStartTime);
-            const now = new Date();
-            const elapsedMs = now - startTime;
-            
-            // Format elapsed time
-            const hours = Math.floor(elapsedMs / (1000 * 60 * 60));
-            const minutes = Math.floor((elapsedMs % (1000 * 60 * 60)) / (1000 * 60));
-            const seconds = Math.floor((elapsedMs % (1000 * 60)) / 1000);
-            
-            sessionTimer = {
-              startTime: timerStartTime,
-              elapsed: elapsedMs,
-              formatted: `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`,
-              hours,
-              minutes,
-              seconds
-            };
-          }
-          
-          sessionStats = {
-            ...session.sessionUsage,
-            sessionId: session.id,
-            sessionName: session.name,
-            sessionTimer
-          };
-        }
+      if (currentSessionStats && currentSessionStats.sessionStartTime) {
+        const startTime = new Date(currentSessionStats.sessionStartTime);
+        const now = new Date();
+        const elapsedMs = now - startTime;
+        
+        // Calculate remaining time in 5-hour window
+        const fiveHoursMs = 5 * 60 * 60 * 1000;
+        const remainingMs = Math.max(0, fiveHoursMs - elapsedMs);
+        
+        const hours = Math.floor(elapsedMs / (1000 * 60 * 60));
+        const minutes = Math.floor((elapsedMs % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((elapsedMs % (1000 * 60)) / 1000);
+        
+        const remainingHours = Math.floor(remainingMs / (1000 * 60 * 60));
+        const remainingMinutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+        
+        sessionTimer = {
+          startTime: currentSessionStats.sessionStartTime,
+          elapsed: elapsedMs,
+          remaining: remainingMs,
+          formatted: `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`,
+          remainingFormatted: `${String(remainingHours).padStart(2, '0')}:${String(remainingMinutes).padStart(2, '0')}`,
+          hours,
+          minutes,
+          seconds,
+          isExpired: remainingMs === 0
+        };
       }
       
       this.sendToWebSocket(wsInfo.ws, {
         type: 'usage_update',
-        globalStats: globalStats || {
+        sessionStats: currentSessionStats || {
           requests: 0,
           totalTokens: 0,
           totalCost: 0,
-          periodHours: 24,
-          message: 'No usage data available'
+          message: 'No active Claude session'
         },
-        sessionStats,
-        sessionTimer
+        dailyStats: dailyStats,
+        sessionTimer: sessionTimer
       });
       
     } catch (error) {
