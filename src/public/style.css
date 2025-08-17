@@ -73,34 +73,38 @@ body {
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 20px;
+    justify-content: flex-start;
+    gap: 15px;
     font-size: 12px;
     height: 32px;
     min-height: 32px;
     max-height: 32px;
     overflow: hidden;
+    white-space: nowrap;
+    flex-wrap: nowrap;
 }
-
 
 .usage-stat {
     display: inline-flex;
     flex-direction: row;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     white-space: nowrap;
-    flex-shrink: 0;
+    flex: 0 0 auto;
 }
 
 .usage-stat.session-info {
     margin-left: auto;
-    flex-shrink: 1;
+    flex: 0 1 auto;
     min-width: 0;
+    max-width: 300px;
 }
 
 .usage-stat.session-info .stat-value {
     font-weight: 600;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .stat-label {
@@ -165,12 +169,14 @@ body {
 @media (max-width: 768px) {
     .usage-stats-bar {
         padding: 4px 8px;
-        gap: 12px;
+        gap: 10px;
         height: 28px;
+        min-height: 28px;
+        max-height: 28px;
     }
     
     .usage-stat {
-        gap: 4px;
+        gap: 3px;
     }
     
     .stat-label {
@@ -179,6 +185,10 @@ body {
     
     .stat-value {
         font-size: 11px;
+    }
+    
+    .usage-stat.session-info {
+        max-width: 200px;
     }
 }
 
