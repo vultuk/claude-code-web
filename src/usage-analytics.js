@@ -12,19 +12,37 @@ class UsageAnalytics extends EventEmitter {
     
     // Plan limits (v3.0.0 updated)
     this.planLimits = {
-      'claude-pro': {
+      'pro': {
         tokens: 19000,
         cost: 18.00,
         messages: 250,
         algorithm: 'fixed'
       },
-      'claude-max5': {
+      'claude-pro': { // Keep for backwards compatibility
+        tokens: 19000,
+        cost: 18.00,
+        messages: 250,
+        algorithm: 'fixed'
+      },
+      'max5': {
         tokens: 88000,
         cost: 35.00,
         messages: 1000,
         algorithm: 'fixed'
       },
-      'claude-max20': {
+      'claude-max5': { // Keep for backwards compatibility
+        tokens: 88000,
+        cost: 35.00,
+        messages: 1000,
+        algorithm: 'fixed'
+      },
+      'max20': {
+        tokens: 220000,
+        cost: 140.00,
+        messages: 2000,
+        algorithm: 'fixed'
+      },
+      'claude-max20': { // Keep for backwards compatibility
         tokens: 220000,
         cost: 140.00,
         messages: 2000,

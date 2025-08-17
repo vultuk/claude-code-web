@@ -32,8 +32,13 @@ npx claude-code-web
 
 ### Basic Usage
 ```bash
-# Start with default settings (port 3000)
+# Start with default settings (port 3000, max20 plan)
 npx claude-code-web
+
+# Specify a subscription plan
+npx claude-code-web --plan pro    # 19k tokens, $18 limit
+npx claude-code-web --plan max5   # 88k tokens, $35 limit  
+npx claude-code-web --plan max20  # 220k tokens, $140 limit (default)
 
 # Specify a custom port
 npx claude-code-web --port 8080

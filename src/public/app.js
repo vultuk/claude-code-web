@@ -1828,12 +1828,54 @@ class ClaudeCodeWebInterface {
                 const rate = hours > 0 ? sessionStats.requests / hours : 0;
                 document.getElementById('usageRate').textContent = rate > 0 ? `${rate.toFixed(1)}/h` : '0/h';
             }
+            
+            // Show model distribution
+            if (sessionStats.models) {
+                const models = sessionStats.models;
+                let totalTokens = 0;
+                let opusTokens = 0;
+                let sonnetTokens = 0;
+                
+                // Calculate totals
+                for (const [model, data] of Object.entries(models)) {
+                    const modelTokens = (data.inputTokens || 0) + (data.outputTokens || 0);
+                    totalTokens += modelTokens;
+                    
+                    if (model.toLowerCase().includes('opus')) {
+                        opusTokens += modelTokens;
+                    } else if (model.toLowerCase().includes('sonnet')) {
+                        sonnetTokens += modelTokens;
+                    }
+                }
+                
+                // Calculate percentages
+                let modelText = '';
+                if (totalTokens > 0) {
+                    const opusPercent = (opusTokens / totalTokens) * 100;
+                    const sonnetPercent = (sonnetTokens / totalTokens) * 100;
+                    
+                    if (opusPercent > 0 && sonnetPercent > 0) {
+                        modelText = `Opus ${opusPercent.toFixed(0)}% / Sonnet ${sonnetPercent.toFixed(0)}%`;
+                    } else if (opusPercent > 0) {
+                        modelText = `Opus ${opusPercent.toFixed(0)}%`;
+                    } else if (sonnetPercent > 0) {
+                        modelText = `Sonnet ${sonnetPercent.toFixed(0)}%`;
+                    } else {
+                        modelText = 'Unknown';
+                    }
+                } else {
+                    modelText = 'No usage';
+                }
+                
+                document.getElementById('usageModel').textContent = modelText;
+            }
         } else {
             // No active session or expired session - show zeros
             document.getElementById('usageTitle').textContent = '0h 0m';
             document.getElementById('usageTokens').textContent = '0';
             document.getElementById('usageCost').textContent = '$0.00';
             document.getElementById('usageRate').textContent = '0 tok/min';
+            document.getElementById('usageModel').textContent = 'No usage';
             
             // Stop the timer update
             if (this.sessionTimerInterval) {

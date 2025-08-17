@@ -33,7 +33,7 @@ class ClaudeCodeWebServer {
     this.usageReader = new UsageReader(this.sessionDurationHours);
     this.usageAnalytics = new UsageAnalytics({
       sessionDurationHours: this.sessionDurationHours,
-      plan: options.plan || process.env.CLAUDE_PLAN || 'custom',
+      plan: options.plan || process.env.CLAUDE_PLAN || 'max20',
       customCostLimit: parseFloat(process.env.CLAUDE_COST_LIMIT || options.customCostLimit || 50.00)
     });
     this.autoSaveInterval = null;

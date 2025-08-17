@@ -102,8 +102,9 @@ class UsageReader {
       // If first message at 12:15, session is 12:00-17:00
       const firstMessageTime = new Date(sessionStartTime);
       const sessionStartHour = new Date(firstMessageTime);
-      sessionStartHour.setMinutes(0, 0, 0); // Round down to the hour
-      sessionStartHour.setSeconds(0, 0); // Also clear seconds and milliseconds
+      // Use UTC methods to avoid timezone issues
+      sessionStartHour.setUTCMinutes(0, 0, 0); // Round down to the hour in UTC
+      sessionStartHour.setUTCSeconds(0, 0); // Also clear seconds and milliseconds in UTC
       
       // Update sessionStartTime to be the rounded hour BEFORE using it
       sessionStartTime = sessionStartHour.toISOString();

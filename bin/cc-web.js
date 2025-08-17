@@ -18,6 +18,7 @@ program
   .option('--cert <path>', 'path to SSL certificate file')
   .option('--key <path>', 'path to SSL private key file')
   .option('--dev', 'development mode with additional logging')
+  .option('--plan <type>', 'subscription plan (pro, max5, max20)', 'max20')
   .parse();
 
 const options = program.opts();
@@ -38,12 +39,14 @@ async function main() {
       cert: options.cert,
       key: options.key,
       dev: options.dev,
+      plan: options.plan,
       folderMode: true // Always use folder mode
     };
 
     console.log('Starting Claude Code Web Interface...');
     console.log(`Port: ${port}`);
     console.log('Mode: Folder selection mode');
+    console.log(`Plan: ${options.plan}`);
     
     if (options.auth) {
       console.log('Authentication: Enabled');
