@@ -26,7 +26,39 @@ class ClaudeCodeWebInterface {
         this.init();
     }
 
+    // Helper method for authenticated fetch calls
+    async authFetch(url, options = {}) {
+        const authHeaders = window.authManager.getAuthHeaders();
+        const mergedOptions = {
+            ...options,
+            headers: {
+                ...authHeaders,
+                ...(options.headers || {})
+            }
+        };
+        const response = await fetch(url, mergedOptions);
+        
+        // If we get a 401, the token might be invalid or missing
+        if (response.status === 401 && window.authManager.authRequired) {
+            // Clear any invalid token
+            window.authManager.token = null;
+            sessionStorage.removeItem('cc-web-token');
+            // Show login prompt
+            window.authManager.showLoginPrompt();
+        }
+        
+        return response;
+    }
+
     async init() {
+        // Check authentication first
+        const authenticated = await window.authManager.initialize();
+        if (!authenticated) {
+            // Auth prompt is shown, stop initialization
+            console.log('[Init] Authentication required, waiting for login...');
+            return;
+        }
+        
         this.setupTerminal();
         this.setupUI();
         this.setupPlanDetector();
@@ -402,6 +434,9 @@ class ClaudeCodeWebInterface {
             if (sessionId) {
                 wsUrl += `?sessionId=${sessionId}`;
             }
+            
+            // Add auth token if required
+            wsUrl = window.authManager.getWebSocketUrl(wsUrl);
             
             this.updateStatus('Connecting...');
             // Only show loading spinner if overlay is already visible
@@ -915,8 +950,14 @@ class ClaudeCodeWebInterface {
         if (showHidden) params.append('showHidden', 'true');
         
         try {
-            const response = await fetch(`/api/folders?${params}`);
+            const response = await this.authFetch(`/api/folders?${params}`);
             if (!response.ok) {
+                // Handle 401 specifically - show auth prompt
+                if (response.status === 401) {
+                    console.log('Authentication required - showing login prompt');
+                    window.authManager.showLoginPrompt();
+                    return;
+                }
                 const error = await response.json();
                 throw new Error(error.message || 'Failed to load folders');
             }
@@ -1004,7 +1045,7 @@ class ClaudeCodeWebInterface {
         }
         
         try {
-            const response = await fetch('/api/create-folder', {
+            const response = await this.authFetch('/api/create-folder', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -1016,6 +1057,12 @@ class ClaudeCodeWebInterface {
             });
             
             if (!response.ok) {
+                // Handle 401 specifically - show auth prompt
+                if (response.status === 401) {
+                    console.log('Authentication required - showing login prompt');
+                    window.authManager.showLoginPrompt();
+                    return;
+                }
                 const error = await response.json();
                 throw new Error(error.message || 'Failed to create folder');
             }
@@ -1042,7 +1089,7 @@ class ClaudeCodeWebInterface {
         if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
             try {
                 // Set the working directory on the server
-                const response = await fetch('/api/folders/select', {
+                const response = await this.authFetch('/api/folders/select', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -1090,7 +1137,7 @@ class ClaudeCodeWebInterface {
         
         // Otherwise, set working directory for current session
         try {
-            const response = await fetch('/api/set-working-dir', {
+            const response = await this.authFetch('/api/set-working-dir', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -1123,7 +1170,7 @@ class ClaudeCodeWebInterface {
             }
             
             // Clear the working directory on the server
-            const response = await fetch('/api/close-session', {
+            const response = await this.authFetch('/api/close-session', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -1184,7 +1231,7 @@ class ClaudeCodeWebInterface {
     
     async loadMobileSessions() {
         try {
-            const response = await fetch('/api/sessions/list');
+            const response = await this.authFetch('/api/sessions/list');
             if (!response.ok) throw new Error('Failed to load sessions');
             
             const data = await response.json();
@@ -1260,7 +1307,7 @@ class ClaudeCodeWebInterface {
     
     async loadSessions() {
         try {
-            const response = await fetch('/api/sessions/list');
+            const response = await this.authFetch('/api/sessions/list');
             if (!response.ok) throw new Error('Failed to load sessions');
             
             const data = await response.json();
@@ -1350,7 +1397,7 @@ class ClaudeCodeWebInterface {
         }
         
         try {
-            const response = await fetch(`/api/sessions/${sessionId}`, {
+            const response = await this.authFetch(`/api/sessions/${sessionId}`, {
                 method: 'DELETE'
             });
             
@@ -1457,7 +1504,7 @@ class ClaudeCodeWebInterface {
         }
         
         try {
-            const response = await fetch('/api/sessions/create', {
+            const response = await this.authFetch('/api/sessions/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, workingDir })

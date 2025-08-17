@@ -132,6 +132,30 @@ class ClaudeCodeWebServer {
       });
     });
 
+    // Auth status endpoint - always accessible
+    this.app.get('/auth-status', (req, res) => {
+      res.json({ 
+        authRequired: !!this.auth,
+        authenticated: false 
+      });
+    });
+
+    // Auth verify endpoint - check if token is valid
+    this.app.post('/auth-verify', (req, res) => {
+      if (!this.auth) {
+        return res.json({ valid: true }); // No auth required
+      }
+      
+      const { token } = req.body;
+      const valid = token === this.auth;
+      
+      if (valid) {
+        res.json({ valid: true });
+      } else {
+        res.status(401).json({ valid: false, error: 'Invalid token' });
+      }
+    });
+
     if (this.auth) {
       this.app.use((req, res, next) => {
         const token = req.headers.authorization || req.query.token;

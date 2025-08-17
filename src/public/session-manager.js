@@ -457,7 +457,10 @@ class SessionTabManager {
     async loadSessions() {
         try {
             console.log('[SessionManager.loadSessions] Fetching sessions from server...');
-            const response = await fetch('/api/sessions/list');
+            const authHeaders = window.authManager ? window.authManager.getAuthHeaders() : {};
+            const response = await fetch('/api/sessions/list', {
+                headers: authHeaders
+            });
             const data = await response.json();
             
             console.log('[SessionManager.loadSessions] Got data:', data);
@@ -662,7 +665,11 @@ class SessionTabManager {
         this.updateTabOverflow();
         
         // Close the session on server
-        fetch(`/api/sessions/${sessionId}`, { method: 'DELETE' })
+        const authHeaders = window.authManager ? window.authManager.getAuthHeaders() : {};
+        fetch(`/api/sessions/${sessionId}`, { 
+            method: 'DELETE',
+            headers: authHeaders
+        })
             .catch(err => console.error('Failed to delete session:', err));
         
         // If this was the active tab, switch to another
