@@ -1041,16 +1041,10 @@ class ClaudeCodeWebServer {
       // Calculate session timer if we have a current session
       let sessionTimer = null;
       if (currentSessionStats && currentSessionStats.sessionStartTime) {
+        // Session starts at the hour, not the exact minute
         const startTime = new Date(currentSessionStats.sessionStartTime);
         const now = new Date();
         const elapsedMs = now - startTime;
-        
-        // Debug logging for timezone issues
-        console.log(`Session timing debug:`);
-        console.log(`  Start time string: ${currentSessionStats.sessionStartTime}`);
-        console.log(`  Start time parsed: ${startTime.toISOString()} (UTC)`);
-        console.log(`  Current time: ${now.toISOString()} (UTC)`);
-        console.log(`  Elapsed: ${Math.floor(elapsedMs / 1000 / 60)} minutes`);
         
         // Calculate remaining time in session window (5 hours from first message)
         const sessionDurationMs = this.sessionDurationHours * 60 * 60 * 1000;

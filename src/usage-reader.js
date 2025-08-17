@@ -89,11 +89,9 @@ class UsageReader {
       // Reverse to get chronological order
       currentSessionEntries.reverse();
       
-      // Debug logging for timezone issues
+      // Debug logging
       if (sessionStartTime) {
-        const startDate = new Date(sessionStartTime);
-        console.log(`Current session: ${currentSessionEntries.length} entries from ${sessionStartTime}`);
-        console.log(`Session start: ${startDate.toISOString()} (UTC), ${startDate.toString()} (local)`);
+        console.log(`Current session: ${currentSessionEntries.length} entries, first message at ${sessionStartTime}`);
       } else {
         console.log(`Current session: ${currentSessionEntries.length} entries from unknown`);
       }
@@ -118,9 +116,17 @@ class UsageReader {
         remainingTokens: null
       };
       
-      // Session window is 5 hours from the first entry
-      const sessionEndTime = new Date(new Date(sessionStartTime).getTime() + (this.sessionDurationHours * 60 * 60 * 1000));
+      // Session window is 5 hours from the HOUR of the first entry
+      // If first message at 12:15, session is 12:00-17:00
+      const firstMessageTime = new Date(sessionStartTime);
+      const sessionStartHour = new Date(firstMessageTime);
+      sessionStartHour.setMinutes(0, 0, 0); // Round down to the hour
+      
+      const sessionEndTime = new Date(sessionStartHour.getTime() + (this.sessionDurationHours * 60 * 60 * 1000));
       const now = new Date();
+      
+      // Update the sessionStartTime to be the rounded hour
+      sessionStartTime = sessionStartHour.toISOString();
       
       // ALL entries are already within the session (filtered above)
       const validEntries = entries;
