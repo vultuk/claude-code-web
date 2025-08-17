@@ -1754,7 +1754,7 @@ class ClaudeCodeWebInterface {
             // Just show the time, no burn rate indicator in session field
             document.getElementById('usageTitle').textContent = sessionText;
             
-            // Display tokens with actual numbers (not abbreviated)
+            // Display tokens - on mobile just show percentage
             const actualTokens = sessionStats.totalTokens || 0;
             let tokenDisplay = actualTokens.toLocaleString();
             let percentUsed = 0;
@@ -1768,8 +1768,12 @@ class ClaudeCodeWebInterface {
             
             if (tokenLimit) {
                 percentUsed = (actualTokens / tokenLimit) * 100;
-                // Show just the number and percentage, no limit
-                tokenDisplay = `${actualTokens.toLocaleString()} (${percentUsed.toFixed(1)}%)`;
+                // Mobile: just percentage, Desktop: full display
+                if (isMobile) {
+                    tokenDisplay = `${percentUsed.toFixed(1)}%`;
+                } else {
+                    tokenDisplay = `${actualTokens.toLocaleString()} (${percentUsed.toFixed(1)}%)`;
+                }
                 
                 // Update progress bar
                 const progressBar = document.getElementById('usageProgressBar');
@@ -1797,17 +1801,52 @@ class ClaudeCodeWebInterface {
             // Start the live timer update
             this.startSessionTimerUpdate();
             
-            // Format cost - just show the value, no limit or percentage
-            const cost = sessionStats.totalCost || 0;
-            const costText = cost > 0 ? `$${cost.toFixed(2)}` : '$0.00';
-            document.getElementById('usageCost').textContent = costText;
+            // Format cost - hide on mobile
+            const costElement = document.getElementById('usageCost');
+            const costLabelElement = costElement?.parentElement;
             
-            // Show burn rate instead of simple rate if available
+            if (isMobile && costLabelElement) {
+                // Hide cost on mobile
+                costLabelElement.style.display = 'none';
+            } else {
+                // Show cost on desktop
+                if (costLabelElement) {
+                    costLabelElement.style.display = 'flex';
+                }
+                const cost = sessionStats.totalCost || 0;
+                const costText = cost > 0 ? `$${cost.toFixed(2)}` : '$0.00';
+                if (costElement) {
+                    costElement.textContent = costText;
+                }
+            }
+            
+            // Show burn rate - on mobile just show icon
             if (sessionTimer.burnRate && sessionTimer.burnRate > 0) {
-                const burnRateText = `${Math.round(sessionTimer.burnRate)} tok/min`;
-                const confidenceEmoji = sessionTimer.burnRateConfidence > 0.8 ? '🔥' : 
-                                       sessionTimer.burnRateConfidence > 0.5 ? '📊' : '📈';
-                document.getElementById('usageRate').textContent = `${burnRateText} ${confidenceEmoji}`;
+                const burnRate = Math.round(sessionTimer.burnRate);
+                let rateDisplay;
+                
+                if (isMobile) {
+                    // Mobile: just show icon based on rate
+                    if (burnRate > 1000) {
+                        rateDisplay = '🔥🔥🔥';
+                    } else if (burnRate > 500) {
+                        rateDisplay = '🔥🔥';
+                    } else if (burnRate > 100) {
+                        rateDisplay = '🔥';
+                    } else if (burnRate > 50) {
+                        rateDisplay = '📈';
+                    } else {
+                        rateDisplay = '📊';
+                    }
+                } else {
+                    // Desktop: full display
+                    const burnRateText = `${burnRate} tok/min`;
+                    const confidenceEmoji = sessionTimer.burnRateConfidence > 0.8 ? '🔥' : 
+                                           sessionTimer.burnRateConfidence > 0.5 ? '📊' : '📈';
+                    rateDisplay = `${burnRateText} ${confidenceEmoji}`;
+                }
+                
+                document.getElementById('usageRate').textContent = rateDisplay;
                 
                 // Add depletion time if available
                 if (sessionTimer.depletionTime && sessionTimer.depletionConfidence > 0.5) {
@@ -1871,10 +1910,22 @@ class ClaudeCodeWebInterface {
             }
         } else {
             // No active session or expired session - show zeros
+            const isMobile = window.innerWidth <= 768;
+            
             document.getElementById('usageTitle').textContent = '0h 0m';
-            document.getElementById('usageTokens').textContent = '0';
-            document.getElementById('usageCost').textContent = '$0.00';
-            document.getElementById('usageRate').textContent = '0 tok/min';
+            document.getElementById('usageTokens').textContent = isMobile ? '0%' : '0';
+            
+            // Hide cost on mobile
+            const costElement = document.getElementById('usageCost');
+            const costLabelElement = costElement?.parentElement;
+            if (isMobile && costLabelElement) {
+                costLabelElement.style.display = 'none';
+            } else {
+                if (costLabelElement) costLabelElement.style.display = 'flex';
+                if (costElement) costElement.textContent = '$0.00';
+            }
+            
+            document.getElementById('usageRate').textContent = isMobile ? '⭕' : '0 tok/min';
             document.getElementById('usageModel').textContent = 'No usage';
             
             // Stop the timer update

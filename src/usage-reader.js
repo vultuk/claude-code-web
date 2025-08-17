@@ -80,7 +80,6 @@ class UsageReader {
             sessionStartTime = sortedEntries[i].timestamp;
           } else {
             // Found a gap - this is the session boundary
-            console.log(`Found session gap of ${gapHours.toFixed(1)} hours at ${prevTime}`);
             break;
           }
         }
@@ -89,12 +88,7 @@ class UsageReader {
       // Reverse to get chronological order
       currentSessionEntries.reverse();
       
-      // Debug logging
-      if (sessionStartTime) {
-        console.log(`Current session: ${currentSessionEntries.length} entries, first message at ${sessionStartTime}`);
-      } else {
-        console.log(`Current session: ${currentSessionEntries.length} entries from unknown`);
-      }
+      // Session entries collected
       
       const entries = currentSessionEntries;
       
@@ -323,7 +317,7 @@ class UsageReader {
         }
       }
       
-      console.log(`Using session file: ${path.basename(mostRecentFile)}`);
+      // Using most recent session file
       return mostRecentFile;
     } catch (error) {
       console.error('Error finding most recent session file:', error);
@@ -551,7 +545,7 @@ class UsageReader {
       try {
         await fs.access(sessionFile);
       } catch (err) {
-        console.log(`Session file not found: ${sessionFile}`);
+        // Session file not found
         return null;
       }
       
