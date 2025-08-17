@@ -295,7 +295,7 @@ class UsageReader {
               const cacheCreationTokens = usage.cache_creation_input_tokens || 0;
               const cacheReadTokens = usage.cache_read_input_tokens || 0;
               
-              // Calculate cost based on model pricing (approximate)
+              // Calculate cost based on model pricing (current as of 2024)
               let totalCost = 0;
               if (model.includes('opus')) {
                 // Opus pricing: $15 per million input, $75 per million output
@@ -312,6 +312,13 @@ class UsageReader {
                 totalCost += (cacheCreationTokens * 0.00000025) + (cacheReadTokens * 0.000000025);
               }
               
+              // Use total_cost from usage if available, but check if it's in cents
+              let finalCost = totalCost;
+              if (usage.total_cost !== undefined) {
+                // If total_cost is greater than 1, it's likely in cents
+                finalCost = usage.total_cost > 1 ? usage.total_cost / 100 : usage.total_cost;
+              }
+              
               entries.push({
                 timestamp: entry.timestamp,
                 model: model,
@@ -319,7 +326,7 @@ class UsageReader {
                 outputTokens: outputTokens,
                 cacheCreationTokens: cacheCreationTokens,
                 cacheReadTokens: cacheReadTokens,
-                totalCost: usage.total_cost || totalCost,
+                totalCost: finalCost,
                 sessionId: entry.sessionId
               });
             }

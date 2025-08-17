@@ -1695,10 +1695,11 @@ class ClaudeCodeWebInterface {
                 const sessionDurationMs = sessionHours * 60 * 60 * 1000;
                 const remainingMs = Math.max(0, sessionDurationMs - elapsedMs);
                 
-                // Format elapsed time
-                const hours = Math.floor(elapsedMs / (1000 * 60 * 60));
-                const minutes = Math.floor((elapsedMs % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((elapsedMs % (1000 * 60)) / 1000);
+                // Format elapsed time (cap at session duration)
+                const cappedElapsedMs = Math.min(elapsedMs, sessionDurationMs);
+                const hours = Math.floor(cappedElapsedMs / (1000 * 60 * 60));
+                const minutes = Math.floor((cappedElapsedMs % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((cappedElapsedMs % (1000 * 60)) / 1000);
                 
                 // Format remaining time
                 const remainingHours = Math.floor(remainingMs / (1000 * 60 * 60));
@@ -1719,9 +1720,10 @@ class ClaudeCodeWebInterface {
                         displayText += '/EXP';
                     }
                 } else {
-                    // Full desktop: "02:15:30 (02:45:30 left)"
+                    // Full desktop: "02:15:30 (02:45:30 left)" or "05:00:00 (EXPIRED)"
                     const formatted = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-                    const remainingFormatted = remainingMs === 0 ? 'EXPIRED' : `${String(remainingHours).padStart(2, '0')}:${String(remainingMinutes).padStart(2, '0')} left`;
+                    const isExpired = elapsedMs >= sessionDurationMs;
+                    const remainingFormatted = isExpired ? 'EXPIRED' : `${String(remainingHours).padStart(2, '0')}:${String(remainingMinutes).padStart(2, '0')} left`;
                     displayText = `${formatted} (${remainingFormatted})`;
                 }
                 
