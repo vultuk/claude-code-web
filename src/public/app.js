@@ -1721,11 +1721,7 @@ class ClaudeCodeWebInterface {
         this.currentPlan = plan;
         this.planLimits = limits;
         
-        // Show the usage container
-        const container = document.getElementById('usageStatsContainer');
-        if (container) {
-            container.style.display = 'flex';
-        }
+        // Container is already visible by default
         
         // Check if mobile screen
         const isMobile = window.innerWidth <= 768;
