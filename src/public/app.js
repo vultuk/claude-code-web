@@ -1697,13 +1697,7 @@ class ClaudeCodeWebInterface {
                 // Update the title element with remaining time
                 const titleElement = document.getElementById('usageTitle');
                 if (titleElement && this.sessionStats) {
-                    titleElement.innerHTML = `🎯 Claude Session: ${formatted} (${remainingFormatted})`;
-                }
-                
-                // Update the projected daily field with remaining time
-                const projectedElement = document.getElementById('projectedDaily');
-                if (projectedElement) {
-                    projectedElement.textContent = remainingMs === 0 ? 'Session Expired' : `${String(remainingHours).padStart(2, '0')}:${String(remainingMinutes).padStart(2, '0')} remaining`;
+                    titleElement.textContent = `${formatted} (${remainingFormatted})`;
                 }
             }
         }, 1000);
@@ -1736,8 +1730,7 @@ class ClaudeCodeWebInterface {
         if (sessionStats && sessionTimer) {
             // Show current 5-hour session stats with timer
             const remainingText = sessionTimer.isExpired ? 'EXPIRED' : `${sessionTimer.remainingFormatted} left`;
-            document.getElementById('usageTitle').innerHTML = `🎯 Claude Session: ${sessionTimer.formatted} (${remainingText})`;
-            document.getElementById('usageRequests').textContent = sessionStats.requests || '0';
+            document.getElementById('usageTitle').textContent = `${sessionTimer.formatted} (${remainingText})`;
             document.getElementById('usageTokens').textContent = formatTokens(sessionStats.totalTokens || 0);
             
             // Start the live timer update
@@ -1753,8 +1746,7 @@ class ClaudeCodeWebInterface {
             document.getElementById('usageRate').textContent = rate > 0 ? `${rate.toFixed(1)}/h` : '0/h';
         } else {
             // No active Claude session in the last 5 hours
-            document.getElementById('usageTitle').innerHTML = '📊 No Active Claude Session';
-            document.getElementById('usageRequests').textContent = '0';
+            document.getElementById('usageTitle').textContent = 'No Active Session';
             document.getElementById('usageTokens').textContent = '0';
             
             // Stop the timer update
@@ -1767,60 +1759,7 @@ class ClaudeCodeWebInterface {
             document.getElementById('usageRate').textContent = '0/h';
         }
         
-        // Update model breakdown if available
-        if (sessionStats && sessionStats.models) {
-            const modelsDiv = document.getElementById('usageModels');
-            modelsDiv.innerHTML = '';
-            
-            for (const [model, data] of Object.entries(currentStats.models)) {
-                const modelDiv = document.createElement('div');
-                modelDiv.className = 'model-usage';
-                modelDiv.innerHTML = `
-                    <span class="model-name">${model}:</span>
-                    <span class="model-stats">${data.requests} reqs, ${formatTokens(data.inputTokens + data.outputTokens)} tokens</span>
-                `;
-                modelsDiv.appendChild(modelDiv);
-            }
-        }
-        
-        // Update projections and additional stats
-        if (sessionStats && sessionTimer) {
-            // Calculate rate based on current session
-            const hours = sessionTimer.hours + (sessionTimer.minutes / 60) + (sessionTimer.seconds / 3600);
-            if (hours > 0) {
-                const tokensPerHour = sessionStats.totalTokens / hours;
-                const costPerHour = sessionStats.totalCost / hours;
-                
-                // Show remaining time and projected usage
-                document.getElementById('projectedDaily').textContent = sessionTimer.isExpired ? 'Session Expired' : `${sessionTimer.remainingFormatted} remaining`;
-                document.getElementById('tokensPerHour').textContent = formatTokens(Math.round(tokensPerHour));
-                document.getElementById('costPerHour').textContent = `$${costPerHour.toFixed(4)}`;
-            }
-        } else if (dailyStats) {
-            // Show 24h stats when no active session
-            document.getElementById('projectedDaily').textContent = `${dailyStats.requests || 0} requests (24h)`;
-            document.getElementById('tokensPerHour').textContent = formatTokens(Math.round((dailyStats.totalTokens || 0) / 24));
-            document.getElementById('costPerHour').textContent = `$${((dailyStats.totalCost || 0) / 24).toFixed(4)}`;
-        }
-        
-        // Setup toggle button if not already done
-        const toggleBtn = document.getElementById('usageToggle');
-        const detailsDiv = document.getElementById('usageDetails');
-        
-        if (toggleBtn && !toggleBtn.hasListener) {
-            toggleBtn.hasListener = true;
-            toggleBtn.addEventListener('click', () => {
-                const isExpanded = toggleBtn.classList.contains('expanded');
-                
-                if (isExpanded) {
-                    toggleBtn.classList.remove('expanded');
-                    detailsDiv.style.display = 'none';
-                } else {
-                    toggleBtn.classList.add('expanded');
-                    detailsDiv.style.display = 'block';
-                }
-            });
-        }
+        // Removed model breakdown and projections - compact view doesn't need them
     }
 
     showNotification(message) {

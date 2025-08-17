@@ -37,45 +37,22 @@
 <body>
     <div id="app">
         <!-- Usage Stats Bar -->
-        <div class="usage-stats-container" id="usageStatsContainer" style="display: none;">
-            <div class="usage-stats-header">
-                <span class="usage-title" id="usageTitle">📊 Usage (24h)</span>
-                <button class="usage-toggle" id="usageToggle" title="Toggle details">▼</button>
+        <div class="usage-stats-bar" id="usageStatsContainer" style="display: none;">
+            <div class="usage-stat">
+                <span class="stat-label">Tokens:</span>
+                <span class="stat-value" id="usageTokens">-</span>
             </div>
-            <div class="usage-stats-summary">
-                <div class="usage-stat">
-                    <span class="stat-label">Requests:</span>
-                    <span class="stat-value" id="usageRequests">-</span>
-                </div>
-                <div class="usage-stat">
-                    <span class="stat-label">Tokens:</span>
-                    <span class="stat-value" id="usageTokens">-</span>
-                </div>
-                <div class="usage-stat">
-                    <span class="stat-label">Cost:</span>
-                    <span class="stat-value" id="usageCost">-</span>
-                </div>
-                <div class="usage-stat">
-                    <span class="stat-label">Rate:</span>
-                    <span class="stat-value" id="usageRate">-</span>
-                </div>
+            <div class="usage-stat">
+                <span class="stat-label">Cost:</span>
+                <span class="stat-value" id="usageCost">-</span>
             </div>
-            <div class="usage-stats-details" id="usageDetails" style="display: none;">
-                <div class="usage-models" id="usageModels"></div>
-                <div class="usage-projections">
-                    <div class="projection-item">
-                        <span>Projected daily:</span>
-                        <span id="projectedDaily">-</span>
-                    </div>
-                    <div class="projection-item">
-                        <span>Tokens/hour:</span>
-                        <span id="tokensPerHour">-</span>
-                    </div>
-                    <div class="projection-item">
-                        <span>Cost/hour:</span>
-                        <span id="costPerHour">-</span>
-                    </div>
-                </div>
+            <div class="usage-stat">
+                <span class="stat-label">Rate:</span>
+                <span class="stat-value" id="usageRate">-</span>
+            </div>
+            <div class="usage-stat session-info">
+                <span class="stat-label">Session:</span>
+                <span class="stat-value" id="usageTitle">-</span>
             </div>
         </div>
         

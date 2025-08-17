@@ -65,65 +65,43 @@ body {
 
 /* Header styles removed - using tab-based interface */
 
-/* Usage Stats Bar */
-.usage-stats-container {
+/* Usage Stats Bar - Compact Single Line */
+.usage-stats-bar {
     background-color: var(--bg-secondary);
     border-bottom: 1px solid var(--border);
-    padding: 8px 12px;
-}
-
-.usage-stats-header {
+    padding: 6px 12px;
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    margin-bottom: 8px;
-}
-
-.usage-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.usage-toggle {
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    cursor: pointer;
-    padding: 2px 6px;
+    gap: 20px;
     font-size: 12px;
-    transition: transform 0.2s;
+    height: 32px;
 }
 
-.usage-toggle:hover {
-    color: var(--text-primary);
-}
-
-.usage-toggle.expanded {
-    transform: rotate(180deg);
-}
-
-.usage-stats-summary {
-    display: flex;
-    gap: 16px;
-    flex-wrap: wrap;
-}
 
 .usage-stat {
     display: flex;
-    gap: 6px;
     align-items: center;
+    gap: 6px;
+}
+
+.usage-stat.session-info {
+    margin-left: auto;
+}
+
+.usage-stat.session-info .stat-value {
+    font-weight: 600;
 }
 
 .stat-label {
-    font-size: 11px;
     color: var(--text-secondary);
+    font-size: 11px;
 }
 
 .stat-value {
-    font-size: 12px;
-    font-weight: 600;
     color: var(--text-primary);
+    font-weight: 500;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px;
 }
 
 .usage-stats-details {
