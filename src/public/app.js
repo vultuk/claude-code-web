@@ -1768,27 +1768,28 @@ class ClaudeCodeWebInterface {
         };
         
         // Update display for current Claude session
-        if (sessionStats && sessionTimer) {
-            // Show current session stats with timer
+        // If session is expired (remainingMs === 0), still show the stats but with 0 time
+        if (sessionStats && sessionTimer && !sessionTimer.isExpired) {
+            // Show session timer - time to reset
             let sessionText;
-            if (isSmallMobile) {
-                // Ultra compact for small screens: "2:15/5:00"
-                const h = sessionTimer.hours;
-                const m = String(sessionTimer.minutes).padStart(2, '0');
-                const totalHours = sessionTimer.sessionDurationHours || 5;
-                sessionText = `${h}:${m}/${totalHours}:00`;
-            } else if (isMobile) {
-                // Compact for mobile: "2h15m"
-                sessionText = `${sessionTimer.hours}h${sessionTimer.minutes}m`;
-                if (!sessionTimer.isExpired) {
-                    const remainingHours = Math.floor(sessionTimer.remainingMs / (1000 * 60 * 60));
-                    const remainingMinutes = Math.floor((sessionTimer.remainingMs % (1000 * 60 * 60)) / (1000 * 60));
-                    sessionText += `/${remainingHours}h${remainingMinutes}m`;
+            if (sessionTimer.remainingMs > 0) {
+                const remainingHours = Math.floor(sessionTimer.remainingMs / (1000 * 60 * 60));
+                const remainingMinutes = Math.floor((sessionTimer.remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+                const timeToReset = `${remainingHours}h ${remainingMinutes}m`;
+                
+                if (isSmallMobile) {
+                    // Ultra compact: just show time to reset
+                    sessionText = timeToReset;
+                } else if (isMobile) {
+                    // Compact for mobile
+                    sessionText = `Reset: ${timeToReset}`;
+                } else {
+                    // Full text for desktop
+                    sessionText = `Reset in: ${timeToReset}`;
                 }
             } else {
-                // Full text for desktop
-                const remainingText = sessionTimer.isExpired ? 'EXPIRED' : `${sessionTimer.remainingFormatted} left`;
-                sessionText = `${sessionTimer.formatted} (${remainingText})`;
+                // Session expired or no active session - show zeros
+                sessionText = '0h 0m';
             }
             
             // Add burn rate indicator if available
@@ -1799,12 +1800,21 @@ class ClaudeCodeWebInterface {
             
             document.getElementById('usageTitle').textContent = sessionText;
             
-            // Display tokens with limit if known
-            let tokenDisplay = formatTokens(sessionStats.totalTokens || 0);
+            // Display tokens with actual numbers (not abbreviated)
+            const actualTokens = sessionStats.totalTokens || 0;
+            let tokenDisplay = actualTokens.toLocaleString();
             let percentUsed = 0;
-            if (this.planLimits && this.planLimits.tokens) {
-                percentUsed = ((sessionStats.totalTokens || 0) / this.planLimits.tokens) * 100;
-                tokenDisplay += `/${formatTokens(this.planLimits.tokens)} (${percentUsed.toFixed(1)}%)`;
+            
+            // Get the actual limit for custom plans (P90 based)
+            let tokenLimit = this.planLimits?.tokens;
+            if (!tokenLimit && this.currentPlan === 'custom') {
+                // Default P90 limit for custom plans
+                tokenLimit = 188026;
+            }
+            
+            if (tokenLimit) {
+                percentUsed = (actualTokens / tokenLimit) * 100;
+                tokenDisplay = `${actualTokens.toLocaleString()}/${tokenLimit.toLocaleString()} (${percentUsed.toFixed(1)}%)`;
                 
                 // Update progress bar
                 const progressBar = document.getElementById('usageProgressBar');
@@ -1822,6 +1832,8 @@ class ClaudeCodeWebInterface {
                         progressBar.classList.add('danger');
                     } else if (percentUsed >= 70) {
                         progressBar.classList.add('warning');
+                    } else {
+                        progressBar.classList.add('success');
                     }
                 }
             }
@@ -1830,12 +1842,18 @@ class ClaudeCodeWebInterface {
             // Start the live timer update
             this.startSessionTimerUpdate();
             
-            // Format cost - shorter on mobile
+            // Format cost with proper precision
             const cost = sessionStats.totalCost || 0;
-            const costText = isSmallMobile ? 
-                (cost > 0 ? `$${cost.toFixed(2)}` : '$0') :
-                (cost > 0 ? `$${cost.toFixed(4)}` : '$0');
-            document.getElementById('usageCost').textContent = costText;
+            const costText = cost > 0 ? `$${cost.toFixed(2)}` : '$0.00';
+            
+            // Show cost with limit percentage if available
+            let costDisplay = costText;
+            const costLimit = this.planLimits?.cost || (this.currentPlan === 'custom' ? 76.89 : null);
+            if (costLimit) {
+                const costPercent = (cost / costLimit) * 100;
+                costDisplay = `${costText}/$${costLimit.toFixed(2)} (${costPercent.toFixed(1)}%)`;
+            }
+            document.getElementById('usageCost').textContent = costDisplay;
             
             // Show burn rate instead of simple rate if available
             if (sessionTimer.burnRate && sessionTimer.burnRate > 0) {
@@ -1864,10 +1882,11 @@ class ClaudeCodeWebInterface {
                 document.getElementById('usageRate').textContent = rate > 0 ? `${rate.toFixed(1)}/h` : '0/h';
             }
         } else {
-            // No active Claude session in the current window
-            const noSessionText = isSmallMobile ? 'None' : (isMobile ? 'No Session' : 'No Active Session');
-            document.getElementById('usageTitle').textContent = noSessionText;
+            // No active session or expired session - show zeros
+            document.getElementById('usageTitle').textContent = '0h 0m';
             document.getElementById('usageTokens').textContent = '0';
+            document.getElementById('usageCost').textContent = '$0.00';
+            document.getElementById('usageRate').textContent = '0 tok/min';
             
             // Stop the timer update
             if (this.sessionTimerInterval) {
@@ -1875,8 +1894,11 @@ class ClaudeCodeWebInterface {
                 this.sessionTimerInterval = null;
             }
             
-            document.getElementById('usageCost').textContent = '$0';
-            document.getElementById('usageRate').textContent = '0/h';
+            // Hide progress bar when no session
+            const progressContainer = document.getElementById('usageProgress');
+            if (progressContainer) {
+                progressContainer.style.display = 'none';
+            }
         }
         
         // Removed model breakdown and projections - compact view doesn't need them

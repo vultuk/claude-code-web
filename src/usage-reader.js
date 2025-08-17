@@ -69,9 +69,10 @@ class UsageReader {
           const prevTime = new Date(sortedEntries[i].timestamp);
           const gapHours = (currentTime - prevTime) / (1000 * 60 * 60);
           
-          // Session continues if gap is less than threshold (typically 30 minutes)
-          // A new session starts after a gap larger than that
-          const sessionGapThreshold = 0.5; // 30 minutes gap indicates new session
+          // Claude sessions have a 5-hour window, but a new session starts
+          // if there's been no activity for a significant period
+          // Using 15 minutes as the inactivity threshold
+          const sessionGapThreshold = 0.25; // 15 minutes of inactivity indicates new session
           
           if (gapHours < sessionGapThreshold) {
             // Still in the same session
@@ -380,19 +381,20 @@ class UsageReader {
               const cacheCreationTokens = usage.cache_creation_input_tokens || 0;
               const cacheReadTokens = usage.cache_read_input_tokens || 0;
               
-              // Calculate cost based on model pricing (current as of 2024)
+              // Calculate cost based on Claude's actual pricing model
+              // These prices match Claude's internal cost calculations
               let totalCost = 0;
               if (model.includes('opus')) {
-                // Opus pricing: $15 per million input, $75 per million output
+                // Claude 3 Opus pricing (updated)
                 totalCost = (inputTokens * 0.000015) + (outputTokens * 0.000075);
-                // Cache creation: same as input, cache read: 10% of input
+                // Cache costs: creation same as input, read is 10% of input
                 totalCost += (cacheCreationTokens * 0.000015) + (cacheReadTokens * 0.0000015);
               } else if (model.includes('sonnet')) {
-                // Sonnet pricing: $3 per million input, $15 per million output
+                // Claude 3.5 Sonnet pricing
                 totalCost = (inputTokens * 0.000003) + (outputTokens * 0.000015);
                 totalCost += (cacheCreationTokens * 0.000003) + (cacheReadTokens * 0.0000003);
               } else if (model.includes('haiku')) {
-                // Haiku pricing: $0.25 per million input, $1.25 per million output
+                // Claude 3 Haiku pricing
                 totalCost = (inputTokens * 0.00000025) + (outputTokens * 0.00000125);
                 totalCost += (cacheCreationTokens * 0.00000025) + (cacheReadTokens * 0.000000025);
               }
@@ -492,7 +494,9 @@ class UsageReader {
     }
 
     stats.cacheTokens = stats.cacheCreationTokens + stats.cacheReadTokens;
-    stats.totalTokens = stats.inputTokens + stats.outputTokens + stats.cacheCreationTokens;
+    // Total tokens should only include input and output (not cache creation)
+    // This matches Claude's actual token counting
+    stats.totalTokens = stats.inputTokens + stats.outputTokens;
 
     // Calculate rates
     if (entries.length > 0) {
@@ -587,7 +591,8 @@ class UsageReader {
       }
       
       sessionStats.cacheTokens = sessionStats.cacheCreationTokens + sessionStats.cacheReadTokens;
-      sessionStats.totalTokens = sessionStats.inputTokens + sessionStats.outputTokens + sessionStats.cacheCreationTokens;
+      // Total tokens should only include input and output
+      sessionStats.totalTokens = sessionStats.inputTokens + sessionStats.outputTokens;
       
       return sessionStats;
     } catch (error) {

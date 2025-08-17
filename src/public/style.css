@@ -98,6 +98,19 @@ body {
     font-size: 12px;
 }
 
+/* Color coding for usage levels */
+.stat-value.success {
+    color: #3fb950;
+}
+
+.stat-value.warning {
+    color: #ffa657;
+}
+
+.stat-value.danger {
+    color: #ff7b72;
+}
+
 .usage-stats-details {
     margin-top: 12px;
     padding-top: 12px;
@@ -2053,17 +2066,21 @@ pre, code {
 
 .usage-progress-bar {
     height: 100%;
-    background: linear-gradient(90deg, #58a6ff, #79c0ff);
+    background: linear-gradient(90deg, #3fb950, #56d364); /* Green for normal usage */
     transition: width 0.3s ease, background 0.3s ease;
     width: 0%;
 }
 
+.usage-progress-bar.success {
+    background: linear-gradient(90deg, #3fb950, #56d364); /* Green */
+}
+
 .usage-progress-bar.warning {
-    background: linear-gradient(90deg, #ffa657, #ffdf5d);
+    background: linear-gradient(90deg, #ffa657, #ffdf5d); /* Yellow */
 }
 
 .usage-progress-bar.danger {
-    background: linear-gradient(90deg, #ff7b72, #ffa198);
+    background: linear-gradient(90deg, #ff7b72, #ffa198); /* Red */
 }
 
 .usage-progress-text {
