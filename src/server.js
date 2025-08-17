@@ -8,6 +8,7 @@ const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
 const ClaudeBridge = require('./claude-bridge');
 const SessionStore = require('./utils/session-store');
+const UsageReader = require('./usage-reader');
 
 class ClaudeCodeWebServer {
   constructor(options = {}) {
@@ -26,12 +27,8 @@ class ClaudeCodeWebServer {
     this.webSocketConnections = new Map(); // Maps WebSocket connection ID to session info
     this.claudeBridge = new ClaudeBridge();
     this.sessionStore = new SessionStore();
+    this.usageReader = new UsageReader();
     this.autoSaveInterval = null;
-    
-    // Set up usage update callback
-    this.claudeBridge.setUsageUpdateCallback((sessionId, stats) => {
-      this.broadcastUsageUpdate(sessionId, stats);
-    });
     
     this.setupExpress();
     this.loadPersistedSessions();
@@ -695,15 +692,7 @@ class ClaudeCodeWebServer {
         break;
 
       case 'get_usage':
-        if (wsInfo.claudeSessionId) {
-          const stats = this.claudeBridge.getUsageStats(wsInfo.claudeSessionId);
-          if (stats) {
-            this.sendToWebSocket(wsInfo.ws, {
-              type: 'usage_update',
-              stats
-            });
-          }
-        }
+        this.handleGetUsage(wsInfo);
         break;
 
       default:
@@ -987,21 +976,37 @@ class ClaudeCodeWebServer {
     this.webSocketConnections.clear();
   }
 
-  broadcastUsageUpdate(sessionId, stats) {
-    const session = this.claudeSessions.get(sessionId);
-    if (!session) return;
-
-    // Send usage update to all connections in this session
-    session.connections.forEach((connection, wsId) => {
-      const wsInfo = this.webSocketConnections.get(wsId);
-      if (wsInfo && wsInfo.ws.readyState === WebSocket.OPEN) {
+  async handleGetUsage(wsInfo) {
+    try {
+      // Get usage stats for the last 24 hours
+      const stats = await this.usageReader.getUsageStats(24);
+      
+      if (stats) {
         this.sendToWebSocket(wsInfo.ws, {
           type: 'usage_update',
           stats
         });
+      } else {
+        this.sendToWebSocket(wsInfo.ws, {
+          type: 'usage_update',
+          stats: {
+            requests: 0,
+            totalTokens: 0,
+            totalCost: 0,
+            periodHours: 24,
+            message: 'No usage data available'
+          }
+        });
       }
-    });
+    } catch (error) {
+      console.error('Error getting usage stats:', error);
+      this.sendToWebSocket(wsInfo.ws, {
+        type: 'error',
+        message: 'Failed to retrieve usage statistics'
+      });
+    }
   }
+
 }
 
 async function startServer(options) {

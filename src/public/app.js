@@ -23,7 +23,7 @@ class ClaudeCodeWebInterface {
         // Initialize the session tab manager
         this.sessionTabManager = null;
         
-        // Usage tracking
+        // Usage stats
         this.usageStats = null;
         this.usageUpdateTimer = null;
         
@@ -559,10 +559,6 @@ class ClaudeCodeWebInterface {
                     this.sessionTabManager.updateTabStatus(message.sessionId, message.active ? 'active' : 'idle');
                 }
                 
-                // Request initial usage stats
-                if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-                    this.socket.send(JSON.stringify({ type: 'get_usage' }));
-                }
                 
                 // Resolve pending join promise if it exists
                 if (this.pendingJoinResolve && this.pendingJoinSessionId === message.sessionId) {
@@ -1388,6 +1384,9 @@ class ClaudeCodeWebInterface {
             // Send the join request
             this.send({ type: 'join_session', sessionId });
             
+            // Request usage stats when joining a session
+            this.requestUsageStats();
+            
             // Set a timeout in case the response never comes
             setTimeout(() => {
                 if (this.pendingJoinResolve) {
@@ -1648,6 +1647,100 @@ class ClaudeCodeWebInterface {
         }
     }
     
+    requestUsageStats() {
+        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+            this.socket.send(JSON.stringify({ type: 'get_usage' }));
+        }
+        
+        // Start periodic updates if not already running
+        if (!this.usageUpdateTimer) {
+            this.usageUpdateTimer = setInterval(() => {
+                this.requestUsageStats();
+            }, 60000); // Update every minute
+        }
+    }
+
+    updateUsageDisplay(stats) {
+        if (!stats) return;
+        
+        this.usageStats = stats;
+        
+        // Show the usage container
+        const container = document.getElementById('usageStatsContainer');
+        if (container) {
+            container.style.display = 'block';
+        }
+        
+        // Update summary stats
+        document.getElementById('usageRequests').textContent = stats.requests || '0';
+        
+        // Format tokens (K/M notation)
+        const formatTokens = (tokens) => {
+            if (tokens >= 1000000) {
+                return (tokens / 1000000).toFixed(1) + 'M';
+            } else if (tokens >= 1000) {
+                return (tokens / 1000).toFixed(1) + 'K';
+            }
+            return tokens.toString();
+        };
+        
+        document.getElementById('usageTokens').textContent = formatTokens(stats.totalTokens || 0);
+        
+        // Format cost
+        const cost = stats.totalCost || 0;
+        document.getElementById('usageCost').textContent = cost > 0 ? `$${cost.toFixed(4)}` : '$0';
+        
+        // Format rate
+        const rate = stats.hourlyRate || 0;
+        document.getElementById('usageRate').textContent = rate > 0 ? `${rate.toFixed(1)}/h` : '0/h';
+        
+        // Update model breakdown if available
+        if (stats.models) {
+            const modelsDiv = document.getElementById('usageModels');
+            modelsDiv.innerHTML = '';
+            
+            for (const [model, data] of Object.entries(stats.models)) {
+                const modelDiv = document.createElement('div');
+                modelDiv.className = 'model-usage';
+                modelDiv.innerHTML = `
+                    <span class="model-name">${model}:</span>
+                    <span class="model-stats">${data.requests} reqs, ${formatTokens(data.inputTokens + data.outputTokens)} tokens</span>
+                `;
+                modelsDiv.appendChild(modelDiv);
+            }
+        }
+        
+        // Update projections
+        if (stats.projectedDaily) {
+            document.getElementById('projectedDaily').textContent = `${stats.projectedDaily.toFixed(0)} requests`;
+        }
+        if (stats.tokensPerHour) {
+            document.getElementById('tokensPerHour').textContent = formatTokens(Math.round(stats.tokensPerHour));
+        }
+        if (stats.costPerHour) {
+            document.getElementById('costPerHour').textContent = `$${stats.costPerHour.toFixed(4)}`;
+        }
+        
+        // Setup toggle button if not already done
+        const toggleBtn = document.getElementById('usageToggle');
+        const detailsDiv = document.getElementById('usageDetails');
+        
+        if (toggleBtn && !toggleBtn.hasListener) {
+            toggleBtn.hasListener = true;
+            toggleBtn.addEventListener('click', () => {
+                const isExpanded = toggleBtn.classList.contains('expanded');
+                
+                if (isExpanded) {
+                    toggleBtn.classList.remove('expanded');
+                    detailsDiv.style.display = 'none';
+                } else {
+                    toggleBtn.classList.add('expanded');
+                    detailsDiv.style.display = 'block';
+                }
+            });
+        }
+    }
+
     showNotification(message) {
         // Simple notification - you could enhance this with a toast notification
         const notification = document.createElement('div');
@@ -1685,75 +1778,6 @@ class ClaudeCodeWebInterface {
         }
     }
 
-    updateUsageDisplay(stats) {
-        if (!stats) return;
-        
-        this.usageStats = stats;
-        
-        const barFill = document.getElementById('usageBarFill');
-        const barText = document.getElementById('usageBarText');
-        const usageTime = document.getElementById('usageTime');
-        const warningEl = document.getElementById('usageWarning');
-        const warningText = warningEl.querySelector('.warning-text');
-        
-        // Update progress bar
-        const percentage = Math.min(stats.requestPercentage, 100);
-        barFill.style.width = `${percentage}%`;
-        
-        // Update color based on status
-        if (stats.status === 'critical') {
-            barFill.className = 'usage-bar-fill critical';
-        } else if (stats.status === 'warning') {
-            barFill.className = 'usage-bar-fill warning';
-        } else {
-            barFill.className = 'usage-bar-fill';
-        }
-        
-        // Update text - compact for mobile
-        const countEl = barText.querySelector('.usage-count');
-        countEl.textContent = `${stats.requests}/${stats.requestLimit}`;
-        
-        // Format time to reset
-        const hoursToReset = Math.floor(stats.timeToReset / (1000 * 60 * 60));
-        const minutesToReset = Math.floor((stats.timeToReset % (1000 * 60 * 60)) / (1000 * 60));
-        
-        if (this.isMobile) {
-            // Compact time display for mobile
-            usageTime.textContent = hoursToReset > 0 ? `${hoursToReset}h` : `${minutesToReset}m`;
-        } else {
-            usageTime.textContent = `Reset in ${hoursToReset}h ${minutesToReset}m`;
-        }
-        
-        // Show warnings
-        if (stats.status === 'critical') {
-            warningText.textContent = this.isMobile ? '⚠️ 90% used!' : '⚠️ Critical: Consider stopping soon to avoid hitting limit';
-            warningEl.style.display = 'block';
-            
-            // Auto-save if not already done
-            if (!this.autoSaveTriggered) {
-                this.autoSaveTriggered = true;
-                this.showNotification('Auto-saving session due to high usage');
-            }
-        } else if (stats.status === 'warning') {
-            const minutesLeft = Math.floor(stats.minutesUntilLimit);
-            warningText.textContent = this.isMobile ? 
-                `⚠️ ${minutesLeft}m left` : 
-                `⚠️ At current rate, limit in ~${minutesLeft} minutes`;
-            warningEl.style.display = 'block';
-        } else {
-            warningEl.style.display = 'none';
-            this.autoSaveTriggered = false;
-        }
-        
-        // Request usage update periodically when connected
-        if (this.currentClaudeSessionId && !this.usageUpdateTimer) {
-            this.usageUpdateTimer = setInterval(() => {
-                if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-                    this.socket.send(JSON.stringify({ type: 'get_usage' }));
-                }
-            }, 30000); // Update every 30 seconds
-        }
-    }
 }
 
 // Add animation keyframes

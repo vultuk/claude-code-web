@@ -6,7 +6,6 @@ class ClaudeBridge {
   constructor() {
     this.sessions = new Map();
     this.claudeCommand = this.findClaudeCommand();
-    this.usageTracker = new Map(); // Track usage per session
   }
 
   findClaudeCommand() {
@@ -86,20 +85,10 @@ class ClaudeBridge {
         process: claudeProcess,
         workingDir,
         created: new Date(),
-        active: true,
-        usageData: {
-          requests: 0,
-          estimatedTokens: 0,
-          startTime: Date.now(),
-          lastActivity: Date.now(),
-          dailyLimit: 30, // Estimated daily request limit
-          tokenLimit: 100000, // Estimated token limit
-          resetTime: this.getNextResetTime()
-        }
+        active: true
       };
 
       this.sessions.set(sessionId, session);
-      this.usageTracker.set(sessionId, session.usageData);
 
       // Track if we've seen the trust prompt
       let trustPromptHandled = false;
@@ -164,21 +153,6 @@ class ClaudeBridge {
 
     try {
       session.process.write(data);
-      
-      // Update usage tracking when user sends input
-      if (session.usageData && data.trim().length > 0) {
-        // Detect if this is a command (heuristic: ends with Enter and has content)
-        if (data.includes('\r') || data.includes('\n')) {
-          session.usageData.requests++;
-          session.usageData.estimatedTokens += Math.ceil(data.length / 4); // Rough token estimate
-          session.usageData.lastActivity = Date.now();
-          
-          // Emit usage update
-          if (this.onUsageUpdate) {
-            this.onUsageUpdate(sessionId, this.getUsageStats(sessionId));
-          }
-        }
-      }
     } catch (error) {
       throw new Error(`Failed to send input to session ${sessionId}: ${error.message}`);
     }
@@ -241,57 +215,6 @@ class ClaudeBridge {
     }
   }
 
-  // Usage tracking methods
-  getNextResetTime() {
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0);
-    return tomorrow.getTime();
-  }
-
-  getUsageStats(sessionId) {
-    const session = this.sessions.get(sessionId);
-    if (!session || !session.usageData) {
-      return null;
-    }
-
-    const usage = session.usageData;
-    const now = Date.now();
-    
-    // Check if we need to reset (new day)
-    if (now > usage.resetTime) {
-      usage.requests = 0;
-      usage.estimatedTokens = 0;
-      usage.resetTime = this.getNextResetTime();
-      usage.startTime = now;
-    }
-
-    const requestPercentage = (usage.requests / usage.dailyLimit) * 100;
-    const tokenPercentage = (usage.estimatedTokens / usage.tokenLimit) * 100;
-    const timeToReset = usage.resetTime - now;
-    
-    // Calculate rate and predict when limit will be hit
-    const sessionDuration = now - usage.startTime;
-    const requestRate = sessionDuration > 0 ? usage.requests / (sessionDuration / 60000) : 0; // requests per minute
-    const minutesUntilLimit = requestRate > 0 ? (usage.dailyLimit - usage.requests) / requestRate : Infinity;
-
-    return {
-      requests: usage.requests,
-      requestLimit: usage.dailyLimit,
-      requestPercentage: Math.min(requestPercentage, 100),
-      estimatedTokens: usage.estimatedTokens,
-      tokenLimit: usage.tokenLimit,
-      tokenPercentage: Math.min(tokenPercentage, 100),
-      timeToReset,
-      minutesUntilLimit: Math.max(0, minutesUntilLimit),
-      status: requestPercentage >= 90 ? 'critical' : requestPercentage >= 70 ? 'warning' : 'normal'
-    };
-  }
-
-  setUsageUpdateCallback(callback) {
-    this.onUsageUpdate = callback;
-  }
 }
 
 module.exports = ClaudeBridge;
