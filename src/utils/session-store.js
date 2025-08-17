@@ -34,7 +34,9 @@ class SessionStore {
                 active: false, // Always set to false when saving (processes won't persist)
                 outputBuffer: Array.isArray(session.outputBuffer) ? session.outputBuffer.slice(-100) : [], // Keep last 100 lines
                 connections: [], // Clear connections (they won't persist)
-                lastAccessed: session.lastAccessed || Date.now()
+                lastAccessed: session.lastAccessed || Date.now(),
+                // Save usage data if available
+                usageData: session.usageData || null
             }));
 
             const data = {
@@ -113,7 +115,9 @@ class SessionStore {
                     active: false,
                     connections: new Set(),
                     outputBuffer: session.outputBuffer || [],
-                    maxBufferSize: 1000
+                    maxBufferSize: 1000,
+                    // Restore usage data if available
+                    usageData: session.usageData || null
                 });
             }
 

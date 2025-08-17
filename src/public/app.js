@@ -23,6 +23,10 @@ class ClaudeCodeWebInterface {
         // Initialize the session tab manager
         this.sessionTabManager = null;
         
+        // Usage tracking
+        this.usageStats = null;
+        this.usageUpdateTimer = null;
+        
         this.init();
     }
 
@@ -555,6 +559,11 @@ class ClaudeCodeWebInterface {
                     this.sessionTabManager.updateTabStatus(message.sessionId, message.active ? 'active' : 'idle');
                 }
                 
+                // Request initial usage stats
+                if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+                    this.socket.send(JSON.stringify({ type: 'get_usage' }));
+                }
+                
                 // Resolve pending join promise if it exists
                 if (this.pendingJoinResolve && this.pendingJoinSessionId === message.sessionId) {
                     this.pendingJoinResolve();
@@ -687,6 +696,10 @@ class ClaudeCodeWebInterface {
                 break;
                 
             case 'pong':
+                break;
+
+            case 'usage_update':
+                this.updateUsageDisplay(message.stats);
                 break;
                 
             default:
@@ -1669,6 +1682,76 @@ class ClaudeCodeWebInterface {
             audio.play();
         } catch (e) {
             // Ignore sound errors
+        }
+    }
+
+    updateUsageDisplay(stats) {
+        if (!stats) return;
+        
+        this.usageStats = stats;
+        
+        const barFill = document.getElementById('usageBarFill');
+        const barText = document.getElementById('usageBarText');
+        const usageTime = document.getElementById('usageTime');
+        const warningEl = document.getElementById('usageWarning');
+        const warningText = warningEl.querySelector('.warning-text');
+        
+        // Update progress bar
+        const percentage = Math.min(stats.requestPercentage, 100);
+        barFill.style.width = `${percentage}%`;
+        
+        // Update color based on status
+        if (stats.status === 'critical') {
+            barFill.className = 'usage-bar-fill critical';
+        } else if (stats.status === 'warning') {
+            barFill.className = 'usage-bar-fill warning';
+        } else {
+            barFill.className = 'usage-bar-fill';
+        }
+        
+        // Update text - compact for mobile
+        const countEl = barText.querySelector('.usage-count');
+        countEl.textContent = `${stats.requests}/${stats.requestLimit}`;
+        
+        // Format time to reset
+        const hoursToReset = Math.floor(stats.timeToReset / (1000 * 60 * 60));
+        const minutesToReset = Math.floor((stats.timeToReset % (1000 * 60 * 60)) / (1000 * 60));
+        
+        if (this.isMobile) {
+            // Compact time display for mobile
+            usageTime.textContent = hoursToReset > 0 ? `${hoursToReset}h` : `${minutesToReset}m`;
+        } else {
+            usageTime.textContent = `Reset in ${hoursToReset}h ${minutesToReset}m`;
+        }
+        
+        // Show warnings
+        if (stats.status === 'critical') {
+            warningText.textContent = this.isMobile ? '⚠️ 90% used!' : '⚠️ Critical: Consider stopping soon to avoid hitting limit';
+            warningEl.style.display = 'block';
+            
+            // Auto-save if not already done
+            if (!this.autoSaveTriggered) {
+                this.autoSaveTriggered = true;
+                this.showNotification('Auto-saving session due to high usage');
+            }
+        } else if (stats.status === 'warning') {
+            const minutesLeft = Math.floor(stats.minutesUntilLimit);
+            warningText.textContent = this.isMobile ? 
+                `⚠️ ${minutesLeft}m left` : 
+                `⚠️ At current rate, limit in ~${minutesLeft} minutes`;
+            warningEl.style.display = 'block';
+        } else {
+            warningEl.style.display = 'none';
+            this.autoSaveTriggered = false;
+        }
+        
+        // Request usage update periodically when connected
+        if (this.currentClaudeSessionId && !this.usageUpdateTimer) {
+            this.usageUpdateTimer = setInterval(() => {
+                if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+                    this.socket.send(JSON.stringify({ type: 'get_usage' }));
+                }
+            }, 30000); // Update every 30 seconds
         }
     }
 }

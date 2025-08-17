@@ -28,6 +28,11 @@ class ClaudeCodeWebServer {
     this.sessionStore = new SessionStore();
     this.autoSaveInterval = null;
     
+    // Set up usage update callback
+    this.claudeBridge.setUsageUpdateCallback((sessionId, stats) => {
+      this.broadcastUsageUpdate(sessionId, stats);
+    });
+    
     this.setupExpress();
     this.loadPersistedSessions();
     this.setupAutoSave();
@@ -689,6 +694,18 @@ class ClaudeCodeWebServer {
         this.sendToWebSocket(wsInfo.ws, { type: 'pong' });
         break;
 
+      case 'get_usage':
+        if (wsInfo.claudeSessionId) {
+          const stats = this.claudeBridge.getUsageStats(wsInfo.claudeSessionId);
+          if (stats) {
+            this.sendToWebSocket(wsInfo.ws, {
+              type: 'usage_update',
+              stats
+            });
+          }
+        }
+        break;
+
       default:
         if (this.dev) {
           console.log(`Unknown message type: ${data.type}`);
@@ -968,6 +985,22 @@ class ClaudeCodeWebServer {
     // Clear all data
     this.claudeSessions.clear();
     this.webSocketConnections.clear();
+  }
+
+  broadcastUsageUpdate(sessionId, stats) {
+    const session = this.claudeSessions.get(sessionId);
+    if (!session) return;
+
+    // Send usage update to all connections in this session
+    session.connections.forEach((connection, wsId) => {
+      const wsInfo = this.webSocketConnections.get(wsId);
+      if (wsInfo && wsInfo.ws.readyState === WebSocket.OPEN) {
+        this.sendToWebSocket(wsInfo.ws, {
+          type: 'usage_update',
+          stats
+        });
+      }
+    });
   }
 }
 

@@ -36,6 +36,20 @@
 </head>
 <body>
     <div id="app">
+        <!-- Usage Progress Bar - Compact for mobile -->
+        <div class="usage-bar-container" id="usageBarContainer">
+            <div class="usage-bar">
+                <div class="usage-bar-fill" id="usageBarFill"></div>
+                <div class="usage-bar-text" id="usageBarText">
+                    <span class="usage-count">0/30</span>
+                    <span class="usage-time" id="usageTime"></span>
+                </div>
+            </div>
+            <div class="usage-warning" id="usageWarning" style="display: none;">
+                <span class="warning-text"></span>
+            </div>
+        </div>
+        
         <!-- Session Tabs Bar -->
         <div class="session-tabs-bar" id="sessionTabsBar">
             <div class="tabs-section">

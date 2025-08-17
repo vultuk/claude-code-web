@@ -65,6 +65,100 @@ body {
 
 /* Header styles removed - using tab-based interface */
 
+/* Usage Progress Bar */
+.usage-bar-container {
+    background-color: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    padding: 4px 10px;
+    position: relative;
+}
+
+.usage-bar {
+    height: 20px;
+    background-color: var(--bg-tertiary);
+    border-radius: 10px;
+    position: relative;
+    overflow: hidden;
+}
+
+.usage-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--success), #2ea043);
+    border-radius: 10px;
+    transition: width 0.3s ease, background 0.3s ease;
+    width: 0%;
+}
+
+.usage-bar-fill.warning {
+    background: linear-gradient(90deg, var(--warning), #bf8700);
+}
+
+.usage-bar-fill.critical {
+    background: linear-gradient(90deg, var(--error), #da3633);
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+}
+
+.usage-bar-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.usage-time {
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+.usage-warning {
+    padding: 4px 10px;
+    background-color: var(--bg-tertiary);
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+}
+
+.usage-warning .warning-text {
+    color: var(--warning);
+}
+
+/* Mobile optimizations for usage bar */
+@media (max-width: 768px) {
+    .usage-bar-container {
+        padding: 3px 8px;
+    }
+    
+    .usage-bar {
+        height: 16px;
+    }
+    
+    .usage-bar-text {
+        font-size: 10px;
+        gap: 4px;
+    }
+    
+    .usage-time {
+        font-size: 9px;
+    }
+    
+    .usage-warning {
+        padding: 3px 8px;
+        font-size: 10px;
+    }
+}
+
 /* Session Tabs Bar */
 .session-tabs-bar {
     background-color: var(--bg-secondary);
