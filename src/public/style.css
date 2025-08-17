@@ -72,10 +72,12 @@ body {
     padding: 6px 12px;
     display: flex;
     flex-direction: row;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 20px;
     font-size: 12px;
     height: 32px;
+    overflow: hidden;
 }
 
 .usage-stat {
@@ -145,34 +147,35 @@ body {
 /* Mobile optimizations */
 @media (max-width: 768px) {
     .usage-stats-bar {
-        padding: 4px 6px;
-        gap: 8px;
-        height: auto;
-        min-height: 28px;
-        flex-wrap: wrap;
-        font-size: 10px;
+        padding: 3px 4px;
+        gap: 4px;
+        height: 24px;
+        flex-wrap: nowrap !important;
+        font-size: 9px;
+        overflow-x: auto;
+        overflow-y: hidden;
     }
     
     .usage-stat {
-        gap: 3px;
+        gap: 2px;
         flex: 0 0 auto;
+        white-space: nowrap;
     }
     
     .stat-label {
-        font-size: 9px;
-        display: none; /* Hide labels on mobile to save space */
+        display: none !important;
     }
     
     .stat-value {
-        font-size: 10px;
+        font-size: 9px;
     }
     
     /* Show abbreviated labels with values */
     .usage-stat::before {
         content: attr(data-label);
         color: var(--text-secondary);
-        font-size: 9px;
-        margin-right: 3px;
+        font-size: 8px;
+        margin-right: 1px;
     }
 }
 
@@ -180,30 +183,38 @@ body {
 @media (max-width: 480px) {
     .usage-stats-bar {
         padding: 2px 3px;
-        gap: 4px;
+        gap: 3px;
+        height: 20px;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
         justify-content: space-between;
-        display: grid;
-        grid-template-columns: auto auto auto 1fr;
         align-items: center;
     }
     
     .usage-stat {
-        display: flex;
+        display: inline-flex !important;
         align-items: center;
-        gap: 2px;
+        gap: 1px;
+        flex: 1 1 0;
         min-width: 0;
+        max-width: 25%;
     }
     
     .usage-stat:last-child {
-        justify-self: end;
+        justify-self: auto;
     }
     
     .stat-value {
-        font-size: 9px;
+        font-size: 8px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        max-width: 100%;
+        display: inline-block;
+    }
+    
+    .usage-stat::before {
+        font-size: 7px;
     }
 }
 
