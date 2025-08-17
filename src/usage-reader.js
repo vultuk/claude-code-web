@@ -98,6 +98,19 @@ class UsageReader {
       
       const entries = currentSessionEntries;
       
+      // Session window is 5 hours from the HOUR of the first entry
+      // If first message at 12:15, session is 12:00-17:00
+      const firstMessageTime = new Date(sessionStartTime);
+      const sessionStartHour = new Date(firstMessageTime);
+      sessionStartHour.setMinutes(0, 0, 0); // Round down to the hour
+      sessionStartHour.setSeconds(0, 0); // Also clear seconds and milliseconds
+      
+      // Update sessionStartTime to be the rounded hour BEFORE using it
+      sessionStartTime = sessionStartHour.toISOString();
+      
+      const sessionEndTime = new Date(sessionStartHour.getTime() + (this.sessionDurationHours * 60 * 60 * 1000));
+      const now = new Date();
+      
       // Calculate statistics for the current session window
       const stats = {
         requests: 0,
@@ -109,24 +122,12 @@ class UsageReader {
         totalTokens: 0,
         totalCost: 0,
         models: {},
-        sessionStartTime: sessionStartTime,
+        sessionStartTime: sessionStartTime, // Now using the rounded time
         lastUpdate: null,
         sessionId: this.generateSessionId(sessionStartTime),
         isExpired: false,
         remainingTokens: null
       };
-      
-      // Session window is 5 hours from the HOUR of the first entry
-      // If first message at 12:15, session is 12:00-17:00
-      const firstMessageTime = new Date(sessionStartTime);
-      const sessionStartHour = new Date(firstMessageTime);
-      sessionStartHour.setMinutes(0, 0, 0); // Round down to the hour
-      
-      const sessionEndTime = new Date(sessionStartHour.getTime() + (this.sessionDurationHours * 60 * 60 * 1000));
-      const now = new Date();
-      
-      // Update the sessionStartTime to be the rounded hour
-      sessionStartTime = sessionStartHour.toISOString();
       
       // ALL entries are already within the session (filtered above)
       const validEntries = entries;
