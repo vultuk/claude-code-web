@@ -71,25 +71,36 @@ body {
     border-bottom: 1px solid var(--border);
     padding: 6px 12px;
     display: flex;
+    flex-direction: row;
     align-items: center;
     gap: 20px;
     font-size: 12px;
     height: 32px;
+    min-height: 32px;
+    max-height: 32px;
+    overflow: hidden;
 }
 
 
 .usage-stat {
-    display: flex;
+    display: inline-flex;
+    flex-direction: row;
     align-items: center;
     gap: 6px;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .usage-stat.session-info {
     margin-left: auto;
+    flex-shrink: 1;
+    min-width: 0;
 }
 
 .usage-stat.session-info .stat-value {
     font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .stat-label {
@@ -152,15 +163,17 @@ body {
 
 /* Mobile optimizations */
 @media (max-width: 768px) {
-    .usage-stats-container {
-        padding: 6px 8px;
-    }
-    
-    .usage-stats-summary {
-        gap: 10px;
+    .usage-stats-bar {
+        padding: 4px 8px;
+        gap: 12px;
+        height: 28px;
     }
     
     .usage-stat {
+        gap: 4px;
+    }
+    
+    .stat-label {
         font-size: 10px;
     }
     
