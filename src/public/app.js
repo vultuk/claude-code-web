@@ -1770,34 +1770,18 @@ class ClaudeCodeWebInterface {
         // Update display for current Claude session
         // If session is expired (remainingMs === 0), still show the stats but with 0 time
         if (sessionStats && sessionTimer && !sessionTimer.isExpired) {
-            // Show session timer - time to reset
+            // Show session timer - just time remaining, no prefixes
             let sessionText;
             if (sessionTimer.remainingMs > 0) {
                 const remainingHours = Math.floor(sessionTimer.remainingMs / (1000 * 60 * 60));
                 const remainingMinutes = Math.floor((sessionTimer.remainingMs % (1000 * 60 * 60)) / (1000 * 60));
-                const timeToReset = `${remainingHours}h ${remainingMinutes}m`;
-                
-                if (isSmallMobile) {
-                    // Ultra compact: just show time to reset
-                    sessionText = timeToReset;
-                } else if (isMobile) {
-                    // Compact for mobile
-                    sessionText = `Reset: ${timeToReset}`;
-                } else {
-                    // Full text for desktop
-                    sessionText = `Reset in: ${timeToReset}`;
-                }
+                sessionText = `${remainingHours}h ${remainingMinutes}m`;
             } else {
                 // Session expired or no active session - show zeros
                 sessionText = '0h 0m';
             }
             
-            // Add burn rate indicator if available
-            if (sessionTimer.burnRate && sessionTimer.burnRate > 0) {
-                const burnIndicator = this.getBurnRateIndicator(sessionTimer.burnRate);
-                sessionText += ` ${burnIndicator}`;
-            }
-            
+            // Just show the time, no burn rate indicator in session field
             document.getElementById('usageTitle').textContent = sessionText;
             
             // Display tokens with actual numbers (not abbreviated)
@@ -1814,7 +1798,8 @@ class ClaudeCodeWebInterface {
             
             if (tokenLimit) {
                 percentUsed = (actualTokens / tokenLimit) * 100;
-                tokenDisplay = `${actualTokens.toLocaleString()}/${tokenLimit.toLocaleString()} (${percentUsed.toFixed(1)}%)`;
+                // Show just the number and percentage, no limit
+                tokenDisplay = `${actualTokens.toLocaleString()} (${percentUsed.toFixed(1)}%)`;
                 
                 // Update progress bar
                 const progressBar = document.getElementById('usageProgressBar');
@@ -1842,18 +1827,10 @@ class ClaudeCodeWebInterface {
             // Start the live timer update
             this.startSessionTimerUpdate();
             
-            // Format cost with proper precision
+            // Format cost - just show the value, no limit or percentage
             const cost = sessionStats.totalCost || 0;
             const costText = cost > 0 ? `$${cost.toFixed(2)}` : '$0.00';
-            
-            // Show cost with limit percentage if available
-            let costDisplay = costText;
-            const costLimit = this.planLimits?.cost || (this.currentPlan === 'custom' ? 76.89 : null);
-            if (costLimit) {
-                const costPercent = (cost / costLimit) * 100;
-                costDisplay = `${costText}/$${costLimit.toFixed(2)} (${costPercent.toFixed(1)}%)`;
-            }
-            document.getElementById('usageCost').textContent = costDisplay;
+            document.getElementById('usageCost').textContent = costText;
             
             // Show burn rate instead of simple rate if available
             if (sessionTimer.burnRate && sessionTimer.burnRate > 0) {
