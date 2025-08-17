@@ -1,0 +1,45 @@
+{
+  "name": "Claude Code Web",
+  "short_name": "CC Web",
+  "description": "Web interface for Claude Code - Run Claude commands directly from your browser",
+  "start_url": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "scope": "/",
+  "background_color": "#161b22",
+  "theme_color": "#161b22",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["developer", "productivity", "utilities"],
+  "lang": "en-US",
+  "dir": "ltr",
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "New Session",
+      "url": "/",
+      "description": "Start a new Claude session"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "label": "Claude Code Web Interface"
+    }
+  ]
+}

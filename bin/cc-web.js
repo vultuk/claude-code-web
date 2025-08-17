@@ -11,7 +11,7 @@ program
   .name('cc-web')
   .description('Web-based interface for Claude Code CLI')
   .version('1.11.14')
-  .option('-p, --port <number>', 'port to run the server on', '3000')
+  .option('-p, --port <number>', 'port to run the server on', '32352')
   .option('--no-open', 'do not automatically open browser')
   .option('--auth <token>', 'authentication token for secure access')
   .option('--https', 'enable HTTPS (requires cert files)')

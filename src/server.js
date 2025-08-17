@@ -11,7 +11,7 @@ const SessionStore = require('./utils/session-store');
 
 class ClaudeCodeWebServer {
   constructor(options = {}) {
-    this.port = options.port || 3000;
+    this.port = options.port || 32352;
     this.auth = options.auth;
     this.dev = options.dev || false;
     this.useHttps = options.https || false;
@@ -19,6 +19,7 @@ class ClaudeCodeWebServer {
     this.keyFile = options.key;
     this.folderMode = options.folderMode !== false; // Default to true
     this.selectedWorkingDir = null;
+    this.baseFolder = process.cwd(); // The folder where the app runs from
     
     this.app = express();
     this.claudeSessions = new Map(); // Persistent Claude sessions
@@ -72,10 +73,64 @@ class ClaudeCodeWebServer {
     process.exit(0);
   }
 
+  isPathWithinBase(targetPath) {
+    try {
+      const resolvedTarget = path.resolve(targetPath);
+      const resolvedBase = path.resolve(this.baseFolder);
+      return resolvedTarget.startsWith(resolvedBase);
+    } catch (error) {
+      return false;
+    }
+  }
+
+  validatePath(targetPath) {
+    if (!targetPath) {
+      return { valid: false, error: 'Path is required' };
+    }
+    
+    const resolvedPath = path.resolve(targetPath);
+    
+    if (!this.isPathWithinBase(resolvedPath)) {
+      return { 
+        valid: false, 
+        error: 'Access denied: Path is outside the allowed directory' 
+      };
+    }
+    
+    return { valid: true, path: resolvedPath };
+  }
+
   setupExpress() {
     this.app.use(cors());
     this.app.use(express.json());
+    
+    // Serve manifest.json with correct MIME type
+    this.app.get('/manifest.json', (req, res) => {
+      res.setHeader('Content-Type', 'application/manifest+json');
+      res.sendFile(path.join(__dirname, 'public', 'manifest.json'));
+    });
+    
     this.app.use(express.static(path.join(__dirname, 'public')));
+
+    // PWA Icon routes - generate icons dynamically
+    const iconSizes = [16, 32, 144, 180, 192, 512];
+    iconSizes.forEach(size => {
+      this.app.get(`/icon-${size}.png`, (req, res) => {
+        const svg = `
+          <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+            <rect width="${size}" height="${size}" fill="#1a1a1a" rx="${size * 0.1}"/>
+            <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" 
+                  font-family="monospace" font-size="${size * 0.4}px" font-weight="bold" fill="#ff6b00">
+              CC
+            </text>
+          </svg>
+        `;
+        const svgBuffer = Buffer.from(svg);
+        res.setHeader('Content-Type', 'image/svg+xml');
+        res.setHeader('Cache-Control', 'public, max-age=31536000');
+        res.send(svgBuffer);
+      });
+    });
 
     if (this.auth) {
       this.app.use((req, res, next) => {
@@ -125,13 +180,28 @@ class ClaudeCodeWebServer {
       const { name, workingDir } = req.body;
       const sessionId = uuidv4();
       
+      // Validate working directory if provided
+      let validWorkingDir = this.baseFolder;
+      if (workingDir) {
+        const validation = this.validatePath(workingDir);
+        if (!validation.valid) {
+          return res.status(403).json({ 
+            error: validation.error,
+            message: 'Cannot create session with working directory outside the allowed area' 
+          });
+        }
+        validWorkingDir = validation.path;
+      } else if (this.selectedWorkingDir) {
+        validWorkingDir = this.selectedWorkingDir;
+      }
+      
       const session = {
         id: sessionId,
         name: name || `Session ${new Date().toLocaleString()}`,
         created: new Date(),
         lastActivity: new Date(),
         active: false,
-        workingDir: workingDir || this.selectedWorkingDir || process.cwd(),
+        workingDir: validWorkingDir,
         connections: new Set(),
         outputBuffer: [],
         maxBufferSize: 1000
@@ -212,7 +282,8 @@ class ClaudeCodeWebServer {
     this.app.get('/api/config', (req, res) => {
       res.json({ 
         folderMode: this.folderMode,
-        selectedWorkingDir: this.selectedWorkingDir
+        selectedWorkingDir: this.selectedWorkingDir,
+        baseFolder: this.baseFolder
       });
     });
 
@@ -227,20 +298,36 @@ class ClaudeCodeWebServer {
         return res.status(400).json({ message: 'Invalid folder name' });
       }
       
-      const fullPath = path.join(parentPath || '/', folderName);
+      const basePath = parentPath || this.baseFolder;
+      const fullPath = path.join(basePath, folderName);
+      
+      // Validate that the parent path and resulting path are within base folder
+      const parentValidation = this.validatePath(basePath);
+      if (!parentValidation.valid) {
+        return res.status(403).json({ 
+          message: 'Cannot create folder outside the allowed area' 
+        });
+      }
+      
+      const fullValidation = this.validatePath(fullPath);
+      if (!fullValidation.valid) {
+        return res.status(403).json({ 
+          message: 'Cannot create folder outside the allowed area' 
+        });
+      }
       
       try {
         // Check if folder already exists
-        if (fs.existsSync(fullPath)) {
+        if (fs.existsSync(fullValidation.path)) {
           return res.status(409).json({ message: 'Folder already exists' });
         }
         
         // Create the folder
-        fs.mkdirSync(fullPath, { recursive: true });
+        fs.mkdirSync(fullValidation.path, { recursive: true });
         
         res.json({
           success: true,
-          path: fullPath,
+          path: fullValidation.path,
           message: `Folder "${folderName}" created successfully`
         });
       } catch (error) {
@@ -252,7 +339,18 @@ class ClaudeCodeWebServer {
     });
 
     this.app.get('/api/folders', (req, res) => {
-      const currentPath = req.query.path || process.env.HOME || '/';
+      const requestedPath = req.query.path || this.baseFolder;
+      
+      // Validate the requested path
+      const validation = this.validatePath(requestedPath);
+      if (!validation.valid) {
+        return res.status(403).json({ 
+          error: validation.error,
+          message: 'Access to this directory is not allowed' 
+        });
+      }
+      
+      const currentPath = validation.path;
       
       try {
         const items = fs.readdirSync(currentPath, { withFileTypes: true });
@@ -267,12 +365,14 @@ class ClaudeCodeWebServer {
           .sort((a, b) => a.name.localeCompare(b.name));
         
         const parentDir = path.dirname(currentPath);
+        const canGoUp = this.isPathWithinBase(parentDir) && parentDir !== currentPath;
         
         res.json({
           currentPath,
-          parentPath: currentPath !== '/' ? parentDir : null,
+          parentPath: canGoUp ? parentDir : null,
           folders,
-          home: process.env.HOME || '/'
+          home: this.baseFolder,
+          baseFolder: this.baseFolder
         });
       } catch (error) {
         res.status(403).json({ 
@@ -285,21 +385,28 @@ class ClaudeCodeWebServer {
     this.app.post('/api/set-working-dir', (req, res) => {
       const { path: selectedPath } = req.body;
       
-      if (!selectedPath) {
-        return res.status(400).json({ error: 'Path is required' });
+      // Validate the path
+      const validation = this.validatePath(selectedPath);
+      if (!validation.valid) {
+        return res.status(403).json({ 
+          error: validation.error,
+          message: 'Cannot set working directory outside the allowed area' 
+        });
       }
       
+      const validatedPath = validation.path;
+      
       try {
-        if (!fs.existsSync(selectedPath)) {
+        if (!fs.existsSync(validatedPath)) {
           return res.status(404).json({ error: 'Directory does not exist' });
         }
         
-        const stats = fs.statSync(selectedPath);
+        const stats = fs.statSync(validatedPath);
         if (!stats.isDirectory()) {
           return res.status(400).json({ error: 'Path is not a directory' });
         }
         
-        this.selectedWorkingDir = selectedPath;
+        this.selectedWorkingDir = validatedPath;
         res.json({ 
           success: true, 
           workingDir: this.selectedWorkingDir 
@@ -316,21 +423,26 @@ class ClaudeCodeWebServer {
       try {
         const { path: selectedPath } = req.body;
         
-        if (!selectedPath) {
-          return res.status(400).json({ 
-            error: 'Path is required' 
+        // Validate the path
+        const validation = this.validatePath(selectedPath);
+        if (!validation.valid) {
+          return res.status(403).json({ 
+            error: validation.error,
+            message: 'Cannot select directory outside the allowed area' 
           });
         }
         
+        const validatedPath = validation.path;
+        
         // Verify the path exists and is a directory
-        if (!fs.existsSync(selectedPath) || !fs.statSync(selectedPath).isDirectory()) {
+        if (!fs.existsSync(validatedPath) || !fs.statSync(validatedPath).isDirectory()) {
           return res.status(400).json({ 
             error: 'Invalid directory path' 
           });
         }
         
         // Store the selected working directory
-        this.selectedWorkingDir = selectedPath;
+        this.selectedWorkingDir = validatedPath;
         
         res.json({ 
           success: true,
@@ -564,6 +676,22 @@ class ClaudeCodeWebServer {
     const wsInfo = this.webSocketConnections.get(wsId);
     if (!wsInfo) return;
 
+    // Validate working directory if provided
+    let validWorkingDir = this.baseFolder;
+    if (workingDir) {
+      const validation = this.validatePath(workingDir);
+      if (!validation.valid) {
+        this.sendToWebSocket(wsInfo.ws, {
+          type: 'error',
+          message: 'Cannot create session with working directory outside the allowed area'
+        });
+        return;
+      }
+      validWorkingDir = validation.path;
+    } else if (this.selectedWorkingDir) {
+      validWorkingDir = this.selectedWorkingDir;
+    }
+
     // Create new Claude session
     const sessionId = uuidv4();
     const session = {
@@ -572,7 +700,7 @@ class ClaudeCodeWebServer {
       created: new Date(),
       lastActivity: new Date(),
       active: false,
-      workingDir: workingDir || this.selectedWorkingDir || process.cwd(),
+      workingDir: validWorkingDir,
       connections: new Set([wsId]),
       outputBuffer: [],
       maxBufferSize: 1000

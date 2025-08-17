@@ -4,6 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Claude Code Web Interface</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Web interface for Claude Code - Run Claude commands directly from your browser">
+    <meta name="theme-color" content="#161b22">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="CC Web">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="Claude Code Web">
+    <meta name="format-detection" content="telephone=no">
+    
+    <!-- Web App Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- Icons for various platforms -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/icon-16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png">
+    <meta name="msapplication-TileColor" content="#161b22">
+    <meta name="msapplication-TileImage" content="/icon-144.png">
+    
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -246,5 +267,93 @@
     <script src="plan-detector.js"></script>
     <script src="session-manager.js"></script>
     <script src="app.js"></script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful:', registration.scope);
+                        
+                        // Check for updates periodically
+                        setInterval(() => {
+                            registration.update();
+                        }, 60000); // Check every minute
+                        
+                        // Handle updates
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // New service worker available, prompt user to refresh
+                                    if (confirm('A new version of Claude Code Web is available. Refresh to update?')) {
+                                        newWorker.postMessage({ type: 'SKIP_WAITING' });
+                                        window.location.reload();
+                                    }
+                                }
+                            });
+                        });
+                    })
+                    .catch(err => {
+                        console.log('ServiceWorker registration failed:', err);
+                    });
+            });
+        }
+        
+        // Handle app install prompt
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevent Chrome 67 and earlier from automatically showing the prompt
+            e.preventDefault();
+            // Stash the event so it can be triggered later
+            deferredPrompt = e;
+            
+            // Create install button if it doesn't exist
+            if (!document.getElementById('installBtn')) {
+                const installBtn = document.createElement('button');
+                installBtn.id = 'installBtn';
+                installBtn.className = 'install-btn';
+                installBtn.innerHTML = '📥 Install App';
+                installBtn.style.cssText = `
+                    position: fixed;
+                    bottom: 20px;
+                    right: 20px;
+                    padding: 12px 20px;
+                    background: var(--accent-color, #ff6b00);
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-family: 'JetBrains Mono', monospace;
+                    font-size: 14px;
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+                    z-index: 1000;
+                    transition: all 0.3s ease;
+                `;
+                
+                installBtn.addEventListener('click', async () => {
+                    if (deferredPrompt) {
+                        deferredPrompt.prompt();
+                        const { outcome } = await deferredPrompt.userChoice;
+                        console.log(`User response to install prompt: ${outcome}`);
+                        deferredPrompt = null;
+                        installBtn.remove();
+                    }
+                });
+                
+                document.body.appendChild(installBtn);
+            }
+        });
+        
+        // Handle successful installation
+        window.addEventListener('appinstalled', () => {
+            console.log('PWA was installed');
+            const installBtn = document.getElementById('installBtn');
+            if (installBtn) {
+                installBtn.remove();
+            }
+        });
+    </script>
 </body>
 </html>
