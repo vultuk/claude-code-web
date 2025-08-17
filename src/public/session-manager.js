@@ -9,12 +9,26 @@ class SessionTabManager {
     }
     
     requestNotificationPermission() {
-        if ('Notification' in window && Notification.permission === 'default') {
-            Notification.requestPermission().then(permission => {
-                this.notificationsEnabled = permission === 'granted';
-            });
-        } else if ('Notification' in window && Notification.permission === 'granted') {
-            this.notificationsEnabled = true;
+        if ('Notification' in window) {
+            if (Notification.permission === 'default') {
+                // Request permission
+                Notification.requestPermission().then(permission => {
+                    this.notificationsEnabled = permission === 'granted';
+                    if (this.notificationsEnabled) {
+                        console.log('Desktop notifications enabled');
+                    } else {
+                        console.log('Desktop notifications denied');
+                    }
+                });
+            } else if (Notification.permission === 'granted') {
+                this.notificationsEnabled = true;
+                console.log('Desktop notifications already enabled');
+            } else {
+                this.notificationsEnabled = false;
+                console.log('Desktop notifications blocked');
+            }
+        } else {
+            console.log('Desktop notifications not supported in this browser');
         }
     }
     
@@ -22,24 +36,149 @@ class SessionTabManager {
         // Don't send notification for active tab
         if (sessionId === this.activeTabId) return;
         
-        // Check if notifications are enabled and we have permission
-        if (this.notificationsEnabled && 'Notification' in window && Notification.permission === 'granted') {
-            const notification = new Notification(title, {
-                body: body,
-                icon: '/favicon.ico',
-                tag: sessionId, // Prevents duplicate notifications
-                requireInteraction: false
-            });
+        // Only send notifications if the page is not visible
+        if (document.visibilityState === 'visible') return;
+        
+        // Try desktop notifications first (won't work on iOS Safari)
+        if ('Notification' in window && Notification.permission === 'granted') {
+            try {
+                const notification = new Notification(title, {
+                    body: body,
+                    icon: '/favicon.ico',
+                    tag: sessionId,
+                    requireInteraction: false,
+                    silent: false
+                });
+                
+                notification.onclick = () => {
+                    window.focus();
+                    this.switchToTab(sessionId);
+                    notification.close();
+                };
+                
+                setTimeout(() => notification.close(), 5000);
+                console.log(`Desktop notification sent: ${title}`);
+                return; // Exit if desktop notification worked
+            } catch (error) {
+                console.error('Desktop notification failed:', error);
+            }
+        }
+        
+        // Fallback for mobile: Use visual + audio/vibration
+        this.showMobileNotification(title, body, sessionId);
+    }
+    
+    showMobileNotification(title, body, sessionId) {
+        // Update page title to show notification
+        const originalTitle = document.title;
+        let flashCount = 0;
+        const flashInterval = setInterval(() => {
+            document.title = flashCount % 2 === 0 ? `🔔 ${title}` : originalTitle;
+            flashCount++;
+            if (flashCount > 6) {
+                clearInterval(flashInterval);
+                document.title = originalTitle;
+            }
+        }, 1000);
+        
+        // Try to vibrate if available (Android)
+        if ('vibrate' in navigator) {
+            try {
+                navigator.vibrate([200, 100, 200]);
+            } catch (e) {
+                console.log('Vibration not available');
+            }
+        }
+        
+        // Show a toast-style notification at the top of the screen
+        const toast = document.createElement('div');
+        toast.className = 'mobile-notification';
+        toast.style.cssText = `
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #3b82f6;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 10001;
+            max-width: 90%;
+            text-align: center;
+            cursor: pointer;
+            animation: slideDown 0.3s ease-out;
+        `;
+        
+        toast.innerHTML = `
+            <div style="font-weight: bold; margin-bottom: 4px;">${title}</div>
+            <div style="font-size: 14px; opacity: 0.9;">${body}</div>
+        `;
+        
+        // Add CSS animation
+        if (!document.querySelector('#mobileNotificationStyles')) {
+            const style = document.createElement('style');
+            style.id = 'mobileNotificationStyles';
+            style.textContent = `
+                @keyframes slideDown {
+                    from {
+                        transform: translateX(-50%) translateY(-100%);
+                        opacity: 0;
+                    }
+                    to {
+                        transform: translateX(-50%) translateY(0);
+                        opacity: 1;
+                    }
+                }
+                @keyframes slideUp {
+                    from {
+                        transform: translateX(-50%) translateY(0);
+                        opacity: 1;
+                    }
+                    to {
+                        transform: translateX(-50%) translateY(-100%);
+                        opacity: 0;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        toast.onclick = () => {
+            this.switchToTab(sessionId);
+            toast.style.animation = 'slideUp 0.3s ease-out';
+            setTimeout(() => toast.remove(), 300);
+        };
+        
+        document.body.appendChild(toast);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.style.animation = 'slideUp 0.3s ease-out';
+                setTimeout(() => toast.remove(), 300);
+            }
+        }, 5000);
+        
+        // Play a sound if possible (create a simple beep)
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
             
-            // Click to focus on that session
-            notification.onclick = () => {
-                window.focus();
-                this.switchToTab(sessionId);
-                notification.close();
-            };
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
             
-            // Auto-close after 5 seconds
-            setTimeout(() => notification.close(), 5000);
+            oscillator.frequency.value = 800;
+            oscillator.type = 'sine';
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.2);
+        } catch (e) {
+            console.log('Audio notification not available');
         }
     }
 
@@ -49,6 +188,75 @@ class SessionTabManager {
         this.setupOverflowDropdown();
         await this.loadSessions();
         this.updateTabOverflow();
+        
+        // Show notification permission prompt after a slight delay
+        setTimeout(() => {
+            this.checkAndPromptForNotifications();
+        }, 2000);
+    }
+    
+    checkAndPromptForNotifications() {
+        if ('Notification' in window && Notification.permission === 'default') {
+            // Create a small prompt to enable notifications
+            const promptDiv = document.createElement('div');
+            promptDiv.style.cssText = `
+                position: fixed;
+                top: 60px;
+                right: 20px;
+                background: #1e293b;
+                border: 1px solid #475569;
+                border-radius: 8px;
+                padding: 12px 16px;
+                color: #e2e8f0;
+                font-size: 14px;
+                z-index: 10000;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+                max-width: 300px;
+            `;
+            promptDiv.innerHTML = `
+                <div style="margin-bottom: 10px;">
+                    <strong>Enable Desktop Notifications?</strong><br>
+                    Get notified when Claude completes tasks in background tabs.
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button id="enableNotifications" style="
+                        background: #3b82f6;
+                        color: white;
+                        border: none;
+                        padding: 6px 12px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-size: 13px;
+                    ">Enable</button>
+                    <button id="dismissNotifications" style="
+                        background: #475569;
+                        color: white;
+                        border: none;
+                        padding: 6px 12px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-size: 13px;
+                    ">Not Now</button>
+                </div>
+            `;
+            document.body.appendChild(promptDiv);
+            
+            document.getElementById('enableNotifications').onclick = () => {
+                this.requestNotificationPermission();
+                promptDiv.remove();
+            };
+            
+            document.getElementById('dismissNotifications').onclick = () => {
+                promptDiv.remove();
+            };
+            
+            // Auto-dismiss after 10 seconds
+            setTimeout(() => {
+                if (promptDiv.parentNode) {
+                    promptDiv.remove();
+                }
+            }, 10000);
+        }
     }
 
     setupTabBar() {
@@ -561,10 +769,21 @@ class SessionTabManager {
         if (tab) {
             const statusEl = tab.querySelector('.tab-status');
             if (statusEl) {
+                // Get current session info
+                const session = this.activeSessions.get(sessionId);
+                const wasActive = session && session.status === 'active';
+                
                 // Preserve unread class if it exists
                 const hasUnread = statusEl.classList.contains('unread');
                 statusEl.className = `tab-status ${status}`;
-                if (hasUnread) {
+                
+                // When transitioning from active to idle for background tabs, mark as unread
+                if (wasActive && status === 'idle' && sessionId !== this.activeTabId) {
+                    statusEl.classList.add('unread');
+                    if (session) {
+                        session.unreadOutput = true;
+                    }
+                } else if (hasUnread) {
                     statusEl.classList.add('unread');
                 }
                 
@@ -594,42 +813,53 @@ class SessionTabManager {
         if (!session) return;
         
         const previousActivity = session.lastActivity || 0;
+        const wasActive = session.status === 'active';
         session.lastActivity = Date.now();
         
         // Update status to active if there's output
         if (hasOutput) {
             this.updateTabStatus(sessionId, 'active');
             
-            // If this isn't the active tab and there's output, mark as unread
-            // Do this AFTER updating status so unread class takes precedence
-            if (sessionId !== this.activeTabId) {
-                session.unreadOutput = true;
-                this.updateUnreadIndicator(sessionId, true);
-            }
+            // Don't mark as unread immediately - wait for completion
+            // This prevents the blue indicator from showing while Claude is still working
             
-            // Set a timeout to mark as idle after 5 minutes of no activity
+            // Clear any existing timeouts
             clearTimeout(session.idleTimeout);
-            session.idleTimeout = setTimeout(() => {
+            clearTimeout(session.workCompleteTimeout);
+            
+            // Set a 90-second timeout to detect when Claude has likely finished working
+            session.workCompleteTimeout = setTimeout(() => {
                 const currentSession = this.activeSessions.get(sessionId);
                 if (currentSession && currentSession.status === 'active') {
+                    // Claude has been idle for 90 seconds - likely finished working
                     this.updateTabStatus(sessionId, 'idle');
                     
-                    // Restore unread indicator if it was set
-                    if (currentSession.unreadOutput) {
-                        this.updateUnreadIndicator(sessionId, true);
+                    // Only notify and mark as unread if Claude was previously active
+                    if (wasActive) {
+                        const sessionName = currentSession.name || 'Session';
+                        const duration = Date.now() - previousActivity;
+                        
+                        // Mark as unread if this is a background tab (blue indicator)
+                        if (sessionId !== this.activeTabId) {
+                            currentSession.unreadOutput = true;
+                            this.updateUnreadIndicator(sessionId, true);
+                            
+                            // Send notification that Claude appears to have finished
+                            this.sendNotification(
+                                `✅ ${sessionName} - Claude appears finished`,
+                                `No output for 90 seconds (worked for ${Math.round(duration / 1000)}s)`,
+                                sessionId
+                            );
+                        }
                     }
-                    
-                    // Check if this was a long-running command
-                    const duration = Date.now() - previousActivity;
-                    if (duration > 10000 && sessionId !== this.activeTabId) {
-                        // Command took more than 10 seconds
-                        const sessionName = session.name || 'Session';
-                        this.sendNotification(
-                            `Command completed in ${sessionName}`,
-                            `Process finished after ${Math.round(duration / 1000)} seconds`,
-                            sessionId
-                        );
-                    }
+                }
+            }, 90000); // 90 seconds
+            
+            // Keep the original 5-minute timeout for full idle state
+            session.idleTimeout = setTimeout(() => {
+                const currentSession = this.activeSessions.get(sessionId);
+                if (currentSession && currentSession.status === 'idle') {
+                    // Already marked as idle by the 90-second timeout, no need to do anything
                 }
             }, 300000); // 5 minutes
         }
@@ -671,6 +901,10 @@ class SessionTabManager {
             } else if (/deployment\s+complete/i.test(outputData)) {
                 message = 'Deployment completed';
             }
+            
+            // Mark tab as unread (blue indicator) for completed tasks
+            session.unreadOutput = true;
+            this.updateUnreadIndicator(sessionId, true);
             
             this.sendNotification(
                 `✅ ${sessionName}`,

@@ -62,7 +62,7 @@ npx claude-code-web --https --cert /path/to/cert.pem --key /path/to/key.pem
 npx claude-code-web --dev
 ```
 
-## Multi-Session Features (NEW in v1.4.0)
+## Multi-Session Features
 
 ### Creating and Managing Sessions
 - **Session Dropdown**: Click "Sessions" in the header to view all active sessions
@@ -101,17 +101,26 @@ npx claude-code-web --dev
 2. **WebSocket Communication** - Real-time bidirectional communication between browser and CLI
 3. **Terminal Emulation** - Uses `xterm.js` for full terminal experience with ANSI colors
 4. **Process Management** - Handles multiple sessions, process lifecycle, and cleanup
-5. **Security** - Optional authentication and rate limiting for production use
+5. **Session Persistence** - Automatically saves and restores sessions across server restarts
+6. **Folder Mode** - Browse and select working directories through the web interface
+7. **Security** - Optional authentication and rate limiting for production use
 
 ## API Endpoints
 
 ### REST API
 - `GET /` - Web interface
 - `GET /api/health` - Server health status
+- `GET /api/config` - Get server configuration
 - `GET /api/sessions/list` - List all active Claude sessions
+- `GET /api/sessions/persistence` - Get session persistence info
 - `POST /api/sessions/create` - Create a new session
 - `GET /api/sessions/:sessionId` - Get session details
 - `DELETE /api/sessions/:sessionId` - Delete a session
+- `GET /api/folders` - List available folders (folder mode)
+- `POST /api/folders/select` - Select working directory
+- `POST /api/set-working-dir` - Set working directory
+- `POST /api/create-folder` - Create new folder
+- `POST /api/close-session` - Close a session
 
 ### WebSocket Events
 - `create_session` - Create a new Claude session
@@ -158,10 +167,14 @@ claude-code-web/
 ├── src/
 │   ├── server.js          # Express server + WebSocket
 │   ├── claude-bridge.js   # Claude Code process management  
-│   ├── utils/auth.js      # Authentication utilities
+│   ├── utils/
+│   │   ├── auth.js        # Authentication utilities
+│   │   └── session-store.js # Session persistence
 │   └── public/            # Web interface files
 │       ├── index.html     # Main HTML
 │       ├── app.js         # Frontend JavaScript
+│       ├── session-manager.js # Session management UI
+│       ├── plan-detector.js # Plan mode detection
 │       └── style.css      # Styling
 └── package.json
 ```
