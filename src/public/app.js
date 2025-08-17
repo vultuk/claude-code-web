@@ -1801,24 +1801,10 @@ class ClaudeCodeWebInterface {
             // Start the live timer update
             this.startSessionTimerUpdate();
             
-            // Format cost - hide on mobile
-            const costElement = document.getElementById('usageCost');
-            const costLabelElement = costElement?.parentElement;
-            
-            if (isMobile && costLabelElement) {
-                // Hide cost on mobile
-                costLabelElement.style.display = 'none';
-            } else {
-                // Show cost on desktop
-                if (costLabelElement) {
-                    costLabelElement.style.display = 'flex';
-                }
-                const cost = sessionStats.totalCost || 0;
-                const costText = cost > 0 ? `$${cost.toFixed(2)}` : '$0.00';
-                if (costElement) {
-                    costElement.textContent = costText;
-                }
-            }
+            // Format cost - CSS handles hiding on mobile
+            const cost = sessionStats.totalCost || 0;
+            const costText = cost > 0 ? `$${cost.toFixed(2)}` : '$0.00';
+            document.getElementById('usageCost').textContent = costText;
             
             // Show burn rate - on mobile just show icon
             if (sessionTimer.burnRate && sessionTimer.burnRate > 0) {
@@ -1914,17 +1900,7 @@ class ClaudeCodeWebInterface {
             
             document.getElementById('usageTitle').textContent = '0h 0m';
             document.getElementById('usageTokens').textContent = isMobile ? '0%' : '0';
-            
-            // Hide cost on mobile
-            const costElement = document.getElementById('usageCost');
-            const costLabelElement = costElement?.parentElement;
-            if (isMobile && costLabelElement) {
-                costLabelElement.style.display = 'none';
-            } else {
-                if (costLabelElement) costLabelElement.style.display = 'flex';
-                if (costElement) costElement.textContent = '$0.00';
-            }
-            
+            document.getElementById('usageCost').textContent = '$0.00';
             document.getElementById('usageRate').textContent = isMobile ? '⭕' : '0 tok/min';
             document.getElementById('usageModel').textContent = 'No usage';
             

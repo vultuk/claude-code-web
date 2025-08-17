@@ -175,6 +175,11 @@ body {
         white-space: nowrap;
     }
     
+    /* Hide cost stat completely on mobile */
+    .usage-stat[data-label="Cost:"] {
+        display: none !important;
+    }
+    
     .stat-label {
         display: none !important;
     }
