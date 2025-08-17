@@ -243,7 +243,6 @@ class ClaudeCodeWebInterface {
         const fontSize = isMobile ? 12 : 14;
         
         this.terminal = new Terminal({
-            cursorBlink: true,
             fontSize: fontSize,
             fontFamily: 'JetBrains Mono, Fira Code, Monaco, Consolas, monospace',
             theme: {
@@ -417,8 +416,7 @@ class ClaudeCodeWebInterface {
         const saveBtn = document.getElementById('saveSettingsBtn');
         const fontSizeSlider = document.getElementById('fontSize');
         const fontSizeValue = document.getElementById('fontSizeValue');
-        const themeSelect = document.getElementById('theme');
-        const cursorBlinkCheckbox = document.getElementById('cursorBlink');
+        const showTokenStatsCheckbox = document.getElementById('showTokenStats');
 
         closeBtn.addEventListener('click', () => this.hideSettings());
         saveBtn.addEventListener('click', () => this.saveSettings());
@@ -833,8 +831,7 @@ class ClaudeCodeWebInterface {
         const settings = this.loadSettings();
         document.getElementById('fontSize').value = settings.fontSize;
         document.getElementById('fontSizeValue').textContent = settings.fontSize + 'px';
-        document.getElementById('theme').value = settings.theme;
-        document.getElementById('cursorBlink').checked = settings.cursorBlink;
+        document.getElementById('showTokenStats').checked = settings.showTokenStats;
     }
 
     hideSettings() {
@@ -849,8 +846,7 @@ class ClaudeCodeWebInterface {
     loadSettings() {
         const defaults = {
             fontSize: 14,
-            theme: 'dark',
-            cursorBlink: true
+            showTokenStats: true
         };
         
         try {
@@ -865,8 +861,7 @@ class ClaudeCodeWebInterface {
     saveSettings() {
         const settings = {
             fontSize: parseInt(document.getElementById('fontSize').value),
-            theme: document.getElementById('theme').value,
-            cursorBlink: document.getElementById('cursorBlink').checked
+            showTokenStats: document.getElementById('showTokenStats').checked
         };
         
         try {
@@ -879,10 +874,13 @@ class ClaudeCodeWebInterface {
     }
 
     applySettings(settings) {
-        document.documentElement.setAttribute('data-theme', settings.theme);
+        // Apply token stats visibility
+        const usageStatsContainer = document.getElementById('usageStatsContainer');
+        if (usageStatsContainer) {
+            usageStatsContainer.style.display = settings.showTokenStats ? 'flex' : 'none';
+        }
         
         this.terminal.options.fontSize = settings.fontSize;
-        this.terminal.options.cursorBlink = settings.cursorBlink;
         
         this.fitTerminal();
     }
@@ -1878,13 +1876,18 @@ class ClaudeCodeWebInterface {
                 if (totalTokens > 0) {
                     const opusPercent = (opusTokens / totalTokens) * 100;
                     const sonnetPercent = (sonnetTokens / totalTokens) * 100;
+                    const isMobile = window.innerWidth <= 768;
+                    
+                    // Use short names on mobile, full names on desktop
+                    const opusName = isMobile ? 'O' : 'Opus';
+                    const sonnetName = isMobile ? 'S' : 'Sonnet';
                     
                     if (opusPercent > 0 && sonnetPercent > 0) {
-                        modelText = `Opus ${opusPercent.toFixed(0)}% / Sonnet ${sonnetPercent.toFixed(0)}%`;
+                        modelText = `${opusName} ${opusPercent.toFixed(0)}% / ${sonnetName} ${sonnetPercent.toFixed(0)}%`;
                     } else if (opusPercent > 0) {
-                        modelText = `Opus ${opusPercent.toFixed(0)}%`;
+                        modelText = `${opusName} ${opusPercent.toFixed(0)}%`;
                     } else if (sonnetPercent > 0) {
-                        modelText = `Sonnet ${sonnetPercent.toFixed(0)}%`;
+                        modelText = `${sonnetName} ${sonnetPercent.toFixed(0)}%`;
                     } else {
                         modelText = 'Unknown';
                     }

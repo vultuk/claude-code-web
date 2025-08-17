@@ -54,34 +54,42 @@ class UsageReader {
         new Date(b.timestamp) - new Date(a.timestamp)
       );
       
-      // Find the current session by detecting gaps larger than 5 hours
+      // Find the current session by detecting 5-hour window boundaries
       let sessionStartTime = null;
       let currentSessionEntries = [];
       
       if (sortedEntries.length > 0) {
         // Start with the most recent entry across ALL projects
-        currentSessionEntries.push(sortedEntries[0]);
-        sessionStartTime = sortedEntries[0].timestamp;
+        const mostRecentEntry = sortedEntries[0];
+        const mostRecentTime = new Date(mostRecentEntry.timestamp);
         
-        // Work backwards through ALL entries to find session start
-        for (let i = 1; i < sortedEntries.length; i++) {
-          const currentTime = new Date(sortedEntries[i-1].timestamp);
-          const prevTime = new Date(sortedEntries[i].timestamp);
-          const gapHours = (currentTime - prevTime) / (1000 * 60 * 60);
+        // Find the session start hour for the most recent entry
+        const candidateSessionStart = new Date(mostRecentTime);
+        candidateSessionStart.setUTCMinutes(0, 0, 0); // Round down to the hour in UTC
+        candidateSessionStart.setUTCSeconds(0, 0); // Also clear seconds and milliseconds in UTC
+        
+        // The session window is 5 hours from this hour
+        const sessionEndTime = new Date(candidateSessionStart.getTime() + (this.sessionDurationHours * 60 * 60 * 1000));
+        
+        // Check if we're still within this session window
+        if (mostRecentTime <= sessionEndTime) {
+          // We're within the 5-hour window, collect all entries in this session
+          sessionStartTime = candidateSessionStart.toISOString();
           
-          // Claude sessions have a 5-hour window, but a new session starts
-          // if there's been no activity for a significant period
-          // Using 15 minutes as the inactivity threshold
-          const sessionGapThreshold = 0.25; // 15 minutes of inactivity indicates new session
-          
-          if (gapHours < sessionGapThreshold) {
-            // Still in the same session
-            currentSessionEntries.push(sortedEntries[i]);
-            sessionStartTime = sortedEntries[i].timestamp;
-          } else {
-            // Found a gap - this is the session boundary
-            break;
+          // Add all entries that fall within this 5-hour session window
+          for (const entry of sortedEntries) {
+            const entryTime = new Date(entry.timestamp);
+            if (entryTime >= candidateSessionStart && entryTime <= sessionEndTime) {
+              currentSessionEntries.push(entry);
+            } else if (entryTime < candidateSessionStart) {
+              // We've gone past the session start, stop looking
+              break;
+            }
           }
+        } else {
+          // The most recent entry is outside any valid session window
+          // This means the session has expired, return null
+          return null;
         }
       }
       
@@ -92,18 +100,9 @@ class UsageReader {
       
       const entries = currentSessionEntries;
       
-      // Session window is 5 hours from the HOUR of the first entry
-      // If first message at 12:15, session is 12:00-17:00
-      const firstMessageTime = new Date(sessionStartTime);
-      const sessionStartHour = new Date(firstMessageTime);
-      // Use UTC methods to avoid timezone issues
-      sessionStartHour.setUTCMinutes(0, 0, 0); // Round down to the hour in UTC
-      sessionStartHour.setUTCSeconds(0, 0); // Also clear seconds and milliseconds in UTC
-      
-      // Update sessionStartTime to be the rounded hour BEFORE using it
-      sessionStartTime = sessionStartHour.toISOString();
-      
-      const sessionEndTime = new Date(sessionStartHour.getTime() + (this.sessionDurationHours * 60 * 60 * 1000));
+      // sessionStartTime is already calculated correctly above as the rounded hour
+      const sessionStartDate = new Date(sessionStartTime);
+      const sessionEndTime = new Date(sessionStartDate.getTime() + (this.sessionDurationHours * 60 * 60 * 1000));
       const now = new Date();
       
       // Calculate statistics for the current session window
