@@ -35,8 +35,16 @@ class SessionStore {
                 outputBuffer: Array.isArray(session.outputBuffer) ? session.outputBuffer.slice(-100) : [], // Keep last 100 lines
                 connections: [], // Clear connections (they won't persist)
                 lastAccessed: session.lastAccessed || Date.now(),
-                // Save usage data if available
-                usageData: session.usageData || null
+                // Session-specific usage tracking
+                sessionStartTime: session.sessionStartTime || null,
+                sessionUsage: session.sessionUsage || {
+                    requests: 0,
+                    inputTokens: 0,
+                    outputTokens: 0,
+                    cacheTokens: 0,
+                    totalCost: 0,
+                    models: {}
+                }
             }));
 
             const data = {

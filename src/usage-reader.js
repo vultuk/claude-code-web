@@ -240,6 +240,69 @@ class UsageReader {
     return stats;
   }
 
+  // Get usage for a specific session since a start time
+  async getSessionUsage(sessionStartTime) {
+    try {
+      if (!sessionStartTime) {
+        return null;
+      }
+      
+      const startTime = new Date(sessionStartTime);
+      const entries = await this.readAllEntries(startTime);
+      
+      // Calculate session-specific stats
+      const sessionStats = {
+        requests: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheCreationTokens: 0,
+        cacheReadTokens: 0,
+        cacheTokens: 0,
+        totalCost: 0,
+        models: {},
+        startTime: sessionStartTime,
+        lastUpdate: null
+      };
+      
+      // Aggregate session data
+      for (const entry of entries) {
+        if (new Date(entry.timestamp) >= startTime) {
+          sessionStats.requests++;
+          sessionStats.inputTokens += entry.inputTokens;
+          sessionStats.outputTokens += entry.outputTokens;
+          sessionStats.cacheCreationTokens += entry.cacheCreationTokens;
+          sessionStats.cacheReadTokens += entry.cacheReadTokens;
+          sessionStats.totalCost += entry.totalCost;
+          sessionStats.lastUpdate = entry.timestamp;
+          
+          // Track by model
+          const model = entry.model || 'unknown';
+          if (!sessionStats.models[model]) {
+            sessionStats.models[model] = {
+              requests: 0,
+              inputTokens: 0,
+              outputTokens: 0,
+              cost: 0
+            };
+          }
+          
+          sessionStats.models[model].requests++;
+          sessionStats.models[model].inputTokens += entry.inputTokens;
+          sessionStats.models[model].outputTokens += entry.outputTokens;
+          sessionStats.models[model].cost += entry.totalCost;
+        }
+      }
+      
+      sessionStats.cacheTokens = sessionStats.cacheCreationTokens + sessionStats.cacheReadTokens;
+      sessionStats.totalTokens = sessionStats.inputTokens + sessionStats.outputTokens + sessionStats.cacheCreationTokens;
+      
+      return sessionStats;
+    } catch (error) {
+      console.error('Error getting session usage:', error);
+      return null;
+    }
+  }
+
   // Get recent sessions for display
   async getRecentSessions(limit = 5) {
     try {

@@ -26,6 +26,9 @@ class ClaudeCodeWebInterface {
         // Usage stats
         this.usageStats = null;
         this.usageUpdateTimer = null;
+        this.sessionStats = null;
+        this.sessionTimer = null;
+        this.sessionTimerInterval = null;
         
         this.init();
     }
@@ -625,6 +628,8 @@ class ClaudeCodeWebInterface {
                 // Don't auto-focus to avoid focus tracking sequences
                 // User can click to focus when ready
                 this.loadSessions(); // Refresh session list
+                // Request usage stats to start tracking session usage
+                this.requestUsageStats();
                 
                 // Update tab status to active
                 if (this.sessionTabManager && this.currentClaudeSessionId) {
@@ -695,7 +700,7 @@ class ClaudeCodeWebInterface {
                 break;
 
             case 'usage_update':
-                this.updateUsageDisplay(message.stats);
+                this.updateUsageDisplay(message.globalStats, message.sessionStats, message.sessionTimer);
                 break;
                 
             default:
@@ -1660,19 +1665,47 @@ class ClaudeCodeWebInterface {
         }
     }
 
-    updateUsageDisplay(stats) {
-        if (!stats) return;
+    startSessionTimerUpdate() {
+        // Clear existing timer if any
+        if (this.sessionTimerInterval) {
+            clearInterval(this.sessionTimerInterval);
+        }
         
-        this.usageStats = stats;
+        // Update timer every second
+        this.sessionTimerInterval = setInterval(() => {
+            if (this.sessionTimer && this.sessionTimer.startTime) {
+                const startTime = new Date(this.sessionTimer.startTime);
+                const now = new Date();
+                const elapsedMs = now - startTime;
+                
+                // Format elapsed time
+                const hours = Math.floor(elapsedMs / (1000 * 60 * 60));
+                const minutes = Math.floor((elapsedMs % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((elapsedMs % (1000 * 60)) / 1000);
+                
+                const formatted = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                
+                // Update just the timer display
+                const titleElement = document.getElementById('usageTitle');
+                if (titleElement && this.sessionStats) {
+                    titleElement.innerHTML = `📊 Session: ${formatted}`;
+                }
+            }
+        }, 1000);
+    }
+
+    updateUsageDisplay(globalStats, sessionStats, sessionTimer) {
+        if (!globalStats && !sessionStats) return;
+        
+        this.usageStats = globalStats;
+        this.sessionStats = sessionStats;
+        this.sessionTimer = sessionTimer;
         
         // Show the usage container
         const container = document.getElementById('usageStatsContainer');
         if (container) {
             container.style.display = 'block';
         }
-        
-        // Update summary stats
-        document.getElementById('usageRequests').textContent = stats.requests || '0';
         
         // Format tokens (K/M notation)
         const formatTokens = (tokens) => {
@@ -1684,22 +1717,52 @@ class ClaudeCodeWebInterface {
             return tokens.toString();
         };
         
-        document.getElementById('usageTokens').textContent = formatTokens(stats.totalTokens || 0);
-        
-        // Format cost
-        const cost = stats.totalCost || 0;
-        document.getElementById('usageCost').textContent = cost > 0 ? `$${cost.toFixed(4)}` : '$0';
-        
-        // Format rate
-        const rate = stats.hourlyRate || 0;
-        document.getElementById('usageRate').textContent = rate > 0 ? `${rate.toFixed(1)}/h` : '0/h';
+        // Update display based on whether we have session stats
+        if (sessionStats && sessionTimer) {
+            // Show session-specific stats with timer
+            document.getElementById('usageTitle').innerHTML = `📊 Session: ${sessionTimer.formatted}`;
+            document.getElementById('usageRequests').textContent = sessionStats.requests || '0';
+            document.getElementById('usageTokens').textContent = formatTokens(sessionStats.totalTokens || 0);
+            
+            // Start the live timer update
+            this.startSessionTimerUpdate();
+            
+            // Format cost
+            const cost = sessionStats.totalCost || 0;
+            document.getElementById('usageCost').textContent = cost > 0 ? `$${cost.toFixed(4)}` : '$0';
+            
+            // Calculate session rate
+            const hours = sessionTimer.hours + (sessionTimer.minutes / 60) + (sessionTimer.seconds / 3600);
+            const rate = hours > 0 ? sessionStats.requests / hours : 0;
+            document.getElementById('usageRate').textContent = rate > 0 ? `${rate.toFixed(1)}/h` : '0/h';
+        } else if (globalStats) {
+            // Show global stats (24h)
+            document.getElementById('usageTitle').innerHTML = '📊 Usage (24h)';
+            document.getElementById('usageRequests').textContent = globalStats.requests || '0';
+            document.getElementById('usageTokens').textContent = formatTokens(globalStats.totalTokens || 0);
+            
+            // Stop the timer update when showing global stats
+            if (this.sessionTimerInterval) {
+                clearInterval(this.sessionTimerInterval);
+                this.sessionTimerInterval = null;
+            }
+            
+            // Format cost
+            const cost = globalStats.totalCost || 0;
+            document.getElementById('usageCost').textContent = cost > 0 ? `$${cost.toFixed(4)}` : '$0';
+            
+            // Format rate
+            const rate = globalStats.hourlyRate || 0;
+            document.getElementById('usageRate').textContent = rate > 0 ? `${rate.toFixed(1)}/h` : '0/h';
+        }
         
         // Update model breakdown if available
-        if (stats.models) {
+        const currentStats = sessionStats || globalStats;
+        if (currentStats && currentStats.models) {
             const modelsDiv = document.getElementById('usageModels');
             modelsDiv.innerHTML = '';
             
-            for (const [model, data] of Object.entries(stats.models)) {
+            for (const [model, data] of Object.entries(currentStats.models)) {
                 const modelDiv = document.createElement('div');
                 modelDiv.className = 'model-usage';
                 modelDiv.innerHTML = `
@@ -1710,15 +1773,30 @@ class ClaudeCodeWebInterface {
             }
         }
         
-        // Update projections
-        if (stats.projectedDaily) {
-            document.getElementById('projectedDaily').textContent = `${stats.projectedDaily.toFixed(0)} requests`;
-        }
-        if (stats.tokensPerHour) {
-            document.getElementById('tokensPerHour').textContent = formatTokens(Math.round(stats.tokensPerHour));
-        }
-        if (stats.costPerHour) {
-            document.getElementById('costPerHour').textContent = `$${stats.costPerHour.toFixed(4)}`;
+        // Update projections based on session or global stats
+        if (sessionStats && sessionTimer) {
+            // Calculate session-based projections
+            const hours = sessionTimer.hours + (sessionTimer.minutes / 60) + (sessionTimer.seconds / 3600);
+            if (hours > 0) {
+                const requestsPerHour = sessionStats.requests / hours;
+                const tokensPerHour = sessionStats.totalTokens / hours;
+                const costPerHour = sessionStats.totalCost / hours;
+                
+                document.getElementById('projectedDaily').textContent = `${(requestsPerHour * 24).toFixed(0)} requests`;
+                document.getElementById('tokensPerHour').textContent = formatTokens(Math.round(tokensPerHour));
+                document.getElementById('costPerHour').textContent = `$${costPerHour.toFixed(4)}`;
+            }
+        } else if (globalStats) {
+            // Use global projections
+            if (globalStats.projectedDaily) {
+                document.getElementById('projectedDaily').textContent = `${globalStats.projectedDaily.toFixed(0)} requests`;
+            }
+            if (globalStats.tokensPerHour) {
+                document.getElementById('tokensPerHour').textContent = formatTokens(Math.round(globalStats.tokensPerHour));
+            }
+            if (globalStats.costPerHour) {
+                document.getElementById('costPerHour').textContent = `$${globalStats.costPerHour.toFixed(4)}`;
+            }
         }
         
         // Setup toggle button if not already done

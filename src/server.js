@@ -733,6 +733,15 @@ class ClaudeCodeWebServer {
       workingDir: validWorkingDir,
       connections: new Set([wsId]),
       outputBuffer: [],
+      sessionStartTime: null, // Will be set when Claude starts
+      sessionUsage: {
+        requests: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheTokens: 0,
+        totalCost: 0,
+        models: {}
+      },
       maxBufferSize: 1000
     };
     
@@ -876,6 +885,10 @@ class ClaudeCodeWebServer {
 
       session.active = true;
       session.lastActivity = new Date();
+      // Set session start time if this is the first time Claude is started in this session
+      if (!session.sessionStartTime) {
+        session.sessionStartTime = new Date();
+      }
 
       this.broadcastToSession(sessionId, {
         type: 'claude_started',
@@ -978,26 +991,74 @@ class ClaudeCodeWebServer {
 
   async handleGetUsage(wsInfo) {
     try {
-      // Get usage stats for the last 24 hours
-      const stats = await this.usageReader.getUsageStats(24);
+      // Get both global usage stats and session-specific stats
+      const globalStats = await this.usageReader.getUsageStats(24);
       
-      if (stats) {
-        this.sendToWebSocket(wsInfo.ws, {
-          type: 'usage_update',
-          stats
-        });
-      } else {
-        this.sendToWebSocket(wsInfo.ws, {
-          type: 'usage_update',
-          stats: {
-            requests: 0,
-            totalTokens: 0,
-            totalCost: 0,
-            periodHours: 24,
-            message: 'No usage data available'
+      // Get current session stats if available
+      let sessionStats = null;
+      let sessionTimer = null;
+      
+      if (wsInfo.claudeSessionId) {
+        const session = this.claudeSessions.get(wsInfo.claudeSessionId);
+        if (session) {
+          // Calculate session timer
+          if (session.sessionStartTime) {
+            const startTime = new Date(session.sessionStartTime);
+            const now = new Date();
+            const elapsedMs = now - startTime;
+            
+            // Format elapsed time
+            const hours = Math.floor(elapsedMs / (1000 * 60 * 60));
+            const minutes = Math.floor((elapsedMs % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((elapsedMs % (1000 * 60)) / 1000);
+            
+            sessionTimer = {
+              startTime: session.sessionStartTime,
+              elapsed: elapsedMs,
+              formatted: `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`,
+              hours,
+              minutes,
+              seconds
+            };
           }
-        });
+          
+          // Get actual session usage from JSONL files
+          const actualUsage = await this.usageReader.getSessionUsage(session.sessionStartTime);
+          
+          if (actualUsage) {
+            // Update the session's usage data with actual data
+            session.sessionUsage = {
+              requests: actualUsage.requests,
+              inputTokens: actualUsage.inputTokens,
+              outputTokens: actualUsage.outputTokens,
+              cacheTokens: actualUsage.cacheTokens,
+              totalCost: actualUsage.totalCost,
+              models: actualUsage.models
+            };
+          }
+          
+          sessionStats = {
+            ...session.sessionUsage,
+            sessionId: session.id,
+            sessionName: session.name,
+            sessionTimer
+          };
+        }
       }
+      
+      this.sendToWebSocket(wsInfo.ws, {
+        type: 'usage_update',
+        globalStats: globalStats || {
+          requests: 0,
+          totalTokens: 0,
+          totalCost: 0,
+          periodHours: 24,
+          message: 'No usage data available'
+        },
+        sessionStats,
+        sessionTimer
+      });
+      
     } catch (error) {
       console.error('Error getting usage stats:', error);
       this.sendToWebSocket(wsInfo.ws, {
