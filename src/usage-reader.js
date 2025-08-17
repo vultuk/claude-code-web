@@ -99,16 +99,42 @@ class UsageReader {
           
           // Filter by timestamp
           if (entry.timestamp && new Date(entry.timestamp) >= cutoffTime) {
-            // Extract relevant data
-            if (entry.type === 'assistant' && entry.usage) {
+            // Extract relevant data - check for usage in both locations
+            const usage = entry.usage || (entry.message && entry.message.usage);
+            const model = entry.model || (entry.message && entry.message.model) || 'unknown';
+            
+            if (entry.type === 'assistant' && usage) {
+              const inputTokens = usage.input_tokens || 0;
+              const outputTokens = usage.output_tokens || 0;
+              const cacheCreationTokens = usage.cache_creation_input_tokens || 0;
+              const cacheReadTokens = usage.cache_read_input_tokens || 0;
+              
+              // Calculate cost based on model pricing (approximate)
+              let totalCost = 0;
+              if (model.includes('opus')) {
+                // Opus pricing: $15 per million input, $75 per million output
+                totalCost = (inputTokens * 0.000015) + (outputTokens * 0.000075);
+                // Cache creation: same as input, cache read: 10% of input
+                totalCost += (cacheCreationTokens * 0.000015) + (cacheReadTokens * 0.0000015);
+              } else if (model.includes('sonnet')) {
+                // Sonnet pricing: $3 per million input, $15 per million output
+                totalCost = (inputTokens * 0.000003) + (outputTokens * 0.000015);
+                totalCost += (cacheCreationTokens * 0.000003) + (cacheReadTokens * 0.0000003);
+              } else if (model.includes('haiku')) {
+                // Haiku pricing: $0.25 per million input, $1.25 per million output
+                totalCost = (inputTokens * 0.00000025) + (outputTokens * 0.00000125);
+                totalCost += (cacheCreationTokens * 0.00000025) + (cacheReadTokens * 0.000000025);
+              }
+              
               entries.push({
                 timestamp: entry.timestamp,
-                model: entry.model || 'unknown',
-                inputTokens: entry.usage.input_tokens || 0,
-                outputTokens: entry.usage.output_tokens || 0,
-                cacheCreationTokens: entry.usage.cache_creation_input_tokens || 0,
-                cacheReadTokens: entry.usage.cache_read_input_tokens || 0,
-                totalCost: entry.usage.total_cost || 0
+                model: model,
+                inputTokens: inputTokens,
+                outputTokens: outputTokens,
+                cacheCreationTokens: cacheCreationTokens,
+                cacheReadTokens: cacheReadTokens,
+                totalCost: usage.total_cost || totalCost,
+                sessionId: entry.sessionId
               });
             }
           }
@@ -153,6 +179,7 @@ class UsageReader {
       outputTokens: 0,
       cacheCreationTokens: 0,
       cacheReadTokens: 0,
+      cacheTokens: 0,  // Combined cache tokens for display
       totalCost: 0,
       periodHours: hoursBack,
       firstEntry: entries[0].timestamp,
@@ -186,7 +213,8 @@ class UsageReader {
       stats.models[entry.model].cost += entry.totalCost;
     }
 
-    stats.totalTokens = stats.inputTokens + stats.outputTokens + stats.cacheCreationTokens + stats.cacheReadTokens;
+    stats.cacheTokens = stats.cacheCreationTokens + stats.cacheReadTokens;
+    stats.totalTokens = stats.inputTokens + stats.outputTokens + stats.cacheCreationTokens;
 
     // Calculate rates
     if (entries.length > 0) {
