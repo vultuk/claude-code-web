@@ -700,7 +700,15 @@ class ClaudeCodeWebInterface {
                 break;
 
             case 'usage_update':
-                this.updateUsageDisplay(message.sessionStats, message.dailyStats, message.sessionTimer);
+                this.updateUsageDisplay(
+                    message.sessionStats, 
+                    message.dailyStats, 
+                    message.sessionTimer,
+                    message.analytics,
+                    message.burnRate,
+                    message.plan,
+                    message.limits
+                );
                 break;
                 
             default:
@@ -1726,12 +1734,16 @@ class ClaudeCodeWebInterface {
         }, 1000);
     }
 
-    updateUsageDisplay(sessionStats, dailyStats, sessionTimer) {
+    updateUsageDisplay(sessionStats, dailyStats, sessionTimer, analytics, burnRate, plan, limits) {
         if (!sessionStats && !dailyStats) return;
         
         this.sessionStats = sessionStats;
         this.dailyStats = dailyStats;
         this.sessionTimer = sessionTimer;
+        this.analytics = analytics;
+        this.burnRate = burnRate;
+        this.currentPlan = plan;
+        this.planLimits = limits;
         
         // Show the usage container
         const container = document.getElementById('usageStatsContainer');
@@ -1776,8 +1788,42 @@ class ClaudeCodeWebInterface {
                 const remainingText = sessionTimer.isExpired ? 'EXPIRED' : `${sessionTimer.remainingFormatted} left`;
                 sessionText = `${sessionTimer.formatted} (${remainingText})`;
             }
+            
+            // Add burn rate indicator if available
+            if (sessionTimer.burnRate && sessionTimer.burnRate > 0) {
+                const burnIndicator = this.getBurnRateIndicator(sessionTimer.burnRate);
+                sessionText += ` ${burnIndicator}`;
+            }
+            
             document.getElementById('usageTitle').textContent = sessionText;
-            document.getElementById('usageTokens').textContent = formatTokens(sessionStats.totalTokens || 0);
+            
+            // Display tokens with limit if known
+            let tokenDisplay = formatTokens(sessionStats.totalTokens || 0);
+            let percentUsed = 0;
+            if (this.planLimits && this.planLimits.tokens) {
+                percentUsed = ((sessionStats.totalTokens || 0) / this.planLimits.tokens) * 100;
+                tokenDisplay += `/${formatTokens(this.planLimits.tokens)} (${percentUsed.toFixed(1)}%)`;
+                
+                // Update progress bar
+                const progressBar = document.getElementById('usageProgressBar');
+                const progressText = document.getElementById('usageProgressText');
+                const progressContainer = document.getElementById('usageProgress');
+                
+                if (progressBar && progressText && progressContainer) {
+                    progressContainer.style.display = 'block';
+                    progressBar.style.width = Math.min(100, percentUsed) + '%';
+                    progressText.textContent = percentUsed.toFixed(1) + '%';
+                    
+                    // Change color based on usage
+                    progressBar.className = 'usage-progress-bar';
+                    if (percentUsed >= 90) {
+                        progressBar.classList.add('danger');
+                    } else if (percentUsed >= 70) {
+                        progressBar.classList.add('warning');
+                    }
+                }
+            }
+            document.getElementById('usageTokens').textContent = tokenDisplay;
             
             // Start the live timer update
             this.startSessionTimerUpdate();
@@ -1789,10 +1835,32 @@ class ClaudeCodeWebInterface {
                 (cost > 0 ? `$${cost.toFixed(4)}` : '$0');
             document.getElementById('usageCost').textContent = costText;
             
-            // Calculate session rate
-            const hours = sessionTimer.hours + (sessionTimer.minutes / 60) + (sessionTimer.seconds / 3600);
-            const rate = hours > 0 ? sessionStats.requests / hours : 0;
-            document.getElementById('usageRate').textContent = rate > 0 ? `${rate.toFixed(1)}/h` : '0/h';
+            // Show burn rate instead of simple rate if available
+            if (sessionTimer.burnRate && sessionTimer.burnRate > 0) {
+                const burnRateText = `${Math.round(sessionTimer.burnRate)} tok/min`;
+                const confidenceEmoji = sessionTimer.burnRateConfidence > 0.8 ? '🔥' : 
+                                       sessionTimer.burnRateConfidence > 0.5 ? '📊' : '📈';
+                document.getElementById('usageRate').textContent = `${burnRateText} ${confidenceEmoji}`;
+                
+                // Add depletion time if available
+                if (sessionTimer.depletionTime && sessionTimer.depletionConfidence > 0.5) {
+                    const depletionDate = new Date(sessionTimer.depletionTime);
+                    const now = new Date();
+                    const minutesToDepletion = Math.max(0, (depletionDate - now) / 1000 / 60);
+                    
+                    if (minutesToDepletion < 60) {
+                        document.getElementById('usageRate').title = `Tokens depleting in ~${Math.round(minutesToDepletion)} minutes`;
+                    } else {
+                        const hoursToDepletion = Math.floor(minutesToDepletion / 60);
+                        document.getElementById('usageRate').title = `Tokens depleting in ~${hoursToDepletion}h ${Math.round(minutesToDepletion % 60)}m`;
+                    }
+                }
+            } else {
+                // Fallback to simple rate
+                const hours = sessionTimer.hours + (sessionTimer.minutes / 60) + (sessionTimer.seconds / 3600);
+                const rate = hours > 0 ? sessionStats.requests / hours : 0;
+                document.getElementById('usageRate').textContent = rate > 0 ? `${rate.toFixed(1)}/h` : '0/h';
+            }
         } else {
             // No active Claude session in the current window
             const noSessionText = isSmallMobile ? 'None' : (isMobile ? 'No Session' : 'No Active Session');
@@ -1812,6 +1880,15 @@ class ClaudeCodeWebInterface {
         // Removed model breakdown and projections - compact view doesn't need them
     }
 
+    getBurnRateIndicator(rate) {
+        // Return visual indicator based on burn rate
+        if (rate > 1000) return '🔥🔥🔥'; // Very high burn rate
+        if (rate > 500) return '🔥🔥';     // High burn rate
+        if (rate > 100) return '🔥';       // Moderate burn rate
+        if (rate > 50) return '📈';        // Low burn rate
+        return '📊';                       // Very low burn rate
+    }
+    
     showNotification(message) {
         // Simple notification - you could enhance this with a toast notification
         const notification = document.createElement('div');

@@ -2040,3 +2040,45 @@ pre, code {
     flex-shrink: 0;
 }
 
+/* Usage Progress Bar */
+.usage-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+}
+
+.usage-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #58a6ff, #79c0ff);
+    transition: width 0.3s ease, background 0.3s ease;
+    width: 0%;
+}
+
+.usage-progress-bar.warning {
+    background: linear-gradient(90deg, #ffa657, #ffdf5d);
+}
+
+.usage-progress-bar.danger {
+    background: linear-gradient(90deg, #ff7b72, #ffa198);
+}
+
+.usage-progress-text {
+    display: none; /* Hidden by default, shown on hover */
+    position: absolute;
+    right: 5px;
+    top: -20px;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.7);
+    background: rgba(0, 0, 0, 0.8);
+    padding: 2px 5px;
+    border-radius: 3px;
+}
+
+.usage-progress:hover .usage-progress-text {
+    display: block;
+}
+

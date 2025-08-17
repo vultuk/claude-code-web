@@ -10,6 +10,8 @@ class UsageReader {
     this.cacheTime = null;
     this.cacheTimeout = 5000; // Cache for 5 seconds for more real-time updates
     this.sessionDurationHours = sessionDurationHours; // Default 5 hours from first message
+    this.sessionCache = new Map(); // Cache for session detection
+    this.overlappingSessions = []; // Track overlapping sessions
   }
 
   async getUsageStats(hoursBack = 24) {
@@ -96,7 +98,10 @@ class UsageReader {
         totalCost: 0,
         models: {},
         sessionStartTime: sessionStartTime,
-        lastUpdate: null
+        lastUpdate: null,
+        sessionId: this.generateSessionId(sessionStartTime),
+        isExpired: false,
+        remainingTokens: null
       };
       
       // Only include entries within 5 hours of session start
@@ -139,6 +144,9 @@ class UsageReader {
       stats.cacheTokens = stats.cacheCreationTokens + stats.cacheReadTokens;
       // Total tokens only includes input and output (matching claude-monitor behavior)
       stats.totalTokens = stats.inputTokens + stats.outputTokens;
+      
+      // Check if session is expired (sessionEndTime already calculated above)
+      stats.isExpired = new Date() > sessionEndTime;
       
       return stats;
     } catch (error) {
@@ -503,6 +511,116 @@ class UsageReader {
     return null;
   }
 
+  // Detect overlapping sessions within rolling windows
+  async detectOverlappingSessions() {
+    try {
+      const now = new Date();
+      const lookbackHours = this.sessionDurationHours * 2; // Look back twice the session duration
+      const cutoff = new Date(now - lookbackHours * 60 * 60 * 1000);
+      const entries = await this.readAllEntries(cutoff);
+      
+      if (entries.length === 0) return [];
+      
+      // Group entries into sessions based on time gaps
+      const sessions = [];
+      let currentSession = null;
+      
+      for (const entry of entries) {
+        if (!currentSession) {
+          currentSession = {
+            startTime: entry.timestamp,
+            endTime: new Date(new Date(entry.timestamp).getTime() + this.sessionDurationHours * 60 * 60 * 1000),
+            entries: [entry],
+            totalTokens: entry.inputTokens + entry.outputTokens,
+            totalCost: entry.totalCost
+          };
+        } else {
+          const timeSinceLastEntry = new Date(entry.timestamp) - new Date(currentSession.entries[currentSession.entries.length - 1].timestamp);
+          const gapHours = timeSinceLastEntry / (1000 * 60 * 60);
+          
+          if (gapHours < this.sessionDurationHours) {
+            // Part of the same session
+            currentSession.entries.push(entry);
+            currentSession.totalTokens += entry.inputTokens + entry.outputTokens;
+            currentSession.totalCost += entry.totalCost;
+          } else {
+            // New session
+            sessions.push(currentSession);
+            currentSession = {
+              startTime: entry.timestamp,
+              endTime: new Date(new Date(entry.timestamp).getTime() + this.sessionDurationHours * 60 * 60 * 1000),
+              entries: [entry],
+              totalTokens: entry.inputTokens + entry.outputTokens,
+              totalCost: entry.totalCost
+            };
+          }
+        }
+      }
+      
+      if (currentSession) {
+        sessions.push(currentSession);
+      }
+      
+      // Find overlapping sessions
+      const overlapping = [];
+      for (let i = 0; i < sessions.length; i++) {
+        for (let j = i + 1; j < sessions.length; j++) {
+          const session1 = sessions[i];
+          const session2 = sessions[j];
+          
+          // Check if sessions overlap
+          if (new Date(session1.startTime) < new Date(session2.endTime) &&
+              new Date(session2.startTime) < new Date(session1.endTime)) {
+            overlapping.push({
+              session1: session1,
+              session2: session2,
+              overlapStart: new Date(Math.max(new Date(session1.startTime), new Date(session2.startTime))),
+              overlapEnd: new Date(Math.min(new Date(session1.endTime), new Date(session2.endTime)))
+            });
+          }
+        }
+      }
+      
+      this.overlappingSessions = overlapping;
+      return sessions;
+    } catch (error) {
+      console.error('Error detecting overlapping sessions:', error);
+      return [];
+    }
+  }
+  
+  // Generate a session ID from timestamp
+  generateSessionId(timestamp) {
+    return `session_${new Date(timestamp).getTime()}`;
+  }
+  
+  // Calculate burn rate for a given time window
+  async calculateBurnRate(minutes = 60) {
+    try {
+      const cutoff = new Date(Date.now() - minutes * 60 * 1000);
+      const entries = await this.readAllEntries(cutoff);
+      
+      if (entries.length < 2) {
+        return { rate: 0, confidence: 0 };
+      }
+      
+      const totalTokens = entries.reduce((sum, e) => sum + e.inputTokens + e.outputTokens, 0);
+      const duration = (new Date(entries[entries.length - 1].timestamp) - new Date(entries[0].timestamp)) / 1000 / 60;
+      
+      if (duration === 0) {
+        return { rate: 0, confidence: 0 };
+      }
+      
+      const rate = totalTokens / duration; // tokens per minute
+      const confidence = Math.min(entries.length / 10, 1); // Higher confidence with more data points
+      
+      return { rate, confidence, dataPoints: entries.length };
+    } catch (error) {
+      console.error('Error calculating burn rate:', error);
+      return { rate: 0, confidence: 0 };
+    }
+  }
+  
   // Get recent sessions for display
   async getRecentSessions(limit = 5) {
     try {

@@ -9,6 +9,7 @@ const { v4: uuidv4 } = require('uuid');
 const ClaudeBridge = require('./claude-bridge');
 const SessionStore = require('./utils/session-store');
 const UsageReader = require('./usage-reader');
+const UsageAnalytics = require('./usage-analytics');
 
 class ClaudeCodeWebServer {
   constructor(options = {}) {
@@ -30,6 +31,11 @@ class ClaudeCodeWebServer {
     this.claudeBridge = new ClaudeBridge();
     this.sessionStore = new SessionStore();
     this.usageReader = new UsageReader(this.sessionDurationHours);
+    this.usageAnalytics = new UsageAnalytics({
+      sessionDurationHours: this.sessionDurationHours,
+      plan: options.plan || process.env.CLAUDE_PLAN || 'custom',
+      customCostLimit: parseFloat(process.env.CLAUDE_COST_LIMIT || options.customCostLimit || 50.00)
+    });
     this.autoSaveInterval = null;
     this.startTime = Date.now(); // Track server start time
     
@@ -997,8 +1003,40 @@ class ClaudeCodeWebServer {
       // Get usage stats for the current Claude session window
       const currentSessionStats = await this.usageReader.getCurrentSessionStats();
       
+      // Get burn rate calculations
+      const burnRateData = await this.usageReader.calculateBurnRate(60);
+      
+      // Get overlapping sessions
+      const overlappingSessions = await this.usageReader.detectOverlappingSessions();
+      
       // Get 24h stats for additional context
       const dailyStats = await this.usageReader.getUsageStats(24);
+      
+      // Update analytics with current session data
+      if (currentSessionStats && currentSessionStats.sessionStartTime) {
+        // Start tracking this session in analytics
+        this.usageAnalytics.startSession(
+          currentSessionStats.sessionId,
+          new Date(currentSessionStats.sessionStartTime)
+        );
+        
+        // Add usage data to analytics
+        if (currentSessionStats.totalTokens > 0) {
+          this.usageAnalytics.addUsageData({
+            tokens: currentSessionStats.totalTokens,
+            inputTokens: currentSessionStats.inputTokens,
+            outputTokens: currentSessionStats.outputTokens,
+            cacheCreationTokens: currentSessionStats.cacheCreationTokens,
+            cacheReadTokens: currentSessionStats.cacheReadTokens,
+            cost: currentSessionStats.totalCost,
+            model: Object.keys(currentSessionStats.models)[0] || 'unknown',
+            sessionId: currentSessionStats.sessionId
+          });
+        }
+      }
+      
+      // Get comprehensive analytics
+      const analytics = this.usageAnalytics.getAnalytics();
       
       // Calculate session timer if we have a current session
       let sessionTimer = null;
@@ -1029,7 +1067,11 @@ class ClaudeCodeWebServer {
           seconds,
           remainingMs,
           sessionDurationHours: this.sessionDurationHours,
-          isExpired: remainingMs === 0
+          isExpired: remainingMs === 0,
+          burnRate: burnRateData.rate,
+          burnRateConfidence: burnRateData.confidence,
+          depletionTime: analytics.predictions.depletionTime,
+          depletionConfidence: analytics.predictions.confidence
         };
       }
       
@@ -1042,7 +1084,12 @@ class ClaudeCodeWebServer {
           message: 'No active Claude session'
         },
         dailyStats: dailyStats,
-        sessionTimer: sessionTimer
+        sessionTimer: sessionTimer,
+        analytics: analytics,
+        burnRate: burnRateData,
+        overlappingSessions: overlappingSessions.length,
+        plan: this.usageAnalytics.currentPlan,
+        limits: this.usageAnalytics.planLimits[this.usageAnalytics.currentPlan]
       });
       
     } catch (error) {
