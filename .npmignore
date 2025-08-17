@@ -1,0 +1,19 @@
+# Development files
+*.tgz
+package/
+node_modules/
+.git/
+.gitignore
+*.log
+.DS_Store
+
+# Test files
+test/
+tests/
+*.test.js
+*.spec.js
+
+# Build artifacts
+dist/
+build/
+*.tmp

@@ -145,21 +145,65 @@ body {
 /* Mobile optimizations */
 @media (max-width: 768px) {
     .usage-stats-bar {
-        padding: 4px 8px;
-        gap: 12px;
-        height: 28px;
-    }
-    
-    .usage-stat {
-        gap: 4px;
-    }
-    
-    .stat-label {
+        padding: 4px 6px;
+        gap: 8px;
+        height: auto;
+        min-height: 28px;
+        flex-wrap: wrap;
         font-size: 10px;
     }
     
+    .usage-stat {
+        gap: 3px;
+        flex: 0 0 auto;
+    }
+    
+    .stat-label {
+        font-size: 9px;
+        display: none; /* Hide labels on mobile to save space */
+    }
+    
     .stat-value {
-        font-size: 11px;
+        font-size: 10px;
+    }
+    
+    /* Show abbreviated labels with values */
+    .usage-stat::before {
+        content: attr(data-label);
+        color: var(--text-secondary);
+        font-size: 9px;
+        margin-right: 3px;
+    }
+}
+
+/* Even smaller screens */
+@media (max-width: 480px) {
+    .usage-stats-bar {
+        padding: 2px 3px;
+        gap: 4px;
+        justify-content: space-between;
+        display: grid;
+        grid-template-columns: auto auto auto 1fr;
+        align-items: center;
+    }
+    
+    .usage-stat {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        min-width: 0;
+    }
+    
+    .usage-stat:last-child {
+        justify-self: end;
+    }
+    
+    .stat-value {
+        font-size: 9px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
     }
 }
 

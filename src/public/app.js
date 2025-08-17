@@ -1678,6 +1678,10 @@ class ClaudeCodeWebInterface {
                 const now = new Date();
                 const elapsedMs = now - startTime;
                 
+                // Check if mobile screen
+                const isMobile = window.innerWidth <= 768;
+                const isSmallMobile = window.innerWidth <= 480;
+                
                 // Calculate remaining time in 5-hour window
                 const fiveHoursMs = 5 * 60 * 60 * 1000;
                 const remainingMs = Math.max(0, fiveHoursMs - elapsedMs);
@@ -1691,13 +1695,32 @@ class ClaudeCodeWebInterface {
                 const remainingHours = Math.floor(remainingMs / (1000 * 60 * 60));
                 const remainingMinutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
                 
-                const formatted = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-                const remainingFormatted = remainingMs === 0 ? 'EXPIRED' : `${String(remainingHours).padStart(2, '0')}:${String(remainingMinutes).padStart(2, '0')} left`;
+                // Format based on screen size
+                let displayText;
+                if (isSmallMobile) {
+                    // Very compact: "2h15m (2h45m)"
+                    displayText = `${hours}h${minutes}m`;
+                    if (remainingMs > 0) {
+                        displayText += ` (${remainingHours}h${remainingMinutes}m)`;
+                    } else {
+                        displayText += ' (EXP)';
+                    }
+                } else if (isMobile) {
+                    // Compact: "02:15:30 (02:45)"
+                    const formatted = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                    const remainingFormatted = remainingMs === 0 ? 'EXP' : `${String(remainingHours).padStart(2, '0')}:${String(remainingMinutes).padStart(2, '0')}`;
+                    displayText = `${formatted} (${remainingFormatted})`;
+                } else {
+                    // Full desktop: "02:15:30 (02:45:30 left)"
+                    const formatted = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                    const remainingFormatted = remainingMs === 0 ? 'EXPIRED' : `${String(remainingHours).padStart(2, '0')}:${String(remainingMinutes).padStart(2, '0')} left`;
+                    displayText = `${formatted} (${remainingFormatted})`;
+                }
                 
                 // Update the title element with remaining time
                 const titleElement = document.getElementById('usageTitle');
                 if (titleElement && this.sessionStats) {
-                    titleElement.textContent = `${formatted} (${remainingFormatted})`;
+                    titleElement.textContent = displayText;
                 }
             }
         }, 1000);
@@ -1716,6 +1739,10 @@ class ClaudeCodeWebInterface {
             container.style.display = 'block';
         }
         
+        // Check if mobile screen
+        const isMobile = window.innerWidth <= 768;
+        const isSmallMobile = window.innerWidth <= 480;
+        
         // Format tokens (K/M notation)
         const formatTokens = (tokens) => {
             if (tokens >= 1000000) {
@@ -1729,16 +1756,36 @@ class ClaudeCodeWebInterface {
         // Update display for current 5-hour Claude session
         if (sessionStats && sessionTimer) {
             // Show current 5-hour session stats with timer
-            const remainingText = sessionTimer.isExpired ? 'EXPIRED' : `${sessionTimer.remainingFormatted} left`;
-            document.getElementById('usageTitle').textContent = `${sessionTimer.formatted} (${remainingText})`;
+            let sessionText;
+            if (isSmallMobile) {
+                // Very compact for small screens: "2h15m (2h45m)"
+                sessionText = `${sessionTimer.hours}h${sessionTimer.minutes}m`;
+                if (!sessionTimer.isExpired) {
+                    const remainingHours = Math.floor(sessionTimer.remainingMs / (1000 * 60 * 60));
+                    const remainingMinutes = Math.floor((sessionTimer.remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+                    sessionText += ` (${remainingHours}h${remainingMinutes}m)`;
+                }
+            } else if (isMobile) {
+                // Compact for mobile: "02:15:30 (02:45:30)"
+                const remainingText = sessionTimer.isExpired ? 'EXP' : sessionTimer.remainingFormatted;
+                sessionText = `${sessionTimer.formatted} (${remainingText})`;
+            } else {
+                // Full text for desktop
+                const remainingText = sessionTimer.isExpired ? 'EXPIRED' : `${sessionTimer.remainingFormatted} left`;
+                sessionText = `${sessionTimer.formatted} (${remainingText})`;
+            }
+            document.getElementById('usageTitle').textContent = sessionText;
             document.getElementById('usageTokens').textContent = formatTokens(sessionStats.totalTokens || 0);
             
             // Start the live timer update
             this.startSessionTimerUpdate();
             
-            // Format cost
+            // Format cost - shorter on mobile
             const cost = sessionStats.totalCost || 0;
-            document.getElementById('usageCost').textContent = cost > 0 ? `$${cost.toFixed(4)}` : '$0';
+            const costText = isSmallMobile ? 
+                (cost > 0 ? `$${cost.toFixed(2)}` : '$0') :
+                (cost > 0 ? `$${cost.toFixed(4)}` : '$0');
+            document.getElementById('usageCost').textContent = costText;
             
             // Calculate session rate
             const hours = sessionTimer.hours + (sessionTimer.minutes / 60) + (sessionTimer.seconds / 3600);
@@ -1746,7 +1793,8 @@ class ClaudeCodeWebInterface {
             document.getElementById('usageRate').textContent = rate > 0 ? `${rate.toFixed(1)}/h` : '0/h';
         } else {
             // No active Claude session in the last 5 hours
-            document.getElementById('usageTitle').textContent = 'No Active Session';
+            const noSessionText = isSmallMobile ? 'No Session' : (isMobile ? 'No Session' : 'No Active Session');
+            document.getElementById('usageTitle').textContent = noSessionText;
             document.getElementById('usageTokens').textContent = '0';
             
             // Stop the timer update
