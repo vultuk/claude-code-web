@@ -3,6 +3,7 @@
 const { Command } = require('commander');
 const path = require('path');
 const open = require('open');
+const crypto = require('crypto');
 const { startServer } = require('../src/server');
 
 const program = new Command();
@@ -10,10 +11,11 @@ const program = new Command();
 program
   .name('cc-web')
   .description('Web-based interface for Claude Code CLI')
-  .version('1.11.31')
+  .version('2.0.0')
   .option('-p, --port <number>', 'port to run the server on', '32352')
   .option('--no-open', 'do not automatically open browser')
   .option('--auth <token>', 'authentication token for secure access')
+  .option('--disable-auth', 'disable authentication (not recommended for production)')
   .option('--https', 'enable HTTPS (requires cert files)')
   .option('--cert <path>', 'path to SSL certificate file')
   .option('--key <path>', 'path to SSL private key file')
@@ -22,6 +24,15 @@ program
   .parse();
 
 const options = program.opts();
+
+function generateRandomToken(length = 10) {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
 
 async function main() {
   try {
@@ -32,9 +43,24 @@ async function main() {
       process.exit(1);
     }
 
+    // Handle authentication logic
+    let authToken = null;
+    let noAuth = options.disableAuth === true;
+    
+    if (!noAuth) {
+      if (options.auth) {
+        // Use provided token
+        authToken = options.auth;
+      } else {
+        // Generate random token
+        authToken = generateRandomToken();
+      }
+    }
+
     const serverOptions = {
       port,
-      auth: options.auth,
+      auth: authToken,
+      noAuth: noAuth,
       https: options.https,
       cert: options.cert,
       key: options.key,
@@ -48,8 +74,19 @@ async function main() {
     console.log('Mode: Folder selection mode');
     console.log(`Plan: ${options.plan}`);
     
-    if (options.auth) {
-      console.log('Authentication: Enabled');
+    // Display authentication status prominently
+    if (noAuth) {
+      console.log('\n⚠️  AUTHENTICATION DISABLED - Server is accessible without a token');
+      console.log('   (Use without --disable-auth flag for security in production)');
+    } else {
+      console.log('\n🔐 AUTHENTICATION ENABLED');
+      if (options.auth) {
+        console.log('   Using provided authentication token');
+      } else {
+        console.log('   Generated random authentication token:');
+        console.log(`   \x1b[1m\x1b[33m${authToken}\x1b[0m`);
+        console.log('   \x1b[2mSave this token - you\'ll need it to access the interface\x1b[0m');
+      }
     }
 
     const server = await startServer(serverOptions);
@@ -58,6 +95,16 @@ async function main() {
     const url = `${protocol}://localhost:${port}`;
     
     console.log(`\n🚀 Claude Code Web Interface is running at: ${url}`);
+    
+    if (!noAuth) {
+      console.log('\n📋 Authentication Required:');
+      if (options.auth) {
+        console.log('   Use your provided authentication token to access the interface');
+      } else {
+        console.log(`   Enter this token when prompted: \x1b[1m\x1b[33m${authToken}\x1b[0m`);
+      }
+    }
+    
     console.log('\nPress Ctrl+C to stop the server\n');
 
     if (options.open) {

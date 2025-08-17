@@ -15,6 +15,7 @@ class ClaudeCodeWebServer {
   constructor(options = {}) {
     this.port = options.port || 32352;
     this.auth = options.auth;
+    this.noAuth = options.noAuth || false;
     this.dev = options.dev || false;
     this.useHttps = options.https || false;
     this.certFile = options.cert;
@@ -146,14 +147,14 @@ class ClaudeCodeWebServer {
     // Auth status endpoint - always accessible
     this.app.get('/auth-status', (req, res) => {
       res.json({ 
-        authRequired: !!this.auth,
+        authRequired: !this.noAuth && !!this.auth,
         authenticated: false 
       });
     });
 
     // Auth verify endpoint - check if token is valid
     this.app.post('/auth-verify', (req, res) => {
-      if (!this.auth) {
+      if (this.noAuth || !this.auth) {
         return res.json({ valid: true }); // No auth required
       }
       
@@ -167,7 +168,7 @@ class ClaudeCodeWebServer {
       }
     });
 
-    if (this.auth) {
+    if (!this.noAuth && this.auth) {
       this.app.use((req, res, next) => {
         const token = req.headers.authorization || req.query.token;
         if (token !== `Bearer ${this.auth}` && token !== this.auth) {
@@ -531,7 +532,7 @@ class ClaudeCodeWebServer {
     this.wss = new WebSocket.Server({ 
       server,
       verifyClient: (info) => {
-        if (this.auth) {
+        if (!this.noAuth && this.auth) {
           const url = new URL(info.req.url, 'ws://localhost');
           const token = url.searchParams.get('token');
           return token === this.auth;

@@ -2,12 +2,27 @@
 
 A web-based interface for Claude Code CLI that can be accessed from any browser. This package allows you to run Claude Code in a terminal-like environment through your web browser, with real-time streaming and full interactivity.
 
+## ⚠️ Authentication is now Required by Default
+
+**Breaking Change**: Starting with v2.0.0, authentication is enabled by default for security. When you start the server, it will automatically generate a random token that you'll need to access the interface.
+
+**Quick Start**: Just run the command and copy the displayed token:
+```bash
+npx claude-code-web
+# Look for: "Generated random authentication token: Xr9kM2nQ7w"
+```
+
+**Migration**: If you need the old behavior (no authentication), use `--disable-auth`:
+```bash
+npx claude-code-web --disable-auth
+```
+
 ## Features
 
 - 🌐 **Web-based terminal** - Access Claude Code from any browser
 - 🚀 **Real-time streaming** - Live output with WebSocket communication  
 - 🎨 **Terminal emulation** - Full ANSI color support and terminal features
-- 🔐 **Authentication** - Optional token-based security
+- 🔐 **Authentication** - Secure by default with automatic token generation
 - 📱 **Responsive design** - Works on desktop and mobile
 - ⚡ **NPX support** - Run anywhere with `npx claude-code-web`
 - 🎛️ **Customizable** - Adjustable font size, themes, and settings
@@ -32,7 +47,7 @@ npx claude-code-web
 
 ### Basic Usage
 ```bash
-# Start with default settings (port 3000, max20 plan)
+# Start with default settings (port 32352, max20 plan, auto-generated auth token)
 npx claude-code-web
 
 # Specify a subscription plan
@@ -47,12 +62,19 @@ npx claude-code-web --port 8080
 npx claude-code-web --no-open
 ```
 
-### With Authentication
+### Authentication Options
 ```bash
-# Use authentication token for secure access
+# Default: Auto-generates a random 10-character token (RECOMMENDED)
+npx claude-code-web
+# Output will show: "Generated random authentication token: Xr9kM2nQ7w"
+
+# Use a custom authentication token
 npx claude-code-web --auth your-secret-token
 
-# Access with token in URL: http://localhost:3000/?token=your-secret-token
+# Disable authentication entirely (NOT recommended for production)
+npx claude-code-web --disable-auth
+
+# Access with token in URL: http://localhost:32352/?token=your-token
 ```
 
 ### HTTPS Support
@@ -92,13 +114,15 @@ npx claude-code-web --dev
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-p, --port <number>` | Server port | 3000 |
+| `-p, --port <number>` | Server port | 32352 |
 | `--no-open` | Don't automatically open browser | false |
-| `--auth <token>` | Authentication token | none |
+| `--auth <token>` | Custom authentication token | auto-generated |
+| `--disable-auth` | Disable authentication (not recommended) | false |
 | `--https` | Enable HTTPS | false |
 | `--cert <path>` | SSL certificate file path | none |
 | `--key <path>` | SSL private key file path | none |
 | `--dev` | Development mode with extra logging | false |
+| `--plan <type>` | Subscription plan (pro, max5, max20) | max20 |
 
 ## How It Works
 
@@ -139,21 +163,51 @@ npx claude-code-web --dev
 
 ## Security Considerations
 
-### Authentication
-When using the `--auth` option, clients must provide the token either:
+### Authentication (Enabled by Default)
+Claude Code Web now requires authentication by default for security:
+
+**Default Behavior**: Automatically generates a secure 10-character random token
+```bash
+npx claude-code-web
+# Output: "Generated random authentication token: Xr9kM2nQ7w"
+```
+
+**Custom Token**: Specify your own token
+```bash
+npx claude-code-web --auth my-secure-token-123
+```
+
+**Disable Authentication**: Only for development (not recommended)
+```bash
+npx claude-code-web --disable-auth
+```
+
+Clients must provide the token either:
 - In the `Authorization` header: `Bearer your-token`
 - As a query parameter: `?token=your-token`
+- Through the web login prompt when accessing the interface
 
 ### Rate Limiting
 Built-in rate limiting prevents abuse:
 - 100 requests per minute per IP by default
 - Configurable limits for production environments
 
-### HTTPS
-For production use, enable HTTPS with valid SSL certificates:
+### Production Security Setup
+For production use, combine HTTPS with authentication:
 ```bash
+# Recommended: Auto-generated token with HTTPS
+npx claude-code-web --https --cert cert.pem --key key.pem
+
+# Alternative: Custom token with HTTPS
 npx claude-code-web --https --cert cert.pem --key key.pem --auth $(openssl rand -hex 32)
 ```
+
+### Security Features
+- **Default Authentication**: Automatic token generation prevents unauthorized access
+- **Secure Token Display**: Generated tokens are highlighted in the console for easy copying
+- **Session Security**: Each session requires proper authentication
+- **WebSocket Protection**: Authentication extends to WebSocket connections
+- **Warning System**: Clear warnings when authentication is disabled
 
 ## Development
 
