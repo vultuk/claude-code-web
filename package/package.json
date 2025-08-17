@@ -1,6 +1,6 @@
 {
   "name": "claude-code-web",
-  "version": "1.11.29",
+  "version": "1.11.28",
   "description": "Web-based interface for Claude Code CLI accessible via browser",
   "main": "src/server.js",
   "bin": {
@@ -23,14 +23,13 @@
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
-    "claude-code-web": "^1.11.28",
-    "commander": "^12.1.0",
-    "cors": "^2.8.5",
     "express": "^4.19.2",
+    "ws": "^8.18.0",
     "node-pty": "^1.0.0",
+    "commander": "^12.1.0",
     "open": "^10.1.0",
     "uuid": "^10.0.0",
-    "ws": "^8.18.0"
+    "cors": "^2.8.5"
   },
   "engines": {
     "node": ">=16.0.0"
