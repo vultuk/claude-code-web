@@ -40,10 +40,10 @@ class UsageReader {
 
   async getCurrentSessionStats() {
     try {
-      // First, find all recent entries to determine session start
-      // Look back up to 24 hours to find session boundaries
+      // First, find only RECENT entries from files modified in last 24 hours
+      // This prevents reading old session data from past days
       const oneDayAgo = new Date(Date.now() - (24 * 60 * 60 * 1000));
-      const allRecentEntries = await this.readAllEntries(oneDayAgo);
+      const allRecentEntries = await this.readRecentEntries(oneDayAgo);
       
       if (allRecentEntries.length === 0) {
         return null;
@@ -242,8 +242,31 @@ class UsageReader {
       return [];
     }
   }
+  
+  async readRecentEntries(cutoffTime) {
+    const entries = [];
+    
+    try {
+      // Find only JSONL files modified in the last 24 hours
+      const files = await this.findJsonlFiles(true);
+      
+      // Read entries from each recent file
+      for (const file of files) {
+        const fileEntries = await this.readJsonlFile(file, cutoffTime);
+        entries.push(...fileEntries);
+      }
+      
+      // Sort by timestamp
+      entries.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      
+      return entries;
+    } catch (error) {
+      console.error('Error reading recent entries:', error);
+      return [];
+    }
+  }
 
-  async findJsonlFiles() {
+  async findJsonlFiles(onlyRecent = false) {
     const files = [];
     
     try {
@@ -257,8 +280,21 @@ class UsageReader {
           const projectFiles = await fs.readdir(projectPath);
           const jsonlFiles = projectFiles.filter(f => f.endsWith('.jsonl'));
           
+          // If onlyRecent is true, only include files modified in the last 24 hours
           for (const jsonlFile of jsonlFiles) {
-            files.push(path.join(projectPath, jsonlFile));
+            const filePath = path.join(projectPath, jsonlFile);
+            
+            if (onlyRecent) {
+              const fileStat = await fs.stat(filePath);
+              const hoursSinceModified = (Date.now() - fileStat.mtime.getTime()) / (1000 * 60 * 60);
+              
+              // Only include files modified in the last 24 hours
+              if (hoursSinceModified <= 24) {
+                files.push(filePath);
+              }
+            } else {
+              files.push(filePath);
+            }
           }
         }
       }
@@ -605,7 +641,7 @@ class UsageReader {
   async calculateBurnRate(minutes = 60) {
     try {
       const cutoff = new Date(Date.now() - minutes * 60 * 1000);
-      const entries = await this.readAllEntries(cutoff);
+      const entries = await this.readRecentEntries(cutoff);
       
       if (entries.length < 2) {
         return { rate: 0, confidence: 0 };
