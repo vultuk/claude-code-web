@@ -1864,9 +1864,9 @@ class ClaudeCodeWebInterface {
                     const modelTokens = (data.inputTokens || 0) + (data.outputTokens || 0);
                     totalTokens += modelTokens;
                     
-                    if (model.toLowerCase().includes('opus')) {
+                    if (model === 'opus') {
                         opusTokens += modelTokens;
-                    } else if (model.toLowerCase().includes('sonnet')) {
+                    } else if (model === 'sonnet') {
                         sonnetTokens += modelTokens;
                     }
                 }

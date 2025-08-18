@@ -12,6 +12,58 @@ class UsageReader {
     this.sessionDurationHours = sessionDurationHours; // Default 5 hours from first message
     this.sessionCache = new Map(); // Cache for session detection
     this.overlappingSessions = []; // Track overlapping sessions
+    this.processedEntries = new Set(); // Track processed entries to avoid duplicates
+  }
+
+  /**
+   * Normalize model names for consistent categorization
+   */
+  normalizeModelName(model) {
+    if (!model || typeof model !== 'string') {
+      return 'unknown';
+    }
+    
+    const modelLower = model.toLowerCase();
+    
+    if (modelLower.includes('opus')) {
+      return 'opus';
+    } else if (modelLower.includes('sonnet')) {
+      return 'sonnet';
+    } else if (modelLower.includes('haiku')) {
+      return 'haiku';
+    }
+    
+    return 'unknown';
+  }
+
+  /**
+   * Create unique hash for deduplication based on message_id and request_id
+   */
+  createUniqueHash(entry) {
+    // Extract message ID from various possible locations
+    const messageId = entry.message_id || 
+                     entry.messageId || 
+                     (entry.message && entry.message.id) || 
+                     null;
+    
+    // Extract request ID from various possible locations
+    const requestId = entry.request_id || 
+                     entry.requestId || 
+                     null;
+    
+    // Create hash if we have both IDs
+    if (messageId && requestId) {
+      return `${messageId}:${requestId}`;
+    }
+    
+    return null;
+  }
+
+  /**
+   * Clear processed entries cache to prevent memory growth
+   */
+  clearProcessedEntriesCache() {
+    this.processedEntries.clear();
   }
 
   async getUsageStats(hoursBack = 24) {
@@ -21,6 +73,9 @@ class UsageReader {
     }
 
     try {
+      // Clear processed entries to ensure fresh data
+      this.clearProcessedEntriesCache();
+      
       const cutoffTime = new Date(Date.now() - (hoursBack * 60 * 60 * 1000));
       const entries = await this.readAllEntries(cutoffTime);
       
@@ -40,6 +95,9 @@ class UsageReader {
 
   async getCurrentSessionStats() {
     try {
+      // Clear processed entries to ensure fresh data
+      this.clearProcessedEntriesCache();
+      
       // Use new session logic based on daily boundaries and cascading 5-hour sessions
       const currentSession = await this.getCurrentSession();
       
@@ -123,6 +181,9 @@ class UsageReader {
 
   async getAllTimeUsageStats() {
     try {
+      // Clear processed entries to ensure fresh data
+      this.clearProcessedEntriesCache();
+      
       // Read ALL entries from ALL projects (no time cutoff)
       const entries = await this.readAllEntries(new Date(0));
       
@@ -332,9 +393,17 @@ class UsageReader {
           
           // Filter by timestamp
           if (entry.timestamp && new Date(entry.timestamp) >= cutoffTime) {
+            // Check for duplicate entries using unique hash
+            const uniqueHash = this.createUniqueHash(entry);
+            if (uniqueHash && this.processedEntries.has(uniqueHash)) {
+              // Skip duplicate entry
+              return;
+            }
+            
             // Extract relevant data - check for usage in both locations
             const usage = entry.usage || (entry.message && entry.message.usage);
-            const model = entry.model || (entry.message && entry.message.model) || 'unknown';
+            const rawModel = entry.model || (entry.message && entry.message.model) || 'unknown';
+            const model = this.normalizeModelName(rawModel);
             
             // Check if this is an assistant message with usage data
             if ((entry.type === 'assistant' || (entry.message && entry.message.role === 'assistant')) && usage) {
@@ -346,16 +415,16 @@ class UsageReader {
               // Calculate cost based on Claude's actual pricing model
               // These prices match Claude's current cost calculations (2025)
               let totalCost = 0;
-              if (model.includes('opus')) {
+              if (model === 'opus') {
                 // Claude 4.1 Opus pricing: $15/$75 per million tokens
                 totalCost = (inputTokens * 0.000015) + (outputTokens * 0.000075);
                 // Cache costs: creation same as input, read is 10% of input
                 totalCost += (cacheCreationTokens * 0.000015) + (cacheReadTokens * 0.0000015);
-              } else if (model.includes('sonnet')) {
+              } else if (model === 'sonnet') {
                 // Claude 4.0 Sonnet pricing: $3/$15 per million tokens
                 totalCost = (inputTokens * 0.000003) + (outputTokens * 0.000015);
                 totalCost += (cacheCreationTokens * 0.000003) + (cacheReadTokens * 0.0000003);
-              } else if (model.includes('haiku')) {
+              } else if (model === 'haiku') {
                 // Claude 3 Haiku pricing (legacy)
                 totalCost = (inputTokens * 0.00000025) + (outputTokens * 0.00000125);
                 totalCost += (cacheCreationTokens * 0.00000025) + (cacheReadTokens * 0.000000025);
@@ -368,7 +437,7 @@ class UsageReader {
                 finalCost = usage.total_cost > 1 ? usage.total_cost / 100 : usage.total_cost;
               }
               
-              entries.push({
+              const processedEntry = {
                 timestamp: entry.timestamp,
                 model: model,
                 inputTokens: inputTokens,
@@ -376,8 +445,17 @@ class UsageReader {
                 cacheCreationTokens: cacheCreationTokens,
                 cacheReadTokens: cacheReadTokens,
                 totalCost: finalCost,
-                sessionId: entry.sessionId
-              });
+                sessionId: entry.sessionId,
+                messageId: entry.message_id || entry.messageId || (entry.message && entry.message.id) || null,
+                requestId: entry.request_id || entry.requestId || null
+              };
+              
+              entries.push(processedEntry);
+              
+              // Mark this entry as processed if we have a unique hash
+              if (uniqueHash) {
+                this.processedEntries.add(uniqueHash);
+              }
             }
           }
         } catch (e) {
@@ -490,6 +568,9 @@ class UsageReader {
       if (!sessionId) {
         return null;
       }
+      
+      // Clear processed entries to ensure fresh data
+      this.clearProcessedEntriesCache();
       
       // Find the JSONL file for this session
       const sessionFile = path.join(this.claudeProjectsPath, path.basename(process.cwd()).replace(/[^a-zA-Z0-9-]/g, '-'), `${sessionId}.jsonl`);
