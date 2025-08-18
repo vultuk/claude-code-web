@@ -49,7 +49,10 @@ class PaneManager {
      */
     handlePaneCreated(pane) {
         this.setupPaneTabBar(pane);
-        this.createTerminalForPane(pane);
+        // Delay terminal creation to ensure DOM is ready
+        setTimeout(() => {
+            this.createTerminalForPane(pane);
+        }, 50);
         this.renderPaneTabs(pane);
     }
 
