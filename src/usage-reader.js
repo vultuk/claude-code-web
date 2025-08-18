@@ -40,70 +40,29 @@ class UsageReader {
 
   async getCurrentSessionStats() {
     try {
-      // Get ALL entries from ALL projects to find the current session
-      // Claude sessions are global across all projects in 5-hour windows
-      const oneDayAgo = new Date(Date.now() - (24 * 60 * 60 * 1000));
-      const allRecentEntries = await this.readAllEntries(oneDayAgo);
+      // Use new session logic based on daily boundaries and cascading 5-hour sessions
+      const currentSession = await this.getCurrentSession();
       
-      if (allRecentEntries.length === 0) {
+      if (!currentSession) {
         return null;
       }
       
-      // Sort all entries by timestamp (newest first) to find session boundaries
-      const sortedEntries = [...allRecentEntries].sort((a, b) => 
-        new Date(b.timestamp) - new Date(a.timestamp)
-      );
+      // Get all entries for the current day
+      const startOfDay = this.getStartOfCurrentDay();
+      const allTodayEntries = await this.readAllEntries(startOfDay);
       
-      // Find the current session by detecting 5-hour window boundaries
-      let sessionStartTime = null;
-      let currentSessionEntries = [];
-      
-      if (sortedEntries.length > 0) {
-        // Start with the most recent entry across ALL projects
-        const mostRecentEntry = sortedEntries[0];
-        const mostRecentTime = new Date(mostRecentEntry.timestamp);
-        
-        // Find the session start hour for the most recent entry
-        const candidateSessionStart = new Date(mostRecentTime);
-        candidateSessionStart.setUTCMinutes(0, 0, 0); // Round down to the hour in UTC
-        candidateSessionStart.setUTCSeconds(0, 0); // Also clear seconds and milliseconds in UTC
-        
-        // The session window is 5 hours from this hour
-        const sessionEndTime = new Date(candidateSessionStart.getTime() + (this.sessionDurationHours * 60 * 60 * 1000));
-        
-        // Check if we're still within this session window
-        if (mostRecentTime <= sessionEndTime) {
-          // We're within the 5-hour window, collect all entries in this session
-          sessionStartTime = candidateSessionStart.toISOString();
-          
-          // Add all entries that fall within this 5-hour session window
-          for (const entry of sortedEntries) {
-            const entryTime = new Date(entry.timestamp);
-            if (entryTime >= candidateSessionStart && entryTime <= sessionEndTime) {
-              currentSessionEntries.push(entry);
-            } else if (entryTime < candidateSessionStart) {
-              // We've gone past the session start, stop looking
-              break;
-            }
-          }
-        } else {
-          // The most recent entry is outside any valid session window
-          // This means the session has expired, return null
-          return null;
-        }
+      if (allTodayEntries.length === 0) {
+        return null;
       }
       
-      // Reverse to get chronological order
-      currentSessionEntries.reverse();
+      // Filter entries to only include those in the current session
+      const sessionEntries = allTodayEntries.filter(entry => {
+        const entryTime = new Date(entry.timestamp);
+        return entryTime >= currentSession.startTime && entryTime <= currentSession.endTime;
+      });
       
-      // Session entries collected
-      
-      const entries = currentSessionEntries;
-      
-      // sessionStartTime is already calculated correctly above as the rounded hour
-      const sessionStartDate = new Date(sessionStartTime);
-      const sessionEndTime = new Date(sessionStartDate.getTime() + (this.sessionDurationHours * 60 * 60 * 1000));
-      const now = new Date();
+      // Sort entries chronologically
+      sessionEntries.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
       
       // Calculate statistics for the current session window
       const stats = {
@@ -116,18 +75,16 @@ class UsageReader {
         totalTokens: 0,
         totalCost: 0,
         models: {},
-        sessionStartTime: sessionStartTime, // Now using the rounded time
+        sessionStartTime: currentSession.startTime.toISOString(),
         lastUpdate: null,
-        sessionId: this.generateSessionId(sessionStartTime),
-        isExpired: false,
+        sessionId: currentSession.sessionId,
+        sessionNumber: currentSession.sessionNumber, // Add session number
+        isExpired: new Date() > currentSession.endTime,
         remainingTokens: null
       };
       
-      // ALL entries are already within the session (filtered above)
-      const validEntries = entries;
-      
       // Aggregate session data
-      for (const entry of validEntries) {
+      for (const entry of sessionEntries) {
         stats.requests++;
         stats.inputTokens += entry.inputTokens;
         stats.outputTokens += entry.outputTokens;
@@ -156,9 +113,6 @@ class UsageReader {
       stats.cacheTokens = stats.cacheCreationTokens + stats.cacheReadTokens;
       // Total tokens only includes input and output (matching claude-monitor behavior)
       stats.totalTokens = stats.inputTokens + stats.outputTokens;
-      
-      // Check if session is expired (sessionEndTime already calculated above)
-      stats.isExpired = new Date() > sessionEndTime;
       
       return stats;
     } catch (error) {
@@ -760,6 +714,113 @@ class UsageReader {
     } catch (error) {
       console.error('Error getting recent sessions:', error);
       return [];
+    }
+  }
+
+  // Helper function to get start of current day (midnight)
+  getStartOfCurrentDay() {
+    const now = new Date();
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0);
+    return startOfDay;
+  }
+
+  // Helper function to find all sessions for the current day
+  async getDailySessionBoundaries() {
+    try {
+      const startOfDay = this.getStartOfCurrentDay();
+      const endOfDay = new Date(startOfDay);
+      endOfDay.setHours(23, 59, 59, 999);
+      
+      // Get all entries for the current day
+      const entries = await this.readAllEntries(startOfDay);
+      
+      if (entries.length === 0) {
+        return [];
+      }
+      
+      // Filter entries to only include today's entries
+      const todayEntries = entries.filter(entry => {
+        const entryTime = new Date(entry.timestamp);
+        return entryTime >= startOfDay && entryTime <= endOfDay;
+      });
+      
+      if (todayEntries.length === 0) {
+        return [];
+      }
+      
+      // Sort entries chronologically (oldest first)
+      todayEntries.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      
+      // Find session boundaries
+      const sessions = [];
+      let sessionNumber = 1;
+      let currentSessionStart = null;
+      let processedEntries = new Set();
+      
+      for (const entry of todayEntries) {
+        if (processedEntries.has(entry.timestamp)) {
+          continue;
+        }
+        
+        const entryTime = new Date(entry.timestamp);
+        
+        // If no current session or this entry is after the current session ends
+        if (!currentSessionStart || entryTime >= new Date(currentSessionStart.getTime() + (this.sessionDurationHours * 60 * 60 * 1000))) {
+          // Round down to the nearest hour for session start
+          const sessionStart = new Date(entryTime);
+          sessionStart.setMinutes(0, 0, 0);
+          
+          // Session ends 5 hours later or at midnight, whichever is earlier
+          const sessionEnd = new Date(sessionStart.getTime() + (this.sessionDurationHours * 60 * 60 * 1000));
+          const midnightEnd = new Date(endOfDay);
+          const actualSessionEnd = sessionEnd > midnightEnd ? midnightEnd : sessionEnd;
+          
+          sessions.push({
+            sessionNumber: sessionNumber,
+            startTime: sessionStart,
+            endTime: actualSessionEnd,
+            sessionId: this.generateSessionId(sessionStart.toISOString())
+          });
+          
+          currentSessionStart = sessionStart;
+          sessionNumber++;
+          
+          // Mark all entries in this session as processed
+          for (const e of todayEntries) {
+            const eTime = new Date(e.timestamp);
+            if (eTime >= sessionStart && eTime <= actualSessionEnd) {
+              processedEntries.add(e.timestamp);
+            }
+          }
+        }
+      }
+      
+      return sessions;
+    } catch (error) {
+      console.error('Error getting daily session boundaries:', error);
+      return [];
+    }
+  }
+
+  // Helper function to find which session is currently active
+  async getCurrentSession() {
+    try {
+      const now = new Date();
+      const sessions = await this.getDailySessionBoundaries();
+      
+      // Find the session that contains the current time
+      for (const session of sessions) {
+        if (now >= session.startTime && now <= session.endTime) {
+          return session;
+        }
+      }
+      
+      // No active session found
+      return null;
+    } catch (error) {
+      console.error('Error getting current session:', error);
+      return null;
     }
   }
 }

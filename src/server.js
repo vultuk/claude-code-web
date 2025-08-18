@@ -1069,6 +1069,7 @@ class ClaudeCodeWebServer {
           seconds,
           remainingMs,
           sessionDurationHours: this.sessionDurationHours,
+          sessionNumber: currentSessionStats.sessionNumber || 1, // Add session number
           isExpired: remainingMs === 0,
           burnRate: burnRateData.rate,
           burnRateConfidence: burnRateData.confidence,

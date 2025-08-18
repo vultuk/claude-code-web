@@ -1738,7 +1738,7 @@ class ClaudeCodeWebInterface {
         // Update display for current Claude session
         // If session is expired (remainingMs === 0), still show the stats but with 0 time
         if (sessionStats && sessionTimer && !sessionTimer.isExpired) {
-            // Show session timer - just time remaining, no prefixes
+            // Show session timer - just time remaining
             let sessionText;
             if (sessionTimer.remainingMs > 0) {
                 const remainingHours = Math.floor(sessionTimer.remainingMs / (1000 * 60 * 60));
