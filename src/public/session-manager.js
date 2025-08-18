@@ -1,10 +1,15 @@
 class SessionTabManager {
     constructor(claudeInterface) {
         this.claudeInterface = claudeInterface;
-        this.tabs = new Map(); // sessionId -> tab element
+        this.tabs = new Map(); // sessionId -> tab element (legacy - kept for compatibility)
         this.activeSessions = new Map(); // sessionId -> session data
         this.activeTabId = null;
         this.notificationsEnabled = false;
+        
+        // New pane-based system
+        this.paneManager = null;
+        this.splitLayout = null;
+        
         this.requestNotificationPermission();
     }
     
@@ -183,6 +188,45 @@ class SessionTabManager {
     }
 
     async init() {
+        // Check if we're in split layout mode
+        const splitLayoutRoot = document.getElementById('splitLayoutRoot');
+        if (splitLayoutRoot) {
+            // Initialize split layout system
+            await this.initSplitLayoutMode();
+        } else {
+            // Fall back to legacy tab system
+            await this.initLegacyMode();
+        }
+    }
+    
+    async initSplitLayoutMode() {
+        console.log('[SessionManager] Initializing split layout mode');
+        
+        // Initialize split layout
+        this.splitLayout = new SplitLayout();
+        this.splitLayout.init(document.getElementById('splitLayoutRoot'));
+        
+        // Initialize pane manager
+        this.paneManager = new PaneManager(this.splitLayout, this.claudeInterface);
+        
+        // Initialize drag and drop
+        const dragDropManager = new DragDropManager(this.splitLayout);
+        this.paneManager.setDragDropManager(dragDropManager);
+        
+        // Set up keyboard shortcuts for new system
+        this.setupSplitLayoutKeyboardShortcuts();
+        
+        // Load existing sessions into first pane
+        await this.loadSessionsIntoSplitLayout();
+        
+        // Show notification permission prompt after a slight delay
+        setTimeout(() => {
+            this.checkAndPromptForNotifications();
+        }, 2000);
+    }
+    
+    async initLegacyMode() {
+        console.log('[SessionManager] Initializing legacy tab mode');
         this.setupTabBar();
         this.setupKeyboardShortcuts();
         this.setupOverflowDropdown();
@@ -453,6 +497,28 @@ class SessionTabManager {
             
         });
     }
+    
+    setupSplitLayoutKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // Let pane manager handle split layout shortcuts
+            if (this.paneManager && this.paneManager.handleKeyboardShortcut(e)) {
+                return;
+            }
+            
+            // Additional split-specific shortcuts
+            // Ctrl/Cmd + Shift + E: Split right
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'e') {
+                e.preventDefault();
+                this.splitActivePane('horizontal');
+            }
+            
+            // Ctrl/Cmd + Shift + O: Split down
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'o') {
+                e.preventDefault();
+                this.splitActivePane('vertical');
+            }
+        });
+    }
 
     async loadSessions() {
         try {
@@ -497,6 +563,12 @@ class SessionTabManager {
     }
 
     addTab(sessionId, sessionName, status = 'idle', workingDir = null, autoSwitch = true) {
+        // In split layout mode, add tab to active pane
+        if (this.paneManager && this.splitLayout) {
+            return this.addTabToSplitLayout(sessionId, sessionName, status, workingDir, autoSwitch);
+        }
+        
+        // Legacy mode
         const tabsContainer = document.getElementById('tabsContainer');
         if (!tabsContainer) return;
         
@@ -726,6 +798,16 @@ class SessionTabManager {
     }
 
     createNewSession() {
+        // In split layout mode, create new tab in active pane
+        if (this.paneManager && this.splitLayout) {
+            const activePane = this.splitLayout.getActivePane();
+            if (activePane) {
+                this.paneManager.createNewTabInPane(activePane);
+                return;
+            }
+        }
+        
+        // Legacy mode
         // Set flag to indicate we're creating a new session
         if (this.claudeInterface) {
             this.claudeInterface.isCreatingNewSession = true;
@@ -978,7 +1060,51 @@ class SessionTabManager {
             }
         }, { offset: Number.NEGATIVE_INFINITY }).element;
     }
-}
+
+    // Split Layout Methods
+    async loadSessionsIntoSplitLayout() {
+        try {
+            console.log('[SessionManager.loadSessionsIntoSplitLayout] Loading sessions...');
+            const authHeaders = window.authManager ? window.authManager.getAuthHeaders() : {};
+            const response = await fetch('/api/sessions/list', {
+                headers: authHeaders
+            });
+            const data = await response.json();
+            
+            const sessions = data.sessions || [];
+            console.log('[SessionManager.loadSessionsIntoSplitLayout] Got', sessions.length, 'sessions');
+            
+            // Get the first (and only initially) pane
+            const firstPane = this.splitLayout.getActivePane();
+            if (!firstPane) return;
+            
+            // Add each session as a tab to the first pane
+            sessions.forEach(session => {
+                const tabData = {
+                    id: session.id,
+                    name: session.name,
+                    sessionId: session.id,
+                    status: session.active ? 'active' : 'idle',
+                    workingDir: session.workingDir
+                };
+                
+                this.paneManager.addTabToPane(firstPane, tabData);
+                
+                // Store in activeSessions for compatibility
+                this.activeSessions.set(session.id, {
+                    id: session.id,
+                    name: session.name,
+                    status: session.active ? 'active' : 'idle',
+                    workingDir: session.workingDir,
+                    lastAccessed: Date.now(),
+                    lastActivity: Date.now(),
+                    unreadOutput: false,
+                    hasError: false
+                });
+            });
+            
+            // Activate first tab if any exist
+            if (sessions.length > 0) {\n                this.paneManager.activateTabInPane(firstPane, sessions[0].id);\n                this.activeTabId = sessions[0].id;\n            }\n            \n            return sessions;\n        } catch (error) {\n            console.error('Failed to load sessions:', error);\n            return [];\n        }\n    }\n    \n    addTabToSplitLayout(sessionId, sessionName, status = 'idle', workingDir = null, autoSwitch = true) {\n        const activePane = this.splitLayout.getActivePane();\n        if (!activePane) return;\n        \n        // Check if session already exists in any pane\n        const existingPane = this.paneManager.findPaneBySessionId(sessionId);\n        if (existingPane) {\n            // Switch to existing tab\n            this.paneManager.activateTabInPane(existingPane, sessionId);\n            this.splitLayout.setActivePane(existingPane.id);\n            return;\n        }\n        \n        const tabData = {\n            id: sessionId,\n            name: sessionName,\n            sessionId: sessionId,\n            status: status,\n            workingDir: workingDir\n        };\n        \n        this.paneManager.addTabToPane(activePane, tabData);\n        \n        // Store in activeSessions for compatibility\n        this.activeSessions.set(sessionId, {\n            id: sessionId,\n            name: sessionName,\n            status: status,\n            workingDir: workingDir,\n            lastAccessed: Date.now(),\n            lastActivity: Date.now(),\n            unreadOutput: false,\n            hasError: false\n        });\n        \n        if (autoSwitch) {\n            this.activeTabId = sessionId;\n        }\n    }\n    \n    splitActivePane(direction) {\n        if (!this.splitLayout || !this.paneManager) return;\n        \n        const activePane = this.splitLayout.getActivePane();\n        if (!activePane) return;\n        \n        // Split the pane\n        const newPane = this.splitLayout.splitPane(activePane.id, direction);\n        if (newPane) {\n            console.log(`Pane split ${direction}, new pane:`, newPane.id);\n        }\n    }\n    \n    // Override methods for split layout compatibility\n    updateTabStatus(sessionId, status) {\n        if (this.paneManager) {\n            // Update in pane system\n            const pane = this.paneManager.findPaneBySessionId(sessionId);\n            if (pane) {\n                this.paneManager.updateTabInPane(pane, sessionId, { status });\n            }\n        } else {\n            // Legacy behavior\n            const tab = this.tabs.get(sessionId);\n            if (tab) {\n                const statusEl = tab.querySelector('.tab-status');\n                if (statusEl) {\n                    const session = this.activeSessions.get(sessionId);\n                    const wasActive = session && session.status === 'active';\n                    \n                    const hasUnread = statusEl.classList.contains('unread');\n                    statusEl.className = `tab-status ${status}`;\n                    \n                    if (wasActive && status === 'idle' && sessionId !== this.activeTabId) {\n                        statusEl.classList.add('unread');\n                        if (session) {\n                            session.unreadOutput = true;\n                        }\n                    } else if (hasUnread) {\n                        statusEl.classList.add('unread');\n                    }\n                    \n                    if (status === 'active') {\n                        statusEl.classList.add('pulse');\n                    } else {\n                        statusEl.classList.remove('pulse');\n                    }\n                }\n            }\n        }\n        \n        // Update session data\n        const session = this.activeSessions.get(sessionId);\n        if (session) {\n            session.status = status;\n            session.lastActivity = Date.now();\n            \n            if (status !== 'error') {\n                session.hasError = false;\n            }\n        }\n    }\n    \n    markSessionActivity(sessionId, hasOutput = false, outputData = '') {\n        if (this.paneManager) {\n            // In split layout mode, let pane manager handle activity marking\n            // but still update our session data\n            const session = this.activeSessions.get(sessionId);\n            if (session) {\n                const previousActivity = session.lastActivity || 0;\n                const wasActive = session.status === 'active';\n                session.lastActivity = Date.now();\n                \n                if (hasOutput) {\n                    this.updateTabStatus(sessionId, 'active');\n                    \n                    clearTimeout(session.idleTimeout);\n                    clearTimeout(session.workCompleteTimeout);\n                    \n                    session.workCompleteTimeout = setTimeout(() => {\n                        const currentSession = this.activeSessions.get(sessionId);\n                        if (currentSession && currentSession.status === 'active') {\n                            this.updateTabStatus(sessionId, 'idle');\n                            \n                            if (wasActive) {\n                                const sessionName = currentSession.name || 'Session';\n                                const duration = Date.now() - previousActivity;\n                                \n                                // Find which pane contains this session\n                                const pane = this.paneManager.findPaneBySessionId(sessionId);\n                                const isActiveTab = pane && pane.activeTabId === sessionId;\n                                const isActivePane = pane && this.splitLayout.getActivePane() === pane;\n                                \n                                if (!isActiveTab || !isActivePane) {\n                                    currentSession.unreadOutput = true;\n                                    \n                                    this.sendNotification(\n                                        `✅ ${sessionName} - Claude appears finished`,\n                                        `No output for 90 seconds (worked for ${Math.round(duration / 1000)}s)`,\n                                        sessionId\n                                    );\n                                }\n                            }\n                        }\n                    }, 90000);\n                    \n                    session.idleTimeout = setTimeout(() => {\n                        // Additional idle timeout logic if needed\n                    }, 300000);\n                }\n                \n                if (hasOutput && outputData) {\n                    this.checkForCommandCompletion(sessionId, outputData, previousActivity);\n                }\n            }\n            return;\n        }\n        \n        // Legacy behavior (keep existing implementation)\n        const session = this.activeSessions.get(sessionId);\n        if (!session) return;\n        \n        const previousActivity = session.lastActivity || 0;\n        const wasActive = session.status === 'active';\n        session.lastActivity = Date.now();\n        \n        if (hasOutput) {\n            this.updateTabStatus(sessionId, 'active');\n            \n            clearTimeout(session.idleTimeout);\n            clearTimeout(session.workCompleteTimeout);\n            \n            session.workCompleteTimeout = setTimeout(() => {\n                const currentSession = this.activeSessions.get(sessionId);\n                if (currentSession && currentSession.status === 'active') {\n                    this.updateTabStatus(sessionId, 'idle');\n                    \n                    if (wasActive) {\n                        const sessionName = currentSession.name || 'Session';\n                        const duration = Date.now() - previousActivity;\n                        \n                        if (sessionId !== this.activeTabId) {\n                            currentSession.unreadOutput = true;\n                            this.updateUnreadIndicator(sessionId, true);\n                            \n                            this.sendNotification(\n                                `✅ ${sessionName} - Claude appears finished`,\n                                `No output for 90 seconds (worked for ${Math.round(duration / 1000)}s)`,\n                                sessionId\n                            );\n                        }\n                    }\n                }\n            }, 90000);\n            \n            session.idleTimeout = setTimeout(() => {\n                const currentSession = this.activeSessions.get(sessionId);\n                if (currentSession && currentSession.status === 'idle') {\n                    // Already marked as idle by the 90-second timeout\n                }\n            }, 300000);\n        }\n        \n        if (hasOutput && outputData) {\n            this.checkForCommandCompletion(sessionId, outputData, previousActivity);\n        }\n    }\n    \n    // Method to get active terminal (for compatibility)\n    getActiveTerminal() {\n        if (this.paneManager) {\n            return this.paneManager.getActiveTerminal();\n        }\n        return null; // Legacy mode doesn't have direct terminal access\n    }\n    \n    // Method to write to active terminal (for compatibility) \n    writeToActiveTerminal(data) {\n        if (this.paneManager) {\n            const activePane = this.splitLayout.getActivePane();\n            if (activePane) {\n                this.paneManager.writeToTerminal(activePane.id, data);\n            }\n        }\n    }\n    \n    // Method to clear active terminal (for compatibility)\n    clearActiveTerminal() {\n        if (this.paneManager) {\n            const activePane = this.splitLayout.getActivePane();\n            if (activePane) {\n                this.paneManager.clearTerminal(activePane.id);\n            }\n        }\n    }\n    \n    // Override method to handle session switching in split layout\n    async switchToTab(sessionId) {\n        if (this.paneManager) {\n            // Find pane containing this session\n            const pane = this.paneManager.findPaneBySessionId(sessionId);\n            if (pane) {\n                this.paneManager.activateTabInPane(pane, sessionId);\n                this.activeTabId = sessionId;\n                return;\n            }\n        }\n        \n        // Legacy behavior (existing implementation)\n        // Remove active class from all tabs\n        this.tabs.forEach(tab => tab.classList.remove('active'));\n        \n        // Add active class to selected tab\n        const tab = this.tabs.get(sessionId);\n        if (tab) {\n            tab.classList.add('active');\n            this.activeTabId = sessionId;\n            \n            // Update last accessed timestamp and clear unread indicator\n            const session = this.activeSessions.get(sessionId);\n            if (session) {\n                session.lastAccessed = Date.now();\n                \n                if (session.unreadOutput) {\n                    this.updateUnreadIndicator(sessionId, false);\n                }\n            }\n            \n            if (window.innerWidth <= 768) {\n                const tabIndex = Array.from(this.tabs.keys()).indexOf(sessionId);\n                if (tabIndex >= 2) {\n                    this.reorderTabsByLastAccessed();\n                }\n            }\n            \n            await this.claudeInterface.joinSession(sessionId);\n            this.updateHeaderInfo(sessionId);\n            \n            if (window.innerWidth <= 768) {\n                this.updateOverflowMenu();\n            }\n        }\n    }\n}
 
 // Export for use in app.js
 window.SessionTabManager = SessionTabManager;

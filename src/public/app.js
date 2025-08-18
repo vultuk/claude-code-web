@@ -85,22 +85,40 @@ class ClaudeCodeWebInterface {
         }
         
         // Check if there are existing sessions
-        console.log('[Init] Checking sessions, tabs.size:', this.sessionTabManager.tabs.size);
-        if (this.sessionTabManager.tabs.size > 0) {
-            console.log('[Init] Found sessions, switching to first tab...');
-            // Sessions exist - switch to the first one (this will handle connecting)
-            const firstTabId = this.sessionTabManager.tabs.keys().next().value;
-            console.log('[Init] Switching to tab:', firstTabId);
-            await this.sessionTabManager.switchToTab(firstTabId);
+        const hasSplitLayout = document.getElementById('splitLayoutRoot');
+        if (hasSplitLayout && this.sessionTabManager.paneManager) {
+            // Split layout mode - check if any panes have sessions
+            const panes = this.sessionTabManager.splitLayout.getPanes();
+            const hasAnySessions = panes.some(pane => pane.tabs && pane.tabs.length > 0);
+            console.log('[Init] Split layout mode, has sessions:', hasAnySessions);
             
-            // Hide overlay completely since we have sessions
-            console.log('[Init] About to hide overlay');
-            this.hideOverlay();
-            console.log('[Init] Overlay should be hidden now');
+            if (hasAnySessions) {
+                // Hide overlay since we have sessions in panes
+                this.hideOverlay();
+            } else {
+                // No sessions, show folder browser to create first session
+                console.log('[Init] No sessions found in split layout, showing folder browser');
+                this.showFolderBrowser();
+            }
         } else {
-            console.log('[Init] No sessions found, showing folder browser');
-            // No sessions - show folder picker to create first session
-            this.showFolderBrowser();
+            // Legacy tab mode
+            console.log('[Init] Legacy mode, checking sessions, tabs.size:', this.sessionTabManager.tabs.size);
+            if (this.sessionTabManager.tabs.size > 0) {
+                console.log('[Init] Found sessions, switching to first tab...');
+                // Sessions exist - switch to the first one (this will handle connecting)
+                const firstTabId = this.sessionTabManager.tabs.keys().next().value;
+                console.log('[Init] Switching to tab:', firstTabId);
+                await this.sessionTabManager.switchToTab(firstTabId);
+                
+                // Hide overlay completely since we have sessions
+                console.log('[Init] About to hide overlay');
+                this.hideOverlay();
+                console.log('[Init] Overlay should be hidden now');
+            } else {
+                console.log('[Init] No sessions found, showing folder browser');
+                // No sessions - show folder picker to create first session
+                this.showFolderBrowser();
+            }
         }
         
         window.addEventListener('resize', () => {
@@ -570,12 +588,25 @@ class ClaudeCodeWebInterface {
                 
                 // Replay output buffer if available
                 if (message.outputBuffer && message.outputBuffer.length > 0) {
-                    this.terminal.clear();
-                    message.outputBuffer.forEach(data => {
-                        // Filter out focus tracking sequences (^[[I and ^[[O)
-                        const filteredData = data.replace(/\x1b\[\[?[IO]/g, '');
-                        this.terminal.write(filteredData);
-                    });
+                    if (this.sessionTabManager && this.sessionTabManager.paneManager) {
+                        // Split layout mode - write to active terminal
+                        const activePane = this.sessionTabManager.splitLayout.getActivePane();
+                        if (activePane) {
+                            this.sessionTabManager.paneManager.clearTerminal(activePane.id);
+                            message.outputBuffer.forEach(data => {
+                                const filteredData = data.replace(/\x1b\[\[?[IO]/g, '');
+                                this.sessionTabManager.paneManager.writeToTerminal(activePane.id, filteredData);
+                            });
+                        }
+                    } else if (this.terminal) {
+                        // Legacy mode
+                        this.terminal.clear();
+                        message.outputBuffer.forEach(data => {
+                            // Filter out focus tracking sequences (^[[I and ^[[O)
+                            const filteredData = data.replace(/\x1b\[\[?[IO]/g, '');
+                            this.terminal.write(filteredData);
+                        });
+                    }
                 }
                 
                 // Show appropriate UI based on session state
@@ -645,7 +676,18 @@ class ClaudeCodeWebInterface {
             case 'output':
                 // Filter out focus tracking sequences (^[[I and ^[[O)
                 const filteredData = message.data.replace(/\x1b\[\[?[IO]/g, '');
-                this.terminal.write(filteredData);
+                
+                // Write to appropriate terminal
+                if (this.sessionTabManager && this.sessionTabManager.paneManager) {
+                    // Split layout mode - write to the pane containing the current session
+                    const sessionPane = this.sessionTabManager.paneManager.findPaneBySessionId(this.currentClaudeSessionId);
+                    if (sessionPane) {
+                        this.sessionTabManager.paneManager.writeToTerminal(sessionPane.id, filteredData);
+                    }
+                } else if (this.terminal) {
+                    // Legacy mode
+                    this.terminal.write(filteredData);
+                }
                 
                 // Update session activity indicator with output data
                 if (this.sessionTabManager && this.currentClaudeSessionId) {
@@ -739,7 +781,16 @@ class ClaudeCodeWebInterface {
     }
 
     clearTerminal() {
-        this.terminal.clear();
+        if (this.sessionTabManager && this.sessionTabManager.paneManager) {
+            // Split layout mode - clear active terminal
+            const activePane = this.sessionTabManager.splitLayout.getActivePane();
+            if (activePane) {
+                this.sessionTabManager.paneManager.clearTerminal(activePane.id);
+            }
+        } else if (this.terminal) {
+            // Legacy mode
+            this.terminal.clear();
+        }
     }
 
     toggleMobileMenu() {
@@ -757,7 +808,11 @@ class ClaudeCodeWebInterface {
     }
 
     fitTerminal() {
-        if (this.fitAddon) {
+        if (this.sessionTabManager && this.sessionTabManager.paneManager) {
+            // Split layout mode - let pane manager handle terminal fitting
+            this.sessionTabManager.paneManager.updatePaneSizes();
+        } else if (this.fitAddon) {
+            // Legacy mode
             try {
                 this.fitAddon.fit();
                 

@@ -116,35 +116,36 @@
         </div>
 
         <main class="main">
-            <div class="terminal-container" id="terminalContainer">
-                <div class="terminal-wrapper">
-                    <div id="terminal"></div>
-                </div>
-                <div class="terminal-overlay" id="overlay" style="display: none;">
-                    <div class="overlay-content">
-                        <div class="loading-spinner" id="loadingSpinner">
-                            <div class="spinner"></div>
-                            <p>Connecting to Claude Code...</p>
+            <!-- Split Layout Container -->
+            <div class="split-layout-root" id="splitLayoutRoot">
+                <!-- Panes will be dynamically created here -->
+            </div>
+            
+            <!-- Global overlays that appear over split layout -->
+            <div class="global-overlay" id="overlay" style="display: none;">
+                <div class="overlay-content">
+                    <div class="loading-spinner" id="loadingSpinner">
+                        <div class="spinner"></div>
+                        <p>Connecting to Claude Code...</p>
+                    </div>
+                    <div class="start-prompt" id="startPrompt" style="display: none;">
+                        <h2>Welcome to Claude Code Web Interface</h2>
+                        <p>Click the button below to start a new Claude Code session</p>
+                        <div class="start-buttons">
+                            <button id="startBtn" class="btn btn-primary">Start Claude Code</button>
+                            <button id="dangerousSkipBtn" class="btn btn-danger-skip" title="Dangerously skip permissions (⚠️ Use with caution)">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                    <line x1="12" y1="9" x2="12" y2="13"/>
+                                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                                </svg>
+                            </button>
                         </div>
-                        <div class="start-prompt" id="startPrompt" style="display: none;">
-                            <h2>Welcome to Claude Code Web Interface</h2>
-                            <p>Click the button below to start a new Claude Code session</p>
-                            <div class="start-buttons">
-                                <button id="startBtn" class="btn btn-primary">Start Claude Code</button>
-                                <button id="dangerousSkipBtn" class="btn btn-danger-skip" title="Dangerously skip permissions (⚠️ Use with caution)">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                                        <line x1="12" y1="9" x2="12" y2="13"/>
-                                        <line x1="12" y1="17" x2="12.01" y2="17"/>
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="error-message" id="errorMessage" style="display: none;">
-                            <h3>Connection Error</h3>
-                            <p id="errorText"></p>
-                            <button id="retryBtn" class="btn btn-primary">Retry</button>
-                        </div>
+                    </div>
+                    <div class="error-message" id="errorMessage" style="display: none;">
+                        <h3>Connection Error</h3>
+                        <p id="errorText"></p>
+                        <button id="retryBtn" class="btn btn-primary">Retry</button>
                     </div>
                 </div>
             </div>
@@ -288,6 +289,9 @@
 
     <script src="auth.js"></script>
     <script src="plan-detector.js"></script>
+    <script src="split-layout.js"></script>
+    <script src="drag-drop-manager.js"></script>
+    <script src="pane-manager.js"></script>
     <script src="session-manager.js"></script>
     <script src="app.js"></script>
     
