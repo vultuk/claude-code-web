@@ -344,19 +344,19 @@ class UsageReader {
               const cacheReadTokens = usage.cache_read_input_tokens || 0;
               
               // Calculate cost based on Claude's actual pricing model
-              // These prices match Claude's internal cost calculations
+              // These prices match Claude's current cost calculations (2025)
               let totalCost = 0;
               if (model.includes('opus')) {
-                // Claude 3 Opus pricing (updated)
+                // Claude 4.1 Opus pricing: $15/$75 per million tokens
                 totalCost = (inputTokens * 0.000015) + (outputTokens * 0.000075);
                 // Cache costs: creation same as input, read is 10% of input
                 totalCost += (cacheCreationTokens * 0.000015) + (cacheReadTokens * 0.0000015);
               } else if (model.includes('sonnet')) {
-                // Claude 3.5 Sonnet pricing
+                // Claude 4.0 Sonnet pricing: $3/$15 per million tokens
                 totalCost = (inputTokens * 0.000003) + (outputTokens * 0.000015);
                 totalCost += (cacheCreationTokens * 0.000003) + (cacheReadTokens * 0.0000003);
               } else if (model.includes('haiku')) {
-                // Claude 3 Haiku pricing
+                // Claude 3 Haiku pricing (legacy)
                 totalCost = (inputTokens * 0.00000025) + (outputTokens * 0.00000125);
                 totalCost += (cacheCreationTokens * 0.00000025) + (cacheReadTokens * 0.000000025);
               }

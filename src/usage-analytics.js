@@ -85,7 +85,7 @@ class UsageAnalytics extends EventEmitter {
   addUsageData(data) {
     const entry = {
       timestamp: new Date(),
-      tokens: data.tokens || 0,
+      tokens: (data.inputTokens || 0) + (data.outputTokens || 0), // Only input + output tokens
       inputTokens: data.inputTokens || 0,
       outputTokens: data.outputTokens || 0,
       cacheCreationTokens: data.cacheCreationTokens || 0,
@@ -188,7 +188,8 @@ class UsageAnalytics extends EventEmitter {
       
       if (windowData.length >= 2) {
         const duration = (windowData[windowData.length - 1].timestamp - windowData[0].timestamp) / 1000 / 60; // minutes
-        const totalTokens = windowData.reduce((sum, e) => sum + e.tokens, 0);
+        // Only count input + output tokens for burn rate, not cache tokens
+        const totalTokens = windowData.reduce((sum, e) => sum + e.inputTokens + e.outputTokens, 0);
         
         if (duration > 0) {
           rates.push({
