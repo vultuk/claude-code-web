@@ -66,8 +66,8 @@ class ClaudeCodeWebInterface {
             return;
         }
         
-        this.setupTerminal();
         this.setupUI();
+        this.setupTerminal();
         this.setupPlanDetector();
         this.loadSettings();
         this.disablePullToRefresh();

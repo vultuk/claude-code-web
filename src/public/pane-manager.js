@@ -190,7 +190,24 @@ class PaneManager {
      */
     createTerminalForPane(pane) {
         const terminalContainer = pane.element.querySelector('.pane-terminal-container');
-        if (!terminalContainer) return;
+        if (!terminalContainer) {
+            console.warn('Terminal container not found for pane', pane.id);
+            return;
+        }
+        
+        // Ensure container is properly attached to DOM
+        if (!terminalContainer.isConnected) {
+            console.warn('Terminal container not attached to DOM for pane', pane.id);
+            // Retry after a short delay
+            setTimeout(() => this.createTerminalForPane(pane), 100);
+            return;
+        }
+        
+        // Check if Terminal constructor is available
+        if (typeof Terminal === 'undefined') {
+            console.error('Terminal constructor not available for pane', pane.id);
+            return;
+        }
         
         // Create terminal instance
         const terminal = new Terminal({
@@ -226,6 +243,11 @@ class PaneManager {
         });
 
         // Add addons
+        if (typeof FitAddon === 'undefined' || typeof WebLinksAddon === 'undefined') {
+            console.error('Terminal addons not available for pane', pane.id);
+            return;
+        }
+        
         const fitAddon = new FitAddon.FitAddon();
         const webLinksAddon = new WebLinksAddon.WebLinksAddon();
         
@@ -234,7 +256,12 @@ class PaneManager {
         terminal.fitAddon = fitAddon;
         
         // Open terminal
-        terminal.open(terminalContainer);
+        try {
+            terminal.open(terminalContainer);
+        } catch (error) {
+            console.error('Failed to open terminal for pane', pane.id, error);
+            return;
+        }
         
         // Store terminal reference
         this.terminals.set(pane.id, terminal);
