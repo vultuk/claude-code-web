@@ -12,7 +12,6 @@ class UsageReader {
     this.sessionDurationHours = sessionDurationHours; // Default 5 hours from first message
     this.sessionCache = new Map(); // Cache for session detection
     this.overlappingSessions = []; // Track overlapping sessions
-    this.processedEntries = new Set(); // Track processed entries to avoid duplicates
   }
 
   /**
@@ -59,12 +58,6 @@ class UsageReader {
     return null;
   }
 
-  /**
-   * Clear processed entries cache to prevent memory growth
-   */
-  clearProcessedEntriesCache() {
-    this.processedEntries.clear();
-  }
 
   async getUsageStats(hoursBack = 24) {
     // Use cache if fresh
@@ -73,8 +66,6 @@ class UsageReader {
     }
 
     try {
-      // Clear processed entries to ensure fresh data
-      this.clearProcessedEntriesCache();
       
       const cutoffTime = new Date(Date.now() - (hoursBack * 60 * 60 * 1000));
       const entries = await this.readAllEntries(cutoffTime);
@@ -95,8 +86,6 @@ class UsageReader {
 
   async getCurrentSessionStats() {
     try {
-      // Clear processed entries to ensure fresh data
-      this.clearProcessedEntriesCache();
       
       // Use new session logic based on daily boundaries and cascading 5-hour sessions
       const currentSession = await this.getCurrentSession();
@@ -181,8 +170,6 @@ class UsageReader {
 
   async getAllTimeUsageStats() {
     try {
-      // Clear processed entries to ensure fresh data
-      this.clearProcessedEntriesCache();
       
       // Read ALL entries from ALL projects (no time cutoff)
       const entries = await this.readAllEntries(new Date(0));
@@ -380,6 +367,8 @@ class UsageReader {
 
   async readJsonlFile(filePath, cutoffTime) {
     const entries = [];
+    // File-level deduplication cache - prevents duplicates within this file only
+    const fileProcessedEntries = new Set();
     
     return new Promise((resolve) => {
       const rl = readline.createInterface({
@@ -393,10 +382,10 @@ class UsageReader {
           
           // Filter by timestamp
           if (entry.timestamp && new Date(entry.timestamp) >= cutoffTime) {
-            // Check for duplicate entries using unique hash
+            // Check for duplicate entries using unique hash (file-level deduplication)
             const uniqueHash = this.createUniqueHash(entry);
-            if (uniqueHash && this.processedEntries.has(uniqueHash)) {
-              // Skip duplicate entry
+            if (uniqueHash && fileProcessedEntries.has(uniqueHash)) {
+              // Skip duplicate entry within this file
               return;
             }
             
@@ -452,9 +441,9 @@ class UsageReader {
               
               entries.push(processedEntry);
               
-              // Mark this entry as processed if we have a unique hash
+              // Mark this entry as processed within this file if we have a unique hash
               if (uniqueHash) {
-                this.processedEntries.add(uniqueHash);
+                fileProcessedEntries.add(uniqueHash);
               }
             }
           }
