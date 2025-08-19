@@ -633,7 +633,30 @@ class ClaudeCodeWebServer {
         break;
 
       case 'leave_session':
+        // Handle scroll position if provided
+        if (data.scrollPosition && wsInfo.claudeSessionId) {
+          const session = this.claudeSessions.get(wsInfo.claudeSessionId);
+          if (session) {
+            session.scrollPosition = data.scrollPosition;
+            if (this.dev) {
+              console.log(`Saved scroll position for session ${wsInfo.claudeSessionId}`);
+            }
+          }
+        }
         await this.leaveClaudeSession(wsId);
+        break;
+
+      case 'update_scroll_position':
+        if (data.scrollPosition && wsInfo.claudeSessionId) {
+          const session = this.claudeSessions.get(wsInfo.claudeSessionId);
+          if (session) {
+            session.scrollPosition = data.scrollPosition;
+            session.lastActivity = new Date();
+            if (this.dev) {
+              console.log(`Updated scroll position for session ${wsInfo.claudeSessionId}`);
+            }
+          }
+        }
         break;
 
       case 'start_claude':
@@ -743,6 +766,7 @@ class ClaudeCodeWebServer {
       workingDir: validWorkingDir,
       connections: new Set([wsId]),
       outputBuffer: [],
+      scrollPosition: null, // Track scroll position for reconnection
       sessionStartTime: null, // Will be set when Claude starts
       sessionUsage: {
         requests: 0,
@@ -752,7 +776,7 @@ class ClaudeCodeWebServer {
         totalCost: 0,
         models: {}
       },
-      maxBufferSize: 1000
+      maxBufferSize: 2000
     };
     
     this.claudeSessions.set(sessionId, session);
@@ -800,7 +824,8 @@ class ClaudeCodeWebServer {
       sessionName: session.name,
       workingDir: session.workingDir,
       active: session.active,
-      outputBuffer: session.outputBuffer.slice(-200) // Send last 200 lines
+      outputBuffer: session.outputBuffer.slice(-500), // Send last 500 lines (increased from 200)
+      scrollPosition: session.scrollPosition // Send saved scroll position
     });
 
     if (this.dev) {

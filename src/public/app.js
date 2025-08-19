@@ -19,6 +19,9 @@ class ClaudeCodeWebInterface {
         this.planDetector = null;
         this.planModal = null;
         
+        // Scroll position tracking for session reconnection
+        this.scrollPosition = null;
+        this.pendingScrollRestore = false;
         
         // Initialize the session tab manager
         this.sessionTabManager = null;
@@ -108,6 +111,17 @@ class ClaudeCodeWebInterface {
         });
         
         window.addEventListener('beforeunload', () => {
+            // Capture scroll position before page unload
+            if (this.currentClaudeSessionId) {
+                const scrollPosition = this.captureScrollPosition();
+                if (scrollPosition) {
+                    // Send scroll position update for current session
+                    this.send({ 
+                        type: 'update_scroll_position',
+                        scrollPosition: scrollPosition
+                    });
+                }
+            }
             this.disconnect();
         });
     }
@@ -506,6 +520,17 @@ class ClaudeCodeWebInterface {
     }
 
     disconnect() {
+        // Capture scroll position before disconnecting
+        if (this.currentClaudeSessionId && this.socket && this.socket.readyState === WebSocket.OPEN) {
+            const scrollPosition = this.captureScrollPosition();
+            if (scrollPosition) {
+                this.send({ 
+                    type: 'update_scroll_position',
+                    scrollPosition: scrollPosition
+                });
+            }
+        }
+        
         if (this.socket) {
             this.socket.close();
             this.socket = null;
@@ -518,6 +543,55 @@ class ClaudeCodeWebInterface {
             this.connect().catch(err => console.error('Reconnection failed:', err));
         }, 1000);
         // Reconnect button removed with header
+    }
+
+    captureScrollPosition() {
+        if (!this.terminal || !this.terminal.buffer) return null;
+        
+        try {
+            const viewportY = this.terminal.buffer.active.viewportY;
+            const baseY = this.terminal.buffer.active.baseY;
+            const length = this.terminal.buffer.active.length;
+            
+            // Calculate scroll position as distance from bottom
+            const distanceFromBottom = length - (viewportY + this.terminal.rows);
+            
+            return {
+                distanceFromBottom: Math.max(0, distanceFromBottom),
+                viewportY: viewportY,
+                baseY: baseY,
+                length: length,
+                rows: this.terminal.rows
+            };
+        } catch (error) {
+            console.warn('Failed to capture scroll position:', error);
+            return null;
+        }
+    }
+
+    restoreScrollPosition(position) {
+        if (!this.terminal || !this.terminal.buffer || !position) return;
+        
+        try {
+            // Wait for terminal to finish rendering the buffer
+            setTimeout(() => {
+                const currentLength = this.terminal.buffer.active.length;
+                
+                if (position.distanceFromBottom > 0) {
+                    // Calculate target line from bottom
+                    const targetLine = Math.max(0, currentLength - position.distanceFromBottom - this.terminal.rows);
+                    this.terminal.scrollToLine(targetLine);
+                    console.log(`Restored scroll position: ${position.distanceFromBottom} lines from bottom`);
+                } else {
+                    // Was at bottom, stay at bottom
+                    this.terminal.scrollToBottom();
+                }
+            }, 100);
+        } catch (error) {
+            console.warn('Failed to restore scroll position:', error);
+            // Fallback to bottom
+            this.terminal.scrollToBottom();
+        }
     }
 
     send(data) {
@@ -576,6 +650,24 @@ class ClaudeCodeWebInterface {
                         const filteredData = data.replace(/\x1b\[\[?[IO]/g, '');
                         this.terminal.write(filteredData);
                     });
+                    
+                    // Restore scroll position if available
+                    if (message.scrollPosition) {
+                        this.restoreScrollPosition(message.scrollPosition);
+                    } else {
+                        // Default behavior: stay at bottom for active sessions, 
+                        // restore position for inactive sessions with content
+                        if (!message.active && message.outputBuffer.length > 0) {
+                            // For inactive sessions with content, don't auto-scroll to bottom
+                            // to preserve user's context
+                            this.terminal.scrollToTop();
+                        } else {
+                            this.terminal.scrollToBottom();
+                        }
+                    }
+                } else {
+                    // No output buffer, scroll to bottom for new sessions
+                    this.terminal.scrollToBottom();
                 }
                 
                 // Show appropriate UI based on session state
@@ -1410,7 +1502,13 @@ class ClaudeCodeWebInterface {
     }
     
     leaveSession() {
-        this.send({ type: 'leave_session' });
+        // Capture scroll position before leaving
+        const scrollPosition = this.captureScrollPosition();
+        
+        this.send({ 
+            type: 'leave_session',
+            scrollPosition: scrollPosition
+        });
         // Session dropdown removed - using tabs
     }
     
