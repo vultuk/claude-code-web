@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node bin/cc-web.js",
     "dev": "node bin/cc-web.js --dev",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "mocha test/*.test.js"
   },
   "keywords": [
     "claude",
@@ -38,5 +38,8 @@
     "type": "git",
     "url": "git+https://github.com/vultuk/claude-code-web.git"
   },
-  "homepage": "https://github.com/vultuk/claude-code-web#readme"
+  "homepage": "https://github.com/vultuk/claude-code-web#readme",
+  "devDependencies": {
+    "mocha": "^11.7.1"
+  }
 }
