@@ -36,7 +36,7 @@ class ClaudeBridge {
 
   commandExists(command) {
     try {
-      require('child_process').execSync(`which ${command}`, { stdio: 'ignore' });
+      require('child_process').execFileSync('which', [command], { stdio: 'ignore' });
       return true;
     } catch (error) {
       return false;

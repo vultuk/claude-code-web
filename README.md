@@ -232,6 +232,7 @@ claude-code-web/
 │   └── public/            # Web interface files
 │       ├── index.html     # Main HTML
 │       ├── app.js         # Frontend JavaScript
+│       ├── auth.js        # Client-side authentication
 │       ├── session-manager.js # Session management UI
 │       ├── plan-detector.js # Plan mode detection
 │       └── style.css      # Styling
