@@ -918,7 +918,7 @@ body {
     background-color: var(--bg-secondary);
     border-radius: 12px;
     border: 1px solid var(--border);
-    max-width: 400px;
+    max-width: 520px;
 }
 
 .loading-spinner {
@@ -956,8 +956,12 @@ body {
 .start-buttons {
     display: flex;
     gap: 12px;
-    align-items: center;
+    align-items: stretch;
     justify-content: center;
+    flex-wrap: wrap;
+}
+.start-buttons .btn {
+    min-width: 180px;
 }
 
 .error-message h3 {
@@ -1887,19 +1891,8 @@ pre, code {
         font-size: 11px;
     }
     
-    .start-buttons {
-        flex-direction: column;
-        width: 100%;
-    }
-    
-    .start-buttons .btn {
-        width: 100%;
-    }
-    
-    .btn-danger-skip {
-        width: 100%;
-        height: 36px;
-    }
+    .start-buttons { flex-direction: column; width: 100%; }
+    .start-buttons .btn { width: 100%; }
     
     /* Extra terminal fixes for very small screens */
     #terminal {
@@ -2103,4 +2096,3 @@ pre, code {
 .usage-progress:hover .usage-progress-text {
     display: block;
 }
-
