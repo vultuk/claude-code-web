@@ -63,10 +63,10 @@ class CodexBridge {
       console.log(`Working directory: ${workingDir}`);
       console.log(`Terminal size: ${cols}x${rows}`);
       if (dangerouslySkipPermissions) {
-        console.log(`⚠️ WARNING: Skipping permissions with --dangerously-skip-permissions flag`);
+        console.log(`⚠️ WARNING: Bypassing approvals and sandbox with --dangerously-bypass-approvals-and-sandbox flag`);
       }
 
-      const args = dangerouslySkipPermissions ? ['--dangerously-skip-permissions'] : [];
+      const args = dangerouslySkipPermissions ? ['--dangerously-bypass-approvals-and-sandbox'] : [];
       const codexProcess = spawn(this.codexCommand, args, {
         cwd: workingDir,
         env: {
@@ -197,4 +197,3 @@ class CodexBridge {
 }
 
 module.exports = CodexBridge;
-

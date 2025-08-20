@@ -774,7 +774,7 @@ class ClaudeCodeWebInterface {
 
         this.showOverlay('loadingSpinner');
         const loadingText = options.dangerouslySkipPermissions ?
-            'Starting Codex (⚠️ Skipping permissions)...' :
+            'Starting Codex (⚠️ Bypassing approvals and sandbox)...' :
             'Starting Codex...';
         document.getElementById('loadingSpinner').querySelector('p').textContent = loadingText;
     }

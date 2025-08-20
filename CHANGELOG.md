@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.2] - 2025-08-20
+
+### Changed
+- Updated Claude Code CLI flag from `--dangerously-skip-permissions` to `--dangerously-bypass-approvals-and-sandbox`
+- Updated UI text and tooltips to reflect new flag name
+- Updated loading messages to match new CLI flag terminology
+
 ## [2.2.1] - 2025-08-20
 
 ### Changed
