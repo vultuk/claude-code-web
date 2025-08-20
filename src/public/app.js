@@ -374,6 +374,8 @@ class ClaudeCodeWebInterface {
     setupUI() {
         const startBtn = document.getElementById('startBtn');
         const dangerousSkipBtn = document.getElementById('dangerousSkipBtn');
+        const startCodexBtn = document.getElementById('startCodexBtn');
+        const dangerousCodexBtn = document.getElementById('dangerousCodexBtn');
         const settingsBtn = document.getElementById('settingsBtn');
         const retryBtn = document.getElementById('retryBtn');
         
@@ -383,6 +385,8 @@ class ClaudeCodeWebInterface {
         
         if (startBtn) startBtn.addEventListener('click', () => this.startClaudeSession());
         if (dangerousSkipBtn) dangerousSkipBtn.addEventListener('click', () => this.startClaudeSession({ dangerouslySkipPermissions: true }));
+        if (startCodexBtn) startCodexBtn.addEventListener('click', () => this.startCodexSession());
+        if (dangerousCodexBtn) dangerousCodexBtn.addEventListener('click', () => this.startCodexSession({ dangerouslySkipPermissions: true }));
         if (settingsBtn) settingsBtn.addEventListener('click', () => this.showSettings());
         if (retryBtn) retryBtn.addEventListener('click', () => this.reconnect());
         
@@ -634,12 +638,25 @@ class ClaudeCodeWebInterface {
                     this.sessionTabManager.updateTabStatus(this.currentClaudeSessionId, 'active');
                 }
                 break;
+            case 'codex_started':
+                this.hideOverlay();
+                this.loadSessions();
+                this.requestUsageStats();
+                if (this.sessionTabManager && this.currentClaudeSessionId) {
+                    this.sessionTabManager.updateTabStatus(this.currentClaudeSessionId, 'active');
+                }
+                break;
                 
             case 'claude_stopped':
                 this.terminal.writeln(`\r\n\x1b[33mClaude Code stopped\x1b[0m`);
                 // Show start prompt to allow restarting Claude in this session
                 this.showOverlay('startPrompt');
                 this.loadSessions(); // Refresh session list
+                break;
+            case 'codex_stopped':
+                this.terminal.writeln(`\r\n\x1b[33mCodex Code stopped\x1b[0m`);
+                this.showOverlay('startPrompt');
+                this.loadSessions();
                 break;
                 
             case 'output':
@@ -735,6 +752,30 @@ class ClaudeCodeWebInterface {
         const loadingText = options.dangerouslySkipPermissions ? 
             'Starting Claude Code (⚠️ Skipping permissions)...' : 
             'Starting Claude Code...';
+        document.getElementById('loadingSpinner').querySelector('p').textContent = loadingText;
+    }
+
+    startCodexSession(options = {}) {
+        // If no session, create one first
+        if (!this.currentClaudeSessionId) {
+            const sessionName = `Session ${new Date().toLocaleString()}`;
+            this.send({
+                type: 'create_session',
+                name: sessionName,
+                workingDir: this.selectedWorkingDir
+            });
+            // Wait for session creation, then start Codex
+            setTimeout(() => {
+                this.send({ type: 'start_codex', options });
+            }, 500);
+        } else {
+            this.send({ type: 'start_codex', options });
+        }
+
+        this.showOverlay('loadingSpinner');
+        const loadingText = options.dangerouslySkipPermissions ?
+            'Starting Codex (⚠️ Skipping permissions)...' :
+            'Starting Codex...';
         document.getElementById('loadingSpinner').querySelector('p').textContent = loadingText;
     }
 
