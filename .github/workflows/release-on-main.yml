@@ -8,7 +8,6 @@ jobs:
   release:
     name: Tag, Release, and Publish
     runs-on: ubuntu-latest
-    if: ${{ startsWith(github.event.head_commit.message, 'chore(release): v') }}
     permissions:
       contents: write
       packages: write
@@ -27,7 +26,19 @@ jobs:
         run: |
           echo "version=$(jq -r .version package.json)" >> $GITHUB_OUTPUT
 
+      - name: Check if tag exists
+        id: check
+        run: |
+          git fetch --tags --force --quiet
+          if git rev-parse -q --verify "refs/tags/v${{ steps.pkg.outputs.version }}" >/dev/null; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Tag v${{ steps.pkg.outputs.version }} already exists. Skipping release."
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create GitHub Release (also creates tag)
+        if: ${{ steps.check.outputs.exists == 'false' }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.pkg.outputs.version }}
@@ -39,9 +50,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install dependencies
+        if: ${{ steps.check.outputs.exists == 'false' }}
         run: npm ci
 
       - name: Publish to npm
+        if: ${{ steps.check.outputs.exists == 'false' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
