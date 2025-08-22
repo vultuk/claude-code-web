@@ -13,7 +13,8 @@ parse_bump() {
     case "$1" in
       --bump)
         shift; val="$1";;
-    esac; shift || true;
+        shift; val="$1"; shift;;
+    esac
   done
   echo "${val:-patch}"
 }
