@@ -82,5 +82,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Enhanced README with requirements, local dev/testing instructions, and links to CONTRIBUTING and LICENSE
 
+## [2.5.2] - 2025-08-22
+
+### Added
+- GitHub Pages single-page marketing site under `/docs` (hero, features, quick start, security, FAQ)
+
+### Notes
+- No runtime or API changes; documentation/website only
+
 ## [2.1.3] - Previous Release
 - Previous version baseline

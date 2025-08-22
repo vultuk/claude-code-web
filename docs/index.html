@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Claude Code Web — Web UI for Claude Code CLI</title>
+    <meta name="description" content="Run Claude Code in your browser with a fast, secure, multi-session web interface. Start instantly with npx claude-code-web." />
+    <meta property="og:title" content="Claude Code Web" />
+    <meta property="og:description" content="Run Claude Code in your browser with a fast, secure, multi-session web interface." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://github.com/vultuk/claude-code-web" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container nav">
+        <div class="brand">Claude Code Web</div>
+        <nav>
+          <a href="#features">Features</a>
+          <a href="#usage">Get Started</a>
+          <a href="#security">Security</a>
+          <a href="#faq">FAQ</a>
+          <a class="btn ghost" href="https://github.com/vultuk/claude-code-web" target="_blank" rel="noopener">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="container hero-inner">
+          <div class="hero-copy">
+            <h1>Run Claude Code in your browser</h1>
+            <p class="tagline">A lightweight, real‑time web UI for Claude Code CLI — secure by default, multi‑session, and fast to start.</p>
+            <div class="cta">
+              <a class="btn primary" href="#usage">Get Started</a>
+              <a class="btn" href="https://www.npmjs.com/package/claude-code-web" target="_blank" rel="noopener">View on npm</a>
+            </div>
+            <pre class="snippet"><code>npx claude-code-web
+# optional flags:
+# --port 8080 --auth YOUR_TOKEN --https --cert cert.pem --key key.pem</code></pre>
+          </div>
+          <div class="hero-aside">
+            <div class="terminal-card">
+              <div class="term-bar"><span></span><span></span><span></span></div>
+              <div class="term-body">
+                <div>$ npx claude-code-web</div>
+                <div>▶ Server listening on http://localhost:32352</div>
+                <div>🔐 Generated auth token: <em>••••••••••</em></div>
+                <div>🧠 Claude session ready — open your browser!</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="features" class="section">
+        <div class="container">
+          <h2>Features</h2>
+          <div class="grid">
+            <div class="card"><h3>🌐 Web‑based</h3><p>Access Claude Code from any modern browser with a responsive UI.</p></div>
+            <div class="card"><h3>🚀 Real‑time</h3><p>Low‑latency streaming via WebSockets with full ANSI terminal emulation.</p></div>
+            <div class="card"><h3>🔐 Secure by default</h3><p>Authentication enabled by default; HTTPS support for production.</p></div>
+            <div class="card"><h3>🔄 Multi‑session</h3><p>Create, join, and persist multiple sessions across reconnects.</p></div>
+            <div class="card"><h3>🎛️ Customizable</h3><p>Adjust themes, font size, working directory, and plan options.</p></div>
+            <div class="card"><h3>🌍 Remote access</h3><p>Optional ngrok integration for secure public tunnels when needed.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="usage" class="section alt">
+        <div class="container">
+          <h2>Quick Start</h2>
+          <div class="columns">
+            <div>
+              <h3>Install or run instantly</h3>
+              <pre class="snippet"><code># Run without installing
+npx claude-code-web
+
+# Or install globally
+npm install -g claude-code-web
+cc-web --port 8080
+              </code></pre>
+            </div>
+            <div>
+              <h3>Common flags</h3>
+              <pre class="snippet"><code># Development mode (verbose logs)
+cc-web --dev
+
+# Provide an auth token
+cc-web --auth YOUR_TOKEN
+
+# Enable HTTPS
+cc-web --https --cert /path/cert.pem --key /path/key.pem
+              </code></pre>
+            </div>
+          </div>
+
+          <div class="links">
+            <a class="btn primary" href="https://github.com/vultuk/claude-code-web#readme" target="_blank" rel="noopener">Read the README</a>
+            <a class="btn" href="https://github.com/vultuk/claude-code-web" target="_blank" rel="noopener">Browse Source</a>
+            <a class="btn" href="https://github.com/vultuk/claude-code-web/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contribute</a>
+          </div>
+        </div>
+      </section>
+
+      <section id="security" class="section">
+        <div class="container">
+          <h2>Security</h2>
+          <ul class="bullets">
+            <li><strong>Auth required by default</strong> — automatic token generation on startup.</li>
+            <li><strong>HTTPS ready</strong> — supply certificate and key flags for TLS.</li>
+            <li><strong>Session scope</strong> — authentication covers REST and WebSocket endpoints.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="faq" class="section alt">
+        <div class="container">
+          <h2>FAQ</h2>
+          <details>
+            <summary>What are the requirements?</summary>
+            <p>Node.js 16+, Claude/Code CLI on PATH, and a modern browser with WebSocket support.</p>
+          </details>
+          <details>
+            <summary>How do I develop locally?</summary>
+            <p>Clone the repo, run <code>npm install</code>, then <code>npm run dev</code>. See the README for full details.</p>
+          </details>
+          <details>
+            <summary>Is it open source?</summary>
+            <p>Yes — MIT licensed. Contributions are welcome!</p>
+          </details>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">
+        <div>© <span id="year"></span> Claude Code Web contributors • <a href="https://github.com/vultuk/claude-code-web/blob/main/LICENSE" target="_blank" rel="noopener">MIT</a></div>
+        <div class="footer-links">
+          <a href="https://github.com/vultuk/claude-code-web" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://www.npmjs.com/package/claude-code-web" target="_blank" rel="noopener">npm</a>
+          <a href="https://github.com/vultuk/claude-code-web#readme" target="_blank" rel="noopener">Docs</a>
+        </div>
+      </div>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+  </html>
+
