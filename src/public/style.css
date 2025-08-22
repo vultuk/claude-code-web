@@ -2096,3 +2096,63 @@ pre, code {
 .usage-progress:hover .usage-progress-text {
     display: block;
 }
+
+/* Commands menu button (floating "/" in top-right) */
+.commands-menu {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 1100;
+}
+
+.commands-button {
+  background: #1f2937;
+  color: #f3f4f6;
+  border: 1px solid #374151;
+  border-radius: 20px;
+  width: 36px;
+  height: 36px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 36px;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+
+.commands-button:hover {
+  background: #111827;
+}
+
+.commands-dropdown {
+  position: absolute;
+  top: 42px;
+  right: 0;
+  width: 280px;
+  max-height: 320px;
+  overflow: auto;
+  background: #0f172a;
+  color: #e5e7eb;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  display: none;
+}
+
+.commands-dropdown.open { display: block; }
+
+.commands-item {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  cursor: pointer;
+}
+
+.commands-item:last-child { border-bottom: none; }
+
+.commands-item:hover { background: rgba(255,255,255,0.06); }
+
+.commands-empty, .commands-error {
+  padding: 10px 12px;
+  color: #9ca3af;
+}

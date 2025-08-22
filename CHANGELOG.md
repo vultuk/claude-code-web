@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2025-08-22
+
+### Added
+- Commands menu with floating "/" button in top-right corner
+- Commands API for listing and serving markdown files from ~/.claude-code-web/commands directory
+- Interactive dropdown interface for browsing and executing commands
+- Support for nested command directories with automatic label generation
+- Command content execution directly to active Claude/Codex session
+
+### Changed
+- Enhanced user interface with new commands functionality
+- Improved accessibility with dedicated commands directory structure
+
 ## [2.2.2] - 2025-08-20
 
 ### Changed
