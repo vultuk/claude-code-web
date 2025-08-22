@@ -73,5 +73,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Fixed command injection vulnerability that could potentially allow malicious command execution
 
+## [2.5.1] - 2025-08-22
+
+### Added
+- CONTRIBUTING guide with setup, testing, and PR workflow
+- MIT LICENSE file
+
+### Changed
+- Enhanced README with requirements, local dev/testing instructions, and links to CONTRIBUTING and LICENSE
+
 ## [2.1.3] - Previous Release
 - Previous version baseline

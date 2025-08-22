@@ -2,6 +2,12 @@
 
 A web-based interface for Claude Code CLI that can be accessed from any browser. This package allows you to run Claude Code in a terminal-like environment through your web browser, with real-time streaming and full interactivity.
 
+## Requirements
+
+- Node.js >= 16
+- Claude/Code CLI installed and available on `PATH`
+- Modern browser with WebSocket support
+
 ## ⚠️ Authentication is now Required by Default
 
 **Breaking Change**: Starting with v2.0.0, authentication is enabled by default for security. When you start the server, it will automatically generate a random token that you'll need to access the interface.
@@ -41,6 +47,14 @@ npm install -g claude-code-web
 ### NPX (No installation required)
 ```bash
 npx claude-code-web
+```
+
+### Local Development (from source)
+```bash
+git clone <repository>
+cd claude-code-web
+npm install
+npm run dev            # starts with debug logging
 ```
 
 ## Usage
@@ -87,6 +101,21 @@ npx claude-code-web --https --cert /path/to/cert.pem --key /path/to/key.pem
 ```bash
 # Enable additional logging and debugging
 npx claude-code-web --dev
+```
+
+### Running from source
+```bash
+# Start the server with defaults
+npm start            # equivalent to: node bin/cc-web.js
+
+# Start in dev mode with verbose logs
+npm run dev          # equivalent to: node bin/cc-web.js --dev
+
+# Run on a custom port
+node bin/cc-web.js --port 8080
+
+# Provide an auth token
+node bin/cc-web.js --auth YOUR_TOKEN
 ```
 
 ## Multi-Session Features
@@ -212,12 +241,7 @@ npx claude-code-web --https --cert cert.pem --key key.pem --auth $(openssl rand 
 ## Development
 
 ### Local Development
-```bash
-git clone <repository>
-cd claude-code-web
-npm install
-npm run dev
-```
+Use the commands above under "Local Development (from source)" and "Running from source". Ensure the Claude CLI is installed and on your `PATH`.
 
 ### File Structure
 ```
@@ -239,18 +263,19 @@ claude-code-web/
 └── package.json
 ```
 
+## Testing
+
+- Framework: Mocha with Node's `assert`
+- Location: tests under `test/*.test.js`
+- Run tests: `npm test`
+- Guidelines: write fast, isolated unit tests; avoid network and real CLI calls—mock process spawns where possible.
+
 ## Browser Compatibility
 
 - Chrome/Chromium 90+
 - Firefox 88+
 - Safari 14+
 - Edge 90+
-
-## Requirements
-
-- Node.js 16.0.0 or higher
-- Claude Code CLI installed and accessible in PATH
-- Modern web browser with WebSocket support
 
 ## Troubleshooting
 
@@ -273,11 +298,11 @@ claude --version
 
 ## License
 
-MIT
+MIT — see the [LICENSE](LICENSE) file.
 
 ## Contributing
 
-Contributions welcome! Please read the contributing guidelines and submit pull requests to the main repository.
+Contributions welcome! See [CONTRIBUTING](CONTRIBUTING.md) for guidelines on development, testing, and pull requests.
 
 ## Support
 
