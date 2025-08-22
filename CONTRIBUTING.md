@@ -81,7 +81,31 @@ When filing an issue, include:
 
 We maintain a `CHANGELOG.md`. If your PR introduces user‑visible changes, please add an entry under the “Unreleased” section following Keep a Changelog style.
 
+## Releasing
+
+Main is protected. All releases must go through a pull request from a separate branch. The automated workflow will tag, create a GitHub release, and publish to npm after merge.
+
+1. Ensure a clean working tree (`git status` is empty) and you are on `main` synced with origin.
+2. Run the release helper to prepare a PR (defaults to a patch bump):
+
+   - Patch: `npm run release:pr`
+   - Minor: `BUMP=minor npm run release:pr`
+   - Major: `BUMP=major npm run release:pr`
+
+   This will:
+   - Bump the version in package files (no tag)
+   - Ensure `CHANGELOG.md` has an entry for the new version
+   - Create `release/vX.Y.Z` branch, commit, push, and open a PR
+
+3. Review the PR, ensure CHANGELOG and notes are correct, then merge.
+4. On merge to `main`, the GitHub Actions workflow `.github/workflows/release-on-main.yml` will:
+   - Create a tag `vX.Y.Z` and a GitHub Release
+   - Publish the package to npm (requires `NPM_TOKEN` secret)
+
+Notes:
+- Never push directly to `main`. Branch protection will reject such pushes.
+- Ensure `secrets.NPM_TOKEN` is configured at the repository level for publishing.
+
 ## License
 
 By contributing, you agree that your contributions will be licensed under the MIT License (see `LICENSE`).
-
