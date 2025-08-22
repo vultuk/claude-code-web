@@ -44,7 +44,14 @@ main() {
   # Ensure CHANGELOG has an entry header if missing
   if ! grep -q "^## \[${version}\]" CHANGELOG.md 2>/dev/null; then
     date_str=$(date +%Y-%m-%d)
-    printf '\n## [%s] - %s\n\n### Changed\n- Prepare release %s\n' "$version" "$date_str" "$version" >> CHANGELOG.md
+    new_entry=$(printf '\n## [%s] - %s\n\n### Changed\n- Prepare release %s\n' "$version" "$date_str" "$version")
+    # Insert new entry after any existing header (first line starting with # or empty lines)
+    awk -v entry="$new_entry" '
+      NR==1 { print; next }
+      NR==2 && $0 ~ /^$/ { print; print entry; next }
+      NR==2 { print entry; print; next }
+      NR>2 { print }
+    ' CHANGELOG.md > CHANGELOG.md.tmp && mv CHANGELOG.md.tmp CHANGELOG.md
   fi
 
   git add -A
