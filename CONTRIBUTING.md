@@ -105,6 +105,7 @@ Main is protected. All releases must go through a pull request from a separate b
 Notes:
 - Never push directly to `main`. Branch protection will reject such pushes.
 - Ensure `secrets.NPM_TOKEN` is configured at the repository level for publishing.
+- The workflow runs on every merge to `main` and skips if a tag for the current `package.json` version already exists.
 
 ## License
 
