@@ -90,5 +90,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Notes
 - No runtime or API changes; documentation/website only
 
+## [2.5.3] - 2025-08-22
+
+### Changed
+- Docs site: replaced HTTPS guidance with accurate ngrok options
+
+### Fixed
+- Docs site: improved mobile responsiveness and removed horizontal scrolling
+
 ## [2.1.3] - Previous Release
 - Previous version baseline
