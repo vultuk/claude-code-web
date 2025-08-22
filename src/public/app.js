@@ -413,8 +413,9 @@ class ClaudeCodeWebInterface {
         this.setupNewSessionModal();
         this.setupMobileSessionsModal();
 
-        // Commands ("/") floating menu
+        // Commands ("/") menu anchored to terminal
         this.setupCommandsMenu();
+        this.setupCustomCommandModal();
     }
 
     setupSettingsModal() {
@@ -448,7 +449,8 @@ class ClaudeCodeWebInterface {
             <button id="commandsBtn" class="commands-button" title="Run command (/)">/</button>
             <div id="commandsDropdown" class="commands-dropdown"></div>
         `;
-        document.body.appendChild(menu);
+        const container = document.getElementById('terminalContainer') || document.body;
+        container.appendChild(menu);
 
         const btn = document.getElementById('commandsBtn');
         const dropdown = document.getElementById('commandsDropdown');
@@ -482,6 +484,8 @@ class ClaudeCodeWebInterface {
             const items = Array.isArray(data.items) ? data.items : [];
             if (items.length === 0) {
                 dropdown.innerHTML = '<div class="commands-empty">No commands found (~/.claude-code-web/commands)</div>';
+                // Still show Custom option even if no files
+                this.appendCustomCommandItem(dropdown);
                 return;
             }
             dropdown.innerHTML = '';
@@ -499,9 +503,27 @@ class ClaudeCodeWebInterface {
                 });
                 dropdown.appendChild(el);
             });
+
+            // Append Custom option at the bottom
+            this.appendCustomCommandItem(dropdown);
         } catch (error) {
             dropdown.innerHTML = `<div class="commands-error">Failed to load commands: ${error.message}</div>`;
+            // Still allow Custom input even on error
+            this.appendCustomCommandItem(dropdown);
         }
+    }
+
+    appendCustomCommandItem(dropdown) {
+        const el = document.createElement('div');
+        el.className = 'commands-item';
+        el.textContent = 'Custom…';
+        el.title = 'Type or paste a custom multi-line message';
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dropdown.classList.remove('open');
+            this.openCustomCommandModal();
+        });
+        dropdown.appendChild(el);
     }
 
     async runCommandFromPath(relPath) {
@@ -520,6 +542,79 @@ class ClaudeCodeWebInterface {
         } catch (error) {
             this.showError(`Failed to run command: ${error.message}`);
         }
+    }
+
+    setupCustomCommandModal() {
+        if (document.getElementById('customCommandModal')) return;
+        const modal = document.createElement('div');
+        modal.id = 'customCommandModal';
+        modal.className = 'commands-modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Run Custom Message</h2>
+                    <button class="close-btn" id="closeCustomCommandBtn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <textarea id="customCommandInput" class="commands-textarea" placeholder="Type or paste your message...&#10;Tip: Press Ctrl/Cmd + Enter to run"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn" id="cancelCustomCommandBtn">Cancel</button>
+                    <button class="btn btn-primary" id="runCustomCommandBtn">Run</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        const run = () => {
+            const textarea = document.getElementById('customCommandInput');
+            const content = (textarea?.value || '').trim();
+            if (!content) {
+                this.showError('Please enter a message to run');
+                return;
+            }
+            if (!this.currentClaudeSessionId) {
+                this.showError('Start Claude/Codex in a session first');
+                return;
+            }
+            // Send and close
+            this.send({ type: 'input', data: content + '\n' });
+            this.closeCustomCommandModal();
+        };
+
+        document.getElementById('runCustomCommandBtn').addEventListener('click', run);
+        document.getElementById('cancelCustomCommandBtn').addEventListener('click', () => this.closeCustomCommandModal());
+        document.getElementById('closeCustomCommandBtn').addEventListener('click', () => this.closeCustomCommandModal());
+
+        // Keyboard shortcut: Ctrl/Cmd + Enter runs
+        modal.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                run();
+            }
+            if (e.key === 'Escape') {
+                this.closeCustomCommandModal();
+            }
+        });
+    }
+
+    openCustomCommandModal() {
+        const modal = document.getElementById('customCommandModal');
+        if (!modal) return;
+        modal.classList.add('active');
+        // Slight delay to ensure modal is visible before focusing
+        setTimeout(() => {
+            const textarea = document.getElementById('customCommandInput');
+            if (textarea) {
+                textarea.value = '';
+                textarea.focus();
+            }
+        }, 0);
+    }
+
+    closeCustomCommandModal() {
+        const modal = document.getElementById('customCommandModal');
+        if (modal) modal.classList.remove('active');
     }
 
     connect(sessionId = null) {

@@ -2097,12 +2097,12 @@ pre, code {
     display: block;
 }
 
-/* Commands menu button (floating "/" in top-right) */
+/* Commands menu button ("/") anchored in editor */
 .commands-menu {
-  position: fixed;
+  position: absolute; /* Within .terminal-container */
   top: 12px;
   right: 12px;
-  z-index: 1100;
+  z-index: 5;
 }
 
 .commands-button {
@@ -2155,4 +2155,41 @@ pre, code {
 .commands-empty, .commands-error {
   padding: 10px 12px;
   color: #9ca3af;
+}
+
+/* Custom command modal */
+.commands-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.commands-modal.active { display: flex; }
+
+.commands-modal .modal-content {
+  width: 640px;
+  max-width: 92vw;
+}
+
+.commands-textarea {
+  width: 100%;
+  min-height: 220px;
+  resize: vertical;
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
 }
