@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2025-08-22
+
+### Added
+- ngrok tunnel integration with `--ngrok-auth-token` and `--ngrok-domain` CLI options
+- Public tunnel support for remote access to Claude Code Web interface
+- Enhanced shutdown handling to properly close ngrok tunnels
+- Input validation to ensure both ngrok flags are provided together
+
+### Changed
+- Improved auto-open behavior to use ngrok public URL when tunnel is active
+- Enhanced error handling for ngrok tunnel establishment
+
+### Dependencies
+- Added `@ngrok/ngrok` package for tunnel functionality
+
 ## [2.4.0] - 2025-08-22
 
 ### Added

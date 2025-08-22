@@ -21,6 +21,8 @@ program
   .option('--key <path>', 'path to SSL private key file')
   .option('--dev', 'development mode with additional logging')
   .option('--plan <type>', 'subscription plan (pro, max5, max20)', 'max20')
+  .option('--ngrok-auth-token <token>', 'ngrok auth token to open a public tunnel')
+  .option('--ngrok-domain <domain>', 'ngrok reserved domain to use for the tunnel')
   .parse();
 
 const options = program.opts();
@@ -90,12 +92,23 @@ async function main() {
     }
 
     const server = await startServer(serverOptions);
+
+    // ngrok setup
+    const hasNgrokToken = !!options.ngrokAuthToken;
+    const hasNgrokDomain = !!options.ngrokDomain;
+
+    if ((hasNgrokToken && !hasNgrokDomain) || (!hasNgrokToken && hasNgrokDomain)) {
+      console.error('Error: Both --ngrok-auth-token and --ngrok-domain are required to enable ngrok tunneling');
+      process.exit(1);
+    }
+
+    let ngrokListener = null;
     
     const protocol = options.https ? 'https' : 'http';
     const url = `${protocol}://localhost:${port}`;
     
     console.log(`\n🚀 Claude Code Web Interface is running at: ${url}`);
-    
+
     if (!noAuth) {
       console.log('\n📋 Authentication Required:');
       if (options.auth) {
@@ -105,9 +118,49 @@ async function main() {
       }
     }
     
-    console.log('\nPress Ctrl+C to stop the server\n');
+    // Start ngrok tunnel if both flags provided
+    let publicUrl = null;
+    if (hasNgrokToken && hasNgrokDomain) {
+      console.log('\n🌐 Starting ngrok tunnel...');
+      try {
+        const mod = await import('@ngrok/ngrok');
+        const ngrok = mod.default || mod;
 
-    if (options.open) {
+        if (typeof ngrok.authtoken === 'function') {
+          try { await ngrok.authtoken(options.ngrokAuthToken); } catch (_) {}
+        }
+
+        ngrokListener = await ngrok.connect({
+          addr: port,
+          authtoken: options.ngrokAuthToken,
+          domain: options.ngrokDomain
+        });
+
+        if (ngrokListener && typeof ngrokListener.url === 'function') {
+          publicUrl = ngrokListener.url();
+        }
+
+        if (!publicUrl && ngrokListener && ngrokListener.url) {
+          publicUrl = ngrokListener.url; // fallback in case API exposes property
+        }
+
+        if (publicUrl) {
+          console.log(`\n🌍 ngrok tunnel established: ${publicUrl}`);
+        } else {
+          console.log('\n🌍 ngrok tunnel established');
+        }
+
+        if (options.open && publicUrl) {
+          try { await open(publicUrl); } catch (error) {
+            console.warn('Could not automatically open browser:', error.message);
+          }
+        }
+
+      } catch (error) {
+        console.error('Failed to start ngrok tunnel:', error.message);
+      }
+    } else if (options.open) {
+      // Open local URL only when ngrok not used and auto-open enabled
       try {
         await open(url);
       } catch (error) {
@@ -115,21 +168,22 @@ async function main() {
       }
     }
 
-    process.on('SIGINT', () => {
-      console.log('\nShutting down server...');
-      server.close(() => {
-        console.log('Server closed');
-        process.exit(0);
-      });
-    });
+    console.log('\nPress Ctrl+C to stop the server\n');
 
-    process.on('SIGTERM', () => {
+    const shutdown = async () => {
       console.log('\nShutting down server...');
+      // Close ngrok tunnel first if active
+      if (ngrokListener && typeof ngrokListener.close === 'function') {
+        try { await ngrokListener.close(); } catch (_) {}
+      }
       server.close(() => {
         console.log('Server closed');
         process.exit(0);
       });
-    });
+    };
+
+    process.on('SIGINT', () => { shutdown(); });
+    process.on('SIGTERM', () => { shutdown(); });
 
   } catch (error) {
     console.error('Error starting server:', error.message);

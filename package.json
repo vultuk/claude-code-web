@@ -1,6 +1,6 @@
 {
   "name": "claude-code-web",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "description": "Web-based interface for Claude Code CLI accessible via browser",
   "main": "src/server.js",
   "bin": {
@@ -25,6 +25,7 @@
   "dependencies": {
     "commander": "^12.1.0",
     "cors": "^2.8.5",
+    "@ngrok/ngrok": "^1.4.0",
     "express": "^4.19.2",
     "node-pty": "^1.0.0",
     "open": "^10.1.0",
