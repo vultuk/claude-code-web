@@ -38,7 +38,8 @@
             </div>
             <pre class="snippet"><code>npx claude-code-web
 # optional flags:
-# --port 8080 --auth YOUR_TOKEN --https --cert cert.pem --key key.pem</code></pre>
+# --port 8080 --auth YOUR_TOKEN
+# --ngrok-auth-token NGROK_TOKEN --ngrok-domain your-subdomain</code></pre>
           </div>
           <div class="hero-aside">
             <div class="terminal-card">
@@ -60,10 +61,10 @@
           <div class="grid">
             <div class="card"><h3>🌐 Web‑based</h3><p>Access Claude Code from any modern browser with a responsive UI.</p></div>
             <div class="card"><h3>🚀 Real‑time</h3><p>Low‑latency streaming via WebSockets with full ANSI terminal emulation.</p></div>
-            <div class="card"><h3>🔐 Secure by default</h3><p>Authentication enabled by default; HTTPS support for production.</p></div>
+            <div class="card"><h3>🔐 Secure by default</h3><p>Authentication enabled by default with token-based access.</p></div>
             <div class="card"><h3>🔄 Multi‑session</h3><p>Create, join, and persist multiple sessions across reconnects.</p></div>
             <div class="card"><h3>🎛️ Customizable</h3><p>Adjust themes, font size, working directory, and plan options.</p></div>
-            <div class="card"><h3>🌍 Remote access</h3><p>Optional ngrok integration for secure public tunnels when needed.</p></div>
+            <div class="card"><h3>🌍 Remote access</h3><p>Built‑in ngrok integration for secure public tunnels when needed.</p></div>
           </div>
         </div>
       </section>
@@ -90,8 +91,8 @@ cc-web --dev
 # Provide an auth token
 cc-web --auth YOUR_TOKEN
 
-# Enable HTTPS
-cc-web --https --cert /path/cert.pem --key /path/key.pem
+# Public access via ngrok
+cc-web --ngrok-auth-token NGROK_TOKEN --ngrok-domain your-subdomain
               </code></pre>
             </div>
           </div>
@@ -109,7 +110,7 @@ cc-web --https --cert /path/cert.pem --key /path/key.pem
           <h2>Security</h2>
           <ul class="bullets">
             <li><strong>Auth required by default</strong> — automatic token generation on startup.</li>
-            <li><strong>HTTPS ready</strong> — supply certificate and key flags for TLS.</li>
+            <li><strong>Public access via ngrok</strong> — provide <code>--ngrok-auth-token</code> and <code>--ngrok-domain</code> to create a tunnel.</li>
             <li><strong>Session scope</strong> — authentication covers REST and WebSocket endpoints.</li>
           </ul>
         </div>
@@ -148,4 +149,3 @@ cc-web --https --cert /path/cert.pem --key /path/key.pem
     <script src="script.js"></script>
   </body>
   </html>
-
