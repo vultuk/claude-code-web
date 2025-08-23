@@ -11,6 +11,7 @@ const ClaudeBridge = require('./claude-bridge');
 const CodexBridge = require('./codex-bridge');
 const SessionStore = require('./utils/session-store');
 const UsageReader = require('./usage-reader');
+const CodexUsageReader = require('./codex-usage-reader');
 const UsageAnalytics = require('./usage-analytics');
 
 class ClaudeCodeWebServer {
@@ -35,6 +36,7 @@ class ClaudeCodeWebServer {
     this.codexBridge = new CodexBridge();
     this.sessionStore = new SessionStore();
     this.usageReader = new UsageReader(this.sessionDurationHours);
+    this.codexUsageReader = new CodexUsageReader();
     this.usageAnalytics = new UsageAnalytics({
       sessionDurationHours: this.sessionDurationHours,
       plan: options.plan || process.env.CLAUDE_PLAN || 'max20',
@@ -1175,6 +1177,14 @@ class ClaudeCodeWebServer {
       
       // Get 24h stats for additional context
       const dailyStats = await this.usageReader.getUsageStats(24);
+
+      // Get Codex usage over the same rolling window for side-by-side display
+      let codexStats = null;
+      try {
+        codexStats = await this.codexUsageReader.getUsageStats(this.sessionDurationHours);
+      } catch (_) {
+        codexStats = null;
+      }
       
       // Update analytics with current session data
       if (currentSessionStats && currentSessionStats.sessionStartTime) {
@@ -1255,7 +1265,8 @@ class ClaudeCodeWebServer {
         burnRate: burnRateData,
         overlappingSessions: overlappingSessions.length,
         plan: this.usageAnalytics.currentPlan,
-        limits: this.usageAnalytics.planLimits[this.usageAnalytics.currentPlan]
+        limits: this.usageAnalytics.planLimits[this.usageAnalytics.currentPlan],
+        codexStats
       });
       
     } catch (error) {

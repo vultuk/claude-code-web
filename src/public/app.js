@@ -903,7 +903,8 @@ class ClaudeCodeWebInterface {
                     message.analytics,
                     message.burnRate,
                     message.plan,
-                    message.limits
+                    message.limits,
+                    message.codexStats || null
                 );
                 break;
                 
@@ -1930,7 +1931,7 @@ class ClaudeCodeWebInterface {
         }, 1000);
     }
 
-    updateUsageDisplay(sessionStats, dailyStats, sessionTimer, analytics, burnRate, plan, limits) {
+    updateUsageDisplay(sessionStats, dailyStats, sessionTimer, analytics, burnRate, plan, limits, codexStats) {
         if (!sessionStats && !dailyStats) return;
         
         this.sessionStats = sessionStats;
@@ -1940,6 +1941,7 @@ class ClaudeCodeWebInterface {
         this.burnRate = burnRate;
         this.currentPlan = plan;
         this.planLimits = limits;
+        this.codexStats = codexStats || null;
         
         // Container is already visible by default
         
@@ -1976,6 +1978,7 @@ class ClaudeCodeWebInterface {
             
             // Display tokens - on mobile just show percentage
             const actualTokens = sessionStats.totalTokens || 0;
+            const codexTokens = (this.codexStats && this.codexStats.totalTokens) || 0;
             let tokenDisplay = actualTokens.toLocaleString();
             let percentUsed = 0;
             
@@ -1990,9 +1993,13 @@ class ClaudeCodeWebInterface {
                 percentUsed = (actualTokens / tokenLimit) * 100;
                 // Mobile: just percentage, Desktop: full display
                 if (isMobile) {
+                    // Keep percent compact on mobile (Claude plan only)
                     tokenDisplay = `${percentUsed.toFixed(1)}%`;
                 } else {
-                    tokenDisplay = `${actualTokens.toLocaleString()} (${percentUsed.toFixed(1)}%)`;
+                    // Desktop: show Claude tokens + optional Codex suffix
+                    const base = `${actualTokens.toLocaleString()} (${percentUsed.toFixed(1)}%)`;
+                    const codexSuffix = codexTokens > 0 ? ` +C ${codexTokens.toLocaleString()}` : '';
+                    tokenDisplay = base + codexSuffix;
                 }
                 
                 // Update progress bar
@@ -2016,15 +2023,23 @@ class ClaudeCodeWebInterface {
                     }
                 }
             }
-            document.getElementById('usageTokens').textContent = tokenDisplay;
+            const tokensEl = document.getElementById('usageTokens');
+            tokensEl.textContent = tokenDisplay;
+            // Tooltip with breakdown (Claude vs Codex)
+            const tokenBreakdown = `Claude: ${actualTokens.toLocaleString()}${codexTokens > 0 ? `, Codex: ${codexTokens.toLocaleString()}` : ''}`;
+            tokensEl.title = tokenBreakdown;
             
             // Start the live timer update
             this.startSessionTimerUpdate();
             
             // Format cost - CSS handles hiding on mobile
             const cost = sessionStats.totalCost || 0;
-            const costText = cost > 0 ? `$${cost.toFixed(2)}` : '$0.00';
-            document.getElementById('usageCost').textContent = costText;
+            const codexCost = (this.codexStats && this.codexStats.totalCost) || 0;
+            const combinedCost = (cost + codexCost);
+            const costText = `$${combinedCost.toFixed(2)}`;
+            const costEl = document.getElementById('usageCost');
+            costEl.textContent = costText;
+            costEl.title = `Claude: $${cost.toFixed(2)}${codexCost > 0 ? `, Codex: $${codexCost.toFixed(2)}` : ''}`;
             
             // Show burn rate - on mobile just show icon
             if (sessionTimer.burnRate && sessionTimer.burnRate > 0) {
@@ -2125,7 +2140,9 @@ class ClaudeCodeWebInterface {
             
             document.getElementById('usageTitle').textContent = '0h 0m';
             document.getElementById('usageTokens').textContent = isMobile ? '0%' : '0';
-            document.getElementById('usageCost').textContent = '$0.00';
+            const costEl2 = document.getElementById('usageCost');
+            costEl2.textContent = '$0.00';
+            costEl2.title = '';
             document.getElementById('usageRate').textContent = isMobile ? '⭕' : '0 tok/min';
             document.getElementById('usageModel').textContent = 'No usage';
             

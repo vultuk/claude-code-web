@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.0] - 2025-08-23
+
+### Added
+- Codex usage in top status bar: tokens and cost now surface alongside Claude.
+- New `CodexUsageReader` scans `~/.codex/sessions` JSONL logs and estimates usage.
+- Server includes `codexStats` in `usage_update` WebSocket payload.
+- UI shows combined cost with tooltip breakdown (Claude vs Codex) and desktop token suffix `+C` for Codex.
+
+### Notes
+- Backwards-compatible feature; no breaking API changes. Existing consumers can ignore the new `codexStats` field.
+
 ## [2.6.0] - 2025-08-23
 
 ### Changed
