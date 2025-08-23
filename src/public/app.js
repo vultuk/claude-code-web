@@ -2135,24 +2135,41 @@ class ClaudeCodeWebInterface {
                 document.getElementById('usageModel').textContent = modelText;
             }
         } else {
-            // No active session or expired session - show zeros
+            // No active Claude session (or expired) - still surface Codex stats when available
             const isMobile = window.innerWidth <= 768;
-            
+
             document.getElementById('usageTitle').textContent = '0h 0m';
-            document.getElementById('usageTokens').textContent = isMobile ? '0%' : '0';
+
+            // Tokens: show 0 for Claude, and on desktop append Codex suffix if any
+            const codexTokens = (this.codexStats && this.codexStats.totalTokens) || 0;
+            const tokensEl = document.getElementById('usageTokens');
+            if (isMobile) {
+                // Mobile keeps compact percent-only view
+                tokensEl.textContent = '0%';
+            } else {
+                const codexSuffix = codexTokens > 0 ? ` +C ${codexTokens.toLocaleString()}` : '';
+                tokensEl.textContent = `0${codexSuffix}`;
+            }
+            // Tooltip with breakdown (Claude vs Codex)
+            tokensEl.title = `Claude: 0${codexTokens > 0 ? `, Codex: ${codexTokens.toLocaleString()}` : ''}`;
+
+            // Cost: include Codex cost even without an active Claude session
+            const codexCost = (this.codexStats && this.codexStats.totalCost) || 0;
             const costEl2 = document.getElementById('usageCost');
-            costEl2.textContent = '$0.00';
-            costEl2.title = '';
+            costEl2.textContent = `$${codexCost.toFixed(2)}`;
+            costEl2.title = codexCost > 0 ? `Codex: $${codexCost.toFixed(2)}` : '';
+
+            // Rate and model remain neutral without an active Claude session window
             document.getElementById('usageRate').textContent = isMobile ? '⭕' : '0 tok/min';
             document.getElementById('usageModel').textContent = 'No usage';
-            
+
             // Stop the timer update
             if (this.sessionTimerInterval) {
                 clearInterval(this.sessionTimerInterval);
                 this.sessionTimerInterval = null;
             }
-            
-            // Hide progress bar when no session
+
+            // Hide progress bar when no Claude session
             const progressContainer = document.getElementById('usageProgress');
             if (progressContainer) {
                 progressContainer.style.display = 'none';
