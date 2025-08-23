@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.0] - 2025-08-23
+
+### Changed
+- Codex now launches with default flags to use the best model: `-m gpt-5 -c model_reasoning_effort=high`.
+- When `DEBUG` is set, Codex spawn arguments are logged for easier troubleshooting.
+
+### Notes
+- Backwards-compatible behavior change; no API changes required.
+
 ## [2.5.0] - 2025-08-22
 
 ### Added

@@ -66,7 +66,15 @@ class CodexBridge {
         console.log(`⚠️ WARNING: Bypassing approvals and sandbox with --dangerously-bypass-approvals-and-sandbox flag`);
       }
 
-      const args = dangerouslySkipPermissions ? ['--dangerously-bypass-approvals-and-sandbox'] : [];
+      // Ensure Codex runs with the desired model and config
+      // Note: pass values without shell quotes since node-pty does not use a shell
+      const defaultArgs = ['-m', 'gpt-5', '-c', 'model_reasoning_effort=high'];
+      const args = dangerouslySkipPermissions
+        ? [...defaultArgs, '--dangerously-bypass-approvals-and-sandbox']
+        : [...defaultArgs];
+      if (process.env.DEBUG) {
+        console.log(`Args: ${args.join(' ')}`);
+      }
       const codexProcess = spawn(this.codexCommand, args, {
         cwd: workingDir,
         env: {
