@@ -100,7 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.1.3] - Previous Release
 - Previous version baseline
-## [2.6.0] - 2025-08-29
+## [2.6.1] - 2025-08-29
 
 ### Added
 - Assistant alias support across CLI, server, and UI.
