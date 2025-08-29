@@ -100,3 +100,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.1.3] - Previous Release
 - Previous version baseline
+## [2.6.0] - 2025-08-29
+
+### Added
+- Assistant alias support across CLI, server, and UI.
+  - New CLI flags: `--claude-alias <name>` and `--codex-alias <name>`.
+  - New env vars: `CLAUDE_ALIAS`, `CODEX_ALIAS`.
+  - `/api/config` now returns `aliases` for the frontend.
+- UI now displays configured aliases in buttons, prompts, and messages.
+- Tests: added `test/server-alias.test.js` to validate server alias configuration.
+
+### Changed
+- Startup logs show configured aliases.
+- README updated with alias usage examples.

@@ -44,6 +44,11 @@ class ClaudeCodeWebServer {
     this.startTime = Date.now(); // Track server start time
     // Commands directory (in user's home)
     this.commandsDir = path.join(os.homedir(), '.claude-code-web', 'commands');
+    // Assistant aliases (for UI display only)
+    this.aliases = {
+      claude: options.claudeAlias || process.env.CLAUDE_ALIAS || 'Claude',
+      codex: options.codexAlias || process.env.CODEX_ALIAS || 'Codex'
+    };
     
     this.setupExpress();
     this.loadPersistedSessions();
@@ -382,7 +387,8 @@ class ClaudeCodeWebServer {
       res.json({ 
         folderMode: this.folderMode,
         selectedWorkingDir: this.selectedWorkingDir,
-        baseFolder: this.baseFolder
+        baseFolder: this.baseFolder,
+        aliases: this.aliases
       });
     });
 
