@@ -7,6 +7,13 @@ class SessionTabManager {
         this.notificationsEnabled = false;
         this.requestNotificationPermission();
     }
+
+    getAlias(kind) {
+        if (this.claudeInterface && typeof this.claudeInterface.getAlias === 'function') {
+            return this.claudeInterface.getAlias(kind);
+        }
+        return kind === 'codex' ? 'Codex' : 'Claude';
+    }
     
     requestNotificationPermission() {
         if ('Notification' in window) {
@@ -216,7 +223,7 @@ class SessionTabManager {
             promptDiv.innerHTML = `
                 <div style="margin-bottom: 10px;">
                     <strong>Enable Desktop Notifications?</strong><br>
-                    Get notified when Claude completes tasks in background tabs.
+                    Get notified when ${this.getAlias('claude')} completes tasks in background tabs.
                 </div>
                 <div style="display: flex; gap: 10px;">
                     <button id="enableNotifications" style="
@@ -853,7 +860,7 @@ class SessionTabManager {
                             
                             // Send notification that Claude appears to have finished
                             this.sendNotification(
-                                `✅ ${sessionName} - Claude appears finished`,
+                                `✅ ${sessionName} - ${this.getAlias('claude')} appears finished`,
                                 `No output for 90 seconds (worked for ${Math.round(duration / 1000)}s)`,
                                 sessionId
                             );

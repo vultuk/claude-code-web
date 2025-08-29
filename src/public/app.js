@@ -18,6 +18,8 @@ class ClaudeCodeWebInterface {
         this.currentMode = 'chat';
         this.planDetector = null;
         this.planModal = null;
+        // Aliases for assistants (populated from /api/config)
+        this.aliases = { claude: 'Claude', codex: 'Codex' };
         
         
         // Initialize the session tab manager
@@ -66,10 +68,12 @@ class ClaudeCodeWebInterface {
             return;
         }
         
+        await this.loadConfig();
         this.setupTerminal();
         this.setupUI();
         this.setupPlanDetector();
         this.loadSettings();
+        this.applyAliasesToUI();
         this.disablePullToRefresh();
         
         // Show loading while we initialize
@@ -110,6 +114,44 @@ class ClaudeCodeWebInterface {
         window.addEventListener('beforeunload', () => {
             this.disconnect();
         });
+    }
+
+    async loadConfig() {
+        try {
+            const res = await this.authFetch('/api/config');
+            if (res.ok) {
+                const cfg = await res.json();
+                if (cfg?.aliases) {
+                    this.aliases = {
+                        claude: cfg.aliases.claude || 'Claude',
+                        codex: cfg.aliases.codex || 'Codex'
+                    };
+                }
+                if (typeof cfg.folderMode === 'boolean') {
+                    this.folderMode = cfg.folderMode;
+                }
+            }
+        } catch (_) { /* best-effort */ }
+    }
+
+    getAlias(kind) {
+        return (this.aliases && this.aliases[kind]) ? this.aliases[kind] : (kind === 'codex' ? 'Codex' : 'Claude');
+    }
+
+    applyAliasesToUI() {
+        // Start prompt buttons
+        const startBtn = document.getElementById('startBtn');
+        const dangerousSkipBtn = document.getElementById('dangerousSkipBtn');
+        const startCodexBtn = document.getElementById('startCodexBtn');
+        const dangerousCodexBtn = document.getElementById('dangerousCodexBtn');
+        if (startBtn) startBtn.textContent = `Start ${this.getAlias('claude')}`;
+        if (dangerousSkipBtn) dangerousSkipBtn.textContent = `Dangerous ${this.getAlias('claude')}`;
+        if (startCodexBtn) startCodexBtn.textContent = `Start ${this.getAlias('codex')}`;
+        if (dangerousCodexBtn) dangerousCodexBtn.textContent = `Dangerous ${this.getAlias('codex')}`;
+
+        // Plan modal title
+        const planTitle = document.querySelector('#planModal .modal-header h2');
+        if (planTitle) planTitle.textContent = `📋 ${this.getAlias('claude')}'s Plan`;
     }
     
     detectMobile() {
@@ -528,7 +570,7 @@ class ClaudeCodeWebInterface {
 
     async runCommandFromPath(relPath) {
         if (!this.currentClaudeSessionId) {
-            this.showError('Start Claude/Codex in a session first');
+            this.showError(`Start ${this.getAlias('claude')}/${this.getAlias('codex')} in a session first`);
             return;
         }
         try {
@@ -574,7 +616,7 @@ class ClaudeCodeWebInterface {
                 return;
             }
             if (!this.currentClaudeSessionId) {
-                this.showError('Start Claude/Codex in a session first');
+                this.showError(`Start ${this.getAlias('claude')}/${this.getAlias('codex')} in a session first`);
                 return;
             }
             // Send and close
@@ -782,7 +824,7 @@ class ClaudeCodeWebInterface {
                         console.log('[session_joined] Existing session with stopped Claude, showing restart prompt');
                         // For existing sessions where Claude has stopped, show start prompt
                         // This allows the user to restart Claude in the same session
-                        this.terminal.writeln('\r\n\x1b[33mClaude Code has stopped in this session. Click "Start Claude Code" to restart.\x1b[0m');
+                        this.terminal.writeln(`\r\n\x1b[33m${this.getAlias('claude')} has stopped in this session. Click "Start ${this.getAlias('claude')}" to restart.\x1b[0m`);
                         this.showOverlay('startPrompt');
                     }
                 }
@@ -829,7 +871,7 @@ class ClaudeCodeWebInterface {
                 break;
                 
             case 'claude_stopped':
-                this.terminal.writeln(`\r\n\x1b[33mClaude Code stopped\x1b[0m`);
+                this.terminal.writeln(`\r\n\x1b[33m${this.getAlias('claude')} stopped\x1b[0m`);
                 // Show start prompt to allow restarting Claude in this session
                 this.showOverlay('startPrompt');
                 this.loadSessions(); // Refresh session list
@@ -857,7 +899,7 @@ class ClaudeCodeWebInterface {
                 break;
                 
             case 'exit':
-                this.terminal.writeln(`\r\n\x1b[33mClaude Code exited with code ${message.code}\x1b[0m`);
+                this.terminal.writeln(`\r\n\x1b[33m${this.getAlias('claude')} exited with code ${message.code}\x1b[0m`);
                 
                 // Mark session as error if non-zero exit code
                 if (this.sessionTabManager && this.currentClaudeSessionId && message.code !== 0) {
@@ -931,8 +973,8 @@ class ClaudeCodeWebInterface {
         
         this.showOverlay('loadingSpinner');
         const loadingText = options.dangerouslySkipPermissions ? 
-            'Starting Claude Code (⚠️ Skipping permissions)...' : 
-            'Starting Claude Code...';
+            `Starting ${this.getAlias('claude')} (⚠️ Skipping permissions)...` : 
+            `Starting ${this.getAlias('claude')}...`;
         document.getElementById('loadingSpinner').querySelector('p').textContent = loadingText;
     }
 
@@ -955,8 +997,8 @@ class ClaudeCodeWebInterface {
 
         this.showOverlay('loadingSpinner');
         const loadingText = options.dangerouslySkipPermissions ?
-            'Starting Codex (⚠️ Bypassing approvals and sandbox)...' :
-            'Starting Codex...';
+            `Starting ${this.getAlias('codex')} (⚠️ Bypassing approvals and sandbox)...` :
+            `Starting ${this.getAlias('codex')}...`;
         document.getElementById('loadingSpinner').querySelector('p').textContent = loadingText;
     }
 

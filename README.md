@@ -101,6 +101,30 @@ npx claude-code-web --https --cert /path/to/cert.pem --key /path/to/key.pem
 ```bash
 # Enable additional logging and debugging
 npx claude-code-web --dev
+
+### Assistant Aliases
+
+You can customize how the assistants are labeled in the UI (for example, to display "Alice" instead of "Claude" or "R2" instead of "Codex").
+
+- Flags:
+  - `--claude-alias <name>`: Set the display name for Claude (default: env `CLAUDE_ALIAS` or "Claude").
+  - `--codex-alias <name>`: Set the display name for Codex (default: env `CODEX_ALIAS` or "Codex").
+
+Examples:
+
+```
+npx claude-code-web --claude-alias Alice --codex-alias R2
+```
+
+Or via environment variables:
+
+```
+export CLAUDE_ALIAS=Alice
+export CODEX_ALIAS=R2
+npx claude-code-web
+```
+
+These aliases are for display purposes only; they do not change which underlying CLI is launched.
 ```
 
 ### Running from source
