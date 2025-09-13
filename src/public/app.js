@@ -961,6 +961,9 @@ class ClaudeCodeWebInterface {
                 this.currentClaudeSessionId = null;
                 this.currentClaudeSessionName = null;
                 this.updateSessionButton('Sessions');
+                if (this.paneManager) {
+                    try { this.paneManager.tabs.forEach((t,i)=>this.paneManager.removeTabFromPane(i, message.sessionId)); } catch(_) {}
+                }
                 this.loadSessions();
                 break;
                 
