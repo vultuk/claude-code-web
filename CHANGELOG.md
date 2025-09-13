@@ -270,3 +270,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Migration Notes
 - To send predefined prompts, store them in your own UI or scripts and paste/send directly to the terminal. The app will forward input to the active session as before.
+
+## [3.0.1] - 2025-09-13
+
+### Fixed
+- Remove an empty left column gap in tiled mode by hiding the single-pane container when tiles are enabled.
+- Restore per-pane assistant chooser overlay by not treating 'idle' sessions as already running.
