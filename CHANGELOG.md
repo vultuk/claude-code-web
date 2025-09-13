@@ -231,3 +231,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Notes
 - UI‑only; no server/CLI changes.
+## [2.17.0] - 2025-09-13
+
+### Changed
+- Closing a pane tab now fully closes the session (server DELETE), removes it from all panes, and cleans up sockets/terminals.
+- Pane “+” button opens the folder picker directly to create a new session; session dropdown removed.
+- Session deletion events now remove the session from all pane tab strips automatically.
+
+### Notes
+- UI/behavior change only; no server/CLI API changes.

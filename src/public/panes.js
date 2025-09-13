@@ -19,10 +19,16 @@ class ClaudePane {
     if (!sessionId) return;
     this.ensureTerminal();
     await this.connect();
-    // If newly attached and no output yet, show per-pane start overlay
+    // If likely already running, do not show the overlay
+    if (this.isLikelyRunning()) {
+      this.hadOutput = true;
+      this.hideStartOverlay();
+      return;
+    }
+    // Otherwise, show overlay after a short delay if no output arrives
     setTimeout(() => {
-      if (!this.hadOutput) this.showStartOverlay();
-    }, 50);
+      if (!this.hadOutput && !this.isLikelyRunning()) this.showStartOverlay();
+    }, 600);
   }
 
   ensureTerminal() {
@@ -137,6 +143,24 @@ class ClaudePane {
     const type = kind === 'codex' ? 'start_codex' : 'start_claude';
     this.socket.send(JSON.stringify({ type, options }));
     this.hideStartOverlay();
+  }
+
+  isLikelyRunning() {
+    try {
+      const id = this.sessionId;
+      if (!id) return false;
+      // Check live sessions list from server
+      const list = this.app?.claudeSessions || [];
+      const s = list.find(x => x.id === id);
+      if (s && s.active) return true;
+      // Check tab manager status if present
+      const sm = this.app?.sessionTabManager;
+      if (sm && sm.activeSessions) {
+        const rec = sm.activeSessions.get(id);
+        if (rec && (rec.status === 'active' || rec.status === 'idle')) return true;
+      }
+    } catch (_) {}
+    return false;
   }
 }
 
@@ -465,24 +489,18 @@ class PaneManager {
         this.persist();
         this.renderPaneTabs(index);
       });
-      // close
-      el.querySelector('.close').addEventListener('click', (e) => {
+      // close: fully close the session
+      el.querySelector('.close').addEventListener('click', async (e) => {
         e.stopPropagation();
-        const idx = state.list.indexOf(sid);
-        if (idx >= 0) state.list.splice(idx, 1);
-        if (state.active === sid) {
-          state.active = state.list[idx] || state.list[idx - 1] || state.list[0] || null;
-          this.panes[index].setSession(state.active || null);
-        }
-        this.persist();
-        this.renderPaneTabs(index);
+        await this.closeSessionCompletely(sid);
       });
       holder.appendChild(el);
     });
     if (addBtn) {
       addBtn.onclick = (e) => {
         e.stopPropagation();
-        this.openAddMenu(index, addBtn);
+        this.focusPane(index);
+        this.app?.showFolderBrowser?.();
       };
     }
   }
@@ -551,7 +569,8 @@ class PaneManager {
     this.grid.querySelectorAll('.tile-close').forEach(btn => btn.addEventListener('click', () => this.removePane(parseInt(btn.dataset.index, 10))));
     this.grid.querySelectorAll('.pane-add').forEach(btn => btn.addEventListener('click', (e) => {
       const idx = parseInt(btn.dataset.index, 10);
-      this.openAddMenu(idx, btn);
+      this.focusPane(idx);
+      this.app?.showFolderBrowser?.();
       e.stopPropagation();
     }));
     // Refresh selects and tabs
@@ -572,6 +591,30 @@ class PaneManager {
       this.panes[index].setSession(state.active || null);
     }
     this.renderPaneTabs(index);
+    this.persist();
+  }
+
+  async closeSessionCompletely(sessionId) {
+    try {
+      const headers = window.authManager ? window.authManager.getAuthHeaders() : {};
+      await fetch(`/api/sessions/${sessionId}`, { method: 'DELETE', headers });
+    } catch (e) {
+      console.error('Failed to delete session', e);
+    }
+    // Remove from all panes
+    this.tabs.forEach((t, i) => {
+      const idx = t.list.indexOf(sessionId);
+      if (idx >= 0) {
+        t.list.splice(idx, 1);
+        if (t.active === sessionId) {
+          t.active = t.list[idx] || t.list[idx - 1] || t.list[0] || null;
+          this.panes[i].setSession(t.active || null);
+        }
+        this.renderPaneTabs(i);
+      }
+    });
+    // Also remove global tab if present
+    try { this.app?.sessionTabManager?.closeSession?.(sessionId); } catch (_) {}
     this.persist();
   }
 
