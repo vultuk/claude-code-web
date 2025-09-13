@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.10.0] - 2025-09-13
+
+### Added
+- Tiled View (MVP): view two sessions side‑by‑side with independent terminals and sockets.
+- Resizable splitter between panes with persistent split position.
+- Per‑pane session picker and close controls; layout and assignments persist in localStorage.
+
+### Changed
+- Settings font size now applies to all visible panes in tiled view.
+
+### Notes
+- Client‑side only; no server/CLI changes required. Default remains single‑pane; toggle via new tile button in the top bar.
+
+## [2.9.0] - 2025-09-13
+
+### Added
+- Theme toggle in Settings with persistence (Dark/Light).
+- Early theme application to avoid flash of incorrect theme on load.
+
+### Changed
+- Default theme set to Dark; Light can be selected in Settings.
+
+### Notes
+- UI-only change; no server/CLI APIs modified.
+
 ## [2.8.0] - 2025-09-13
 
 ### Added
@@ -133,26 +158,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Startup logs show configured aliases.
 - README updated with alias usage examples.
-## [2.9.0] - 2025-09-13
-
-### Added
-- Theme toggle in Settings with persistence (Dark/Light).
-- Early theme application to avoid flash of incorrect theme on load.
-
-### Changed
-- Default theme set to Dark; Light can be selected in Settings.
-
-### Notes
-- UI-only change; no server/CLI APIs modified.
-## [2.10.0] - 2025-09-13
-
-### Added
-- Tiled View (MVP): view two sessions side‑by‑side with independent terminals and sockets.
-- Resizable splitter between panes with persistent split position.
-- Per‑pane session picker and close controls; layout and assignments persist in localStorage.
-
-### Changed
-- Settings font size now applies to all visible panes in tiled view.
-
-### Notes
-- Client‑side only; no server/CLI changes required. Default remains single‑pane; toggle via new tile button in the top bar.

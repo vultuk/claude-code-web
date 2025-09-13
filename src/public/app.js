@@ -155,7 +155,7 @@ class ClaudeCodeWebInterface {
 
         // Plan modal title
         const planTitle = document.querySelector('#planModal .modal-header h2');
-        if (planTitle) planTitle.innerHTML = `<span class="icon" aria-hidden="true">${window.icons?.clipboard?.(18) || ''}</span> ${this.getAlias('claude')}'s Plan`;
+        if (planTitle) planTitle.innerHTML = `<span class=\"icon\" aria-hidden=\"true\">${window.icons?.clipboard?.(18) || ''}</span> ${this.getAlias('claude')}'s Plan`;
     }
     
     detectMobile() {
