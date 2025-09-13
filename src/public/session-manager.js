@@ -195,6 +195,8 @@ class SessionTabManager {
         this.setupOverflowDropdown();
         await this.loadSessions();
         this.updateTabOverflow();
+        // Update pane session pickers if present
+        if (window.app?.paneManager) window.app.paneManager.refreshSessionSelects();
         
         // Show notification permission prompt after a slight delay
         setTimeout(() => {
@@ -500,6 +502,9 @@ class SessionTabManager {
             }
             
             console.log('[SessionManager.loadSessions] Final tabs.size:', this.tabs.size);
+            
+            // Refresh pane selects on load/update
+            if (window.app?.paneManager) window.app.paneManager.refreshSessionSelects();
             
             return sessions;
         } catch (error) {

@@ -144,3 +144,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Notes
 - UI-only change; no server/CLI APIs modified.
+## [2.10.0] - 2025-09-13
+
+### Added
+- Tiled View (MVP): view two sessions side‑by‑side with independent terminals and sockets.
+- Resizable splitter between panes with persistent split position.
+- Per‑pane session picker and close controls; layout and assignments persist in localStorage.
+
+### Changed
+- Settings font size now applies to all visible panes in tiled view.
+
+### Notes
+- Client‑side only; no server/CLI changes required. Default remains single‑pane; toggle via new tile button in the top bar.
