@@ -169,3 +169,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Notes
 - Client-side only; no server/CLI changes. Defaults to single‑pane; toggle and expand via the top‑bar grid/plus controls.
+## [2.12.0] - 2025-09-13
+
+### Added
+- Per‑split tab bars (VS Code–style): each pane now has its own tab strip.
+- Add tab per split (+ button) and attach existing sessions to a split by clicking global tabs while a pane is focused.
+- Drag a global tab into a split to add/activate that session in the target pane.
+
+### Changed
+- Tiled view routing: in tiled mode, global tab clicks target the focused split; single‑pane behavior unchanged when tiles are off.
+
+### Notes
+- Client‑side feature; no API/CLI changes. State (pane tabs, active tab, widths) persists locally.

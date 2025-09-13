@@ -95,7 +95,9 @@ class PaneManager {
     // Initialize panes from DOM
     this.panes = [];
     this.widths = []; // percentages per pane
+    this.tabs = [];   // per-pane tabs: [{list:[sessionId], active: sessionId}]
     this.maxPanes = 4;
+    this.activeIndex = 0;
     this.initFromDom();
     this.restoreFromStorage();
     this.bindUI();
@@ -103,10 +105,19 @@ class PaneManager {
 
   initFromDom() {
     const paneEls = Array.from(this.grid.querySelectorAll('.tile-pane'));
-    this.panes = paneEls.map((el, i) => new ClaudePane(i, this.app));
+    this.panes = paneEls.map((el, i) => {
+      // focus handlers and DnD for initial panes
+      this.bindPaneDnd(el, i);
+      el.addEventListener('mousedown', () => this.focusPane(i));
+      el.querySelector('.tile-toolbar')?.addEventListener('mousedown', () => this.focusPane(i));
+      return new ClaudePane(i, this.app);
+    });
     const count = this.panes.length || 2;
     this.widths = Array(count).fill(100 / count);
+    this.tabs = Array(count).fill(0).map(() => ({ list: [], active: null }));
     this.applySplit();
+    // Render empty tab bars
+    this.panes.forEach((_, i) => this.renderPaneTabs(i));
   }
 
   bindUI() {
@@ -139,6 +150,7 @@ class PaneManager {
     // Default: left pane uses current active session
     const active = this.app?.currentClaudeSessionId;
     if (active) this.assignSession(0, active);
+    this.focusPane(this.activeIndex || 0);
     this.persist();
   }
   disable() {
@@ -175,12 +187,19 @@ class PaneManager {
   assignSession(index, sessionId) {
     const sel = document.querySelector(`.tile-session-select[data-index="${index}"]`);
     if (sel && sel.value !== sessionId) sel.value = sessionId || '';
+    // Update pane tabs
+    const state = this.tabs[index] || (this.tabs[index] = { list: [], active: null });
+    if (!state.list.includes(sessionId)) state.list.push(sessionId);
+    state.active = sessionId;
+    this.renderPaneTabs(index);
     this.panes[index].setSession(sessionId);
     this.persist();
   }
 
   clearPane(index) {
     this.panes[index].setSession(null);
+    this.tabs[index] = { list: [], active: null };
+    this.renderPaneTabs(index);
     const sel = document.querySelector(`.tile-session-select[data-index="${index}"]`);
     if (sel) sel.value = '';
     this.persist();
@@ -191,7 +210,7 @@ class PaneManager {
       const state = {
         enabled: this.enabled,
         widths: this.widths,
-        sessions: this.panes.map(p => p.sessionId)
+        tabs: this.tabs
       };
       localStorage.setItem('cc-web-tiles', JSON.stringify(state));
     } catch (_) {}
@@ -206,12 +225,18 @@ class PaneManager {
       if (st.enabled) {
         setTimeout(() => this.enable(), 0);
         // Ensure pane count matches saved sessions (limit to max)
-        const needed = Math.min(this.maxPanes, Math.max(2, (st.sessions || []).length));
+        const needed = Math.min(this.maxPanes, Math.max(2, (st.tabs || []).length));
         while (this.panes.length < needed) this.addPane(false);
         this.applySplit();
-        // sessions will be assigned after app loads sessions; do it lazily
+        // rebuild pane tabs after sessions list loads
         setTimeout(() => {
-          (st.sessions || []).forEach((id, i) => id && this.assignSession(i, id));
+          this.tabs = (st.tabs || []).map(t => ({ list: Array.isArray(t.list) ? t.list : [], active: t.active || null }));
+          // ensure arrays for all panes
+          while (this.tabs.length < this.panes.length) this.tabs.push({ list: [], active: null });
+          this.tabs.forEach((t, i) => {
+            this.renderPaneTabs(i);
+            if (t.active) this.panes[i].setSession(t.active);
+          });
         }, 500);
       }
     } catch (_) {}
@@ -250,6 +275,11 @@ class PaneManager {
     this.refreshSessionSelects();
     // Drag & drop listeners for pane
     this.bindPaneDnd(pane, index);
+    pane.addEventListener('mousedown', () => this.focusPane(index));
+    pane.querySelector('.tile-toolbar')?.addEventListener('mousedown', () => this.focusPane(index));
+    // init pane tabs state
+    this.tabs[index] = this.tabs[index] || { list: [], active: null };
+    this.renderPaneTabs(index);
     if (persist) this.persist();
   }
 
@@ -298,6 +328,59 @@ class PaneManager {
       }
       if (sid) this.assignSession(index, sid);
     });
+  }
+
+  focusPane(index) {
+    this.activeIndex = index;
+    Array.from(this.grid.querySelectorAll('.tile-pane')).forEach((el, i) => {
+      if (i === index) el.classList.add('active'); else el.classList.remove('active');
+    });
+  }
+
+  renderPaneTabs(index) {
+    const holder = this.grid.querySelector(`.pane-tabs[data-index="${index}"]`);
+    const addBtn = this.grid.querySelector(`.pane-add[data-index="${index}"]`);
+    const sel = this.grid.querySelector(`.tile-session-select[data-index="${index}"]`);
+    if (!holder) return;
+    const state = this.tabs[index] || { list: [], active: null };
+    holder.innerHTML = '';
+    state.list.forEach((sid) => {
+      const s = (this.app?.claudeSessions || []).find(x => x.id === sid) || this.app?.sessionTabManager?.activeSessions?.get(sid);
+      const name = s?.name || (sid.slice(0, 6) + '…');
+      const el = document.createElement('div');
+      el.className = 'pane-tab' + (state.active === sid ? ' active' : '');
+      el.title = s?.workingDir || name;
+      el.innerHTML = `<span class="name">${name}</span><span class="close" title="Close">×</span>`;
+      // activate
+      el.addEventListener('click', (e) => {
+        if ((e.target).classList.contains('close')) return;
+        state.active = sid;
+        this.panes[index].setSession(sid);
+        this.persist();
+        this.renderPaneTabs(index);
+      });
+      // close
+      el.querySelector('.close').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = state.list.indexOf(sid);
+        if (idx >= 0) state.list.splice(idx, 1);
+        if (state.active === sid) {
+          state.active = state.list[idx] || state.list[idx - 1] || state.list[0] || null;
+          this.panes[index].setSession(state.active || null);
+        }
+        this.persist();
+        this.renderPaneTabs(index);
+      });
+      holder.appendChild(el);
+    });
+    if (addBtn && sel) {
+      addBtn.onclick = () => sel.click();
+      sel.onchange = (e) => {
+        const val = e.target.value;
+        if (val) this.assignSession(index, val);
+        sel.value = '';
+      };
+    }
   }
 }
 
