@@ -258,3 +258,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Notes
 - UI‑only features; no server/CLI API changes.
+
+## [3.0.0] - 2025-09-13
+
+### Removed
+- Custom prompts dropdown UI ("/" button, commands list, and "Custom…" modal).
+- Server endpoints `GET /api/commands/list` and `GET /api/commands/content`.
+
+### Breaking Changes
+- The commands dropdown system and its APIs are no longer available. Any external automation calling `/api/commands/*` must be migrated to send content directly to the active session via WebSocket input.
+
+### Migration Notes
+- To send predefined prompts, store them in your own UI or scripts and paste/send directly to the terminal. The app will forward input to the active session as before.
