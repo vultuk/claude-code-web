@@ -158,3 +158,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Startup logs show configured aliases.
 - README updated with alias usage examples.
+## [2.11.0] - 2025-09-13
+
+### Added
+- Up to 4 panes in Tiled View with an “Add Pane” control.
+- Drag a tab onto any pane to attach that session to the pane.
+
+### Changed
+- Tiled layout now distributes widths dynamically across multiple panes; resizers adjust neighboring pane widths.
+
+### Notes
+- Client-side only; no server/CLI changes. Defaults to single‑pane; toggle and expand via the top‑bar grid/plus controls.

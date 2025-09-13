@@ -448,6 +448,15 @@ class ClaudeCodeWebInterface {
                 }
             });
         }
+        const addPaneBtn = document.getElementById('addPaneBtn');
+        if (addPaneBtn) {
+            addPaneBtn.addEventListener('click', () => {
+                if (!this.paneManager?.enabled) {
+                    this.paneManager?.enable();
+                }
+                this.paneManager?.addPane();
+            });
+        }
         
         // Mobile menu event listeners
         if (closeMenuBtn) closeMenuBtn.addEventListener('click', () => this.closeMobileMenu());

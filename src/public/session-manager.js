@@ -283,6 +283,8 @@ class SessionTabManager {
                 if (e.target.classList.contains('session-tab')) {
                     e.dataTransfer.effectAllowed = 'move';
                     e.dataTransfer.setData('text/html', e.target.innerHTML);
+                    const sid = e.target.dataset.sessionId;
+                    if (sid) e.dataTransfer.setData('text/plain', sid);
                     e.target.classList.add('dragging');
                 }
             });
