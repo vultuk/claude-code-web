@@ -4,7 +4,6 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const WebSocket = require('ws');
-const os = require('os');
 const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
 const ClaudeBridge = require('./claude-bridge');
@@ -42,8 +41,7 @@ class ClaudeCodeWebServer {
     });
     this.autoSaveInterval = null;
     this.startTime = Date.now(); // Track server start time
-    // Commands directory (in user's home)
-    this.commandsDir = path.join(os.homedir(), '.claude-code-web', 'commands');
+    // Commands dropdown removed
     // Assistant aliases (for UI display only)
     this.aliases = {
       claude: options.claudeAlias || process.env.CLAUDE_ALIAS || 'Claude',
@@ -188,62 +186,7 @@ class ClaudeCodeWebServer {
       });
     }
 
-    // Commands API: list available markdown commands from ~/.claude-code-web/commands
-    this.app.get('/api/commands/list', (req, res) => {
-      try {
-        const dir = this.commandsDir;
-        const items = [];
-        const walk = (baseDir, rel = '') => {
-          const full = path.join(baseDir, rel);
-          if (!fs.existsSync(full)) return;
-          const entries = fs.readdirSync(full, { withFileTypes: true });
-          for (const entry of entries) {
-            if (entry.name.startsWith('.')) continue; // skip hidden
-            const entryRel = path.join(rel, entry.name);
-            const entryFull = path.join(baseDir, entryRel);
-            if (entry.isDirectory()) {
-              walk(baseDir, entryRel);
-            } else if (/\.md$/i.test(entry.name)) {
-              // Build label: strip .md, replace slashes with spaces, capitalize words
-              const withoutExt = entryRel.replace(/\.md$/i, '');
-              const label = withoutExt
-                .replace(/[\\/]+/g, ' ')
-                .replace(/[-_]+/g, ' ')
-                .split(' ')
-                .filter(Boolean)
-                .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-                .join(' ');
-              items.push({ path: withoutExt.replace(/\\/g, '/'), label });
-            }
-          }
-        };
-        walk(dir);
-        res.json({ items });
-      } catch (error) {
-        res.status(500).json({ error: 'Failed to list commands', message: error.message });
-      }
-    });
-
-    // Commands API: get file content by relative path (within commandsDir)
-    this.app.get('/api/commands/content', (req, res) => {
-      try {
-        const rel = (req.query.p || '').toString();
-        if (!rel) return res.status(400).json({ error: 'Missing path parameter' });
-        // Only allow .md files
-        const safeRel = rel.replace(/^[\\/]+/, '') + '.md';
-        const fullPath = path.resolve(this.commandsDir, safeRel);
-        if (!fullPath.startsWith(path.resolve(this.commandsDir))) {
-          return res.status(403).json({ error: 'Access denied' });
-        }
-        if (!fs.existsSync(fullPath)) {
-          return res.status(404).json({ error: 'Not found' });
-        }
-        const content = fs.readFileSync(fullPath, 'utf8');
-        res.type('text/markdown').send(content);
-      } catch (error) {
-        res.status(500).json({ error: 'Failed to read command', message: error.message });
-      }
-    });
+    // Commands API removed
 
     this.app.get('/api/health', (req, res) => {
       res.json({ 

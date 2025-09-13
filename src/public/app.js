@@ -485,9 +485,7 @@ class ClaudeCodeWebInterface {
         this.setupNewSessionModal();
         this.setupMobileSessionsModal();
 
-        // Commands ("/") menu anchored to terminal
-        this.setupCommandsMenu();
-        this.setupCustomCommandModal();
+        // Custom prompts dropdown removed
     }
 
     setupSettingsModal() {
@@ -512,182 +510,19 @@ class ClaudeCodeWebInterface {
         });
     }
 
-    setupCommandsMenu() {
-        if (document.getElementById('commandsMenu')) return;
-        const menu = document.createElement('div');
-        menu.id = 'commandsMenu';
-        menu.className = 'commands-menu';
-        menu.innerHTML = `
-            <button id="commandsBtn" class="commands-button" title="Run command (/)">/</button>
-            <div id="commandsDropdown" class="commands-dropdown"></div>
-        `;
-        const container = document.getElementById('terminalContainer') || document.body;
-        container.appendChild(menu);
+    // setupCommandsMenu removed
 
-        const btn = document.getElementById('commandsBtn');
-        const dropdown = document.getElementById('commandsDropdown');
+    // populateCommandsDropdown removed
 
-        const closeDropdown = () => dropdown.classList.remove('open');
-        const toggleDropdown = async () => {
-            if (dropdown.classList.contains('open')) {
-                closeDropdown();
-            } else {
-                await this.populateCommandsDropdown(dropdown);
-                dropdown.classList.add('open');
-            }
-        };
+    // appendCustomCommandItem removed
 
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            toggleDropdown();
-        });
+    // runCommandFromPath removed
 
-        document.addEventListener('click', (e) => {
-            if (!menu.contains(e.target)) closeDropdown();
-        });
-    }
+    // setupCustomCommandModal removed
 
-    async populateCommandsDropdown(dropdown) {
-        dropdown.innerHTML = '<div class="commands-empty">Loading…</div>';
-        try {
-            const res = await this.authFetch('/api/commands/list');
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data = await res.json();
-            const items = Array.isArray(data.items) ? data.items : [];
-            if (items.length === 0) {
-                dropdown.innerHTML = '<div class="commands-empty">No commands found (~/.claude-code-web/commands)</div>';
-                // Still show Custom option even if no files
-                this.appendCustomCommandItem(dropdown);
-                return;
-            }
-            dropdown.innerHTML = '';
-            items
-              .sort((a, b) => a.label.localeCompare(b.label))
-              .forEach(item => {
-                const el = document.createElement('div');
-                el.className = 'commands-item';
-                el.textContent = item.label;
-                el.title = item.path;
-                el.addEventListener('click', async (e) => {
-                    e.stopPropagation();
-                    await this.runCommandFromPath(item.path);
-                    dropdown.classList.remove('open');
-                });
-                dropdown.appendChild(el);
-            });
+    // openCustomCommandModal removed
 
-            // Append Custom option at the bottom
-            this.appendCustomCommandItem(dropdown);
-        } catch (error) {
-            dropdown.innerHTML = `<div class="commands-error">Failed to load commands: ${error.message}</div>`;
-            // Still allow Custom input even on error
-            this.appendCustomCommandItem(dropdown);
-        }
-    }
-
-    appendCustomCommandItem(dropdown) {
-        const el = document.createElement('div');
-        el.className = 'commands-item';
-        el.textContent = 'Custom…';
-        el.title = 'Type or paste a custom multi-line message';
-        el.addEventListener('click', (e) => {
-            e.stopPropagation();
-            dropdown.classList.remove('open');
-            this.openCustomCommandModal();
-        });
-        dropdown.appendChild(el);
-    }
-
-    async runCommandFromPath(relPath) {
-        if (!this.currentClaudeSessionId) {
-            this.showError(`Start ${this.getAlias('claude')}/${this.getAlias('codex')} in a session first`);
-            return;
-        }
-        try {
-            const url = `/api/commands/content?p=${encodeURIComponent(relPath)}`;
-            const res = await this.authFetch(url);
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const content = await res.text();
-            if (!content) return;
-            // Send entire markdown content to active agent
-            this.send({ type: 'input', data: content });
-        } catch (error) {
-            this.showError(`Failed to run command: ${error.message}`);
-        }
-    }
-
-    setupCustomCommandModal() {
-        if (document.getElementById('customCommandModal')) return;
-        const modal = document.createElement('div');
-        modal.id = 'customCommandModal';
-        modal.className = 'commands-modal';
-        modal.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Run Custom Message</h2>
-                    <button class="close-btn" id="closeCustomCommandBtn">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <textarea id="customCommandInput" class="commands-textarea" placeholder="Type or paste your message...&#10;Tip: Press Ctrl/Cmd + Enter to run"></textarea>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn" id="cancelCustomCommandBtn">Cancel</button>
-                    <button class="btn btn-primary" id="runCustomCommandBtn">Run</button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-
-        const run = () => {
-            const textarea = document.getElementById('customCommandInput');
-            const content = (textarea?.value || '').trim();
-            if (!content) {
-                this.showError('Please enter a message to run');
-                return;
-            }
-            if (!this.currentClaudeSessionId) {
-                this.showError(`Start ${this.getAlias('claude')}/${this.getAlias('codex')} in a session first`);
-                return;
-            }
-            // Send and close
-            this.send({ type: 'input', data: content + '\n' });
-            this.closeCustomCommandModal();
-        };
-
-        document.getElementById('runCustomCommandBtn').addEventListener('click', run);
-        document.getElementById('cancelCustomCommandBtn').addEventListener('click', () => this.closeCustomCommandModal());
-        document.getElementById('closeCustomCommandBtn').addEventListener('click', () => this.closeCustomCommandModal());
-
-        // Keyboard shortcut: Ctrl/Cmd + Enter runs
-        modal.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                e.preventDefault();
-                run();
-            }
-            if (e.key === 'Escape') {
-                this.closeCustomCommandModal();
-            }
-        });
-    }
-
-    openCustomCommandModal() {
-        const modal = document.getElementById('customCommandModal');
-        if (!modal) return;
-        modal.classList.add('active');
-        // Slight delay to ensure modal is visible before focusing
-        setTimeout(() => {
-            const textarea = document.getElementById('customCommandInput');
-            if (textarea) {
-                textarea.value = '';
-                textarea.focus();
-            }
-        }, 0);
-    }
-
-    closeCustomCommandModal() {
-        const modal = document.getElementById('customCommandModal');
-        if (modal) modal.classList.remove('active');
-    }
+    // closeCustomCommandModal removed
 
     connect(sessionId = null) {
         return new Promise((resolve, reject) => {
