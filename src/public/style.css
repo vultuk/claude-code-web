@@ -942,6 +942,13 @@ body {
 .pane-session-sep { height:1px; background: var(--border); margin:6px 0; }
 .pane-session-action { padding:8px 10px; color: var(--accent); cursor:pointer; border-radius:6px; }
 .pane-session-action:hover { background: var(--bg-tertiary); }
+
+/* Per-pane start overlay */
+.pane-start-overlay { position:absolute; inset:0; background: rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; z-index: 5; }
+.pane-start-card { background: var(--bg-secondary); border:1px solid var(--border); border-radius:12px; padding:16px 20px; width: 90%; max-width: 420px; text-align:center; box-shadow: 0 12px 40px rgba(0,0,0,.4); }
+.pane-start-card h3 { margin: 0 0 6px 0; font-size: 16px; }
+.pane-start-card p { margin: 0 0 14px 0; color: var(--text-secondary); font-size: 13px; }
+.pane-start-actions { display:flex; flex-wrap: wrap; gap:8px; align-items:center; justify-content:center; }
 .tile-session-select { background: var(--bg-tertiary); color: var(--text-primary); border:1px solid var(--border); border-radius:6px; padding:6px 8px; font-family: var(--font-mono); font-size:12px; }
 .tile-close { background: transparent; border:1px solid var(--border); border-radius:4px; color: var(--text-secondary); width:26px; height:26px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
 .tile-close:hover { background: var(--bg-tertiary); color: var(--text-primary); }

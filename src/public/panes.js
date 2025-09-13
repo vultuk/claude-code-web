@@ -8,6 +8,8 @@ class ClaudePane {
     this.socket = null;
     this.sessionId = null;
     this.container = document.getElementById(`tileTerminal${index}`);
+    this.hadOutput = false;
+    this.startOverlayEl = null;
   }
 
   async setSession(sessionId) {
@@ -17,6 +19,10 @@ class ClaudePane {
     if (!sessionId) return;
     this.ensureTerminal();
     await this.connect();
+    // If newly attached and no output yet, show per-pane start overlay
+    setTimeout(() => {
+      if (!this.hadOutput) this.showStartOverlay();
+    }, 50);
   }
 
   ensureTerminal() {
@@ -61,6 +67,10 @@ class ClaudePane {
       if (msg.type === 'output') {
         const filtered = msg.data.replace(/\x1b\[\[?[IO]/g, '');
         this.terminal.write(filtered);
+        if (filtered) {
+          this.hadOutput = true;
+          this.hideStartOverlay();
+        }
       }
     };
     this.socket.onclose = () => {};
@@ -83,6 +93,50 @@ class ClaudePane {
     try { this.socket?.close(); } catch (_) {}
     this.socket = null;
     try { this.terminal?.clear(); } catch (_) {}
+    this.hadOutput = false;
+    this.hideStartOverlay();
+  }
+
+  showStartOverlay() {
+    // Build a minimal per-pane start overlay (Claude/Codex)
+    if (!this.container) return;
+    this.hideStartOverlay();
+    const ov = document.createElement('div');
+    ov.className = 'pane-start-overlay';
+    ov.innerHTML = `
+      <div class="pane-start-card">
+        <h3>Select Assistant</h3>
+        <p>Start an assistant in this session.</p>
+        <div class="pane-start-actions">
+          <button class="btn btn-primary" data-kind="claude">Start ${this.app?.getAlias?.('claude') || 'Claude'}</button>
+          <button class="btn btn-danger" data-kind="claude" data-danger>Dangerous ${this.app?.getAlias?.('claude') || 'Claude'}</button>
+          <button class="btn btn-primary" data-kind="codex">Start ${this.app?.getAlias?.('codex') || 'Codex'}</button>
+          <button class="btn btn-danger" data-kind="codex" data-danger>Dangerous ${this.app?.getAlias?.('codex') || 'Codex'}</button>
+        </div>
+      </div>`;
+    ov.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const kind = btn.getAttribute('data-kind');
+        const dangerous = btn.hasAttribute('data-danger');
+        this.startAssistant(kind, { dangerouslySkipPermissions: dangerous });
+      });
+    });
+    this.container.appendChild(ov);
+    this.startOverlayEl = ov;
+  }
+
+  hideStartOverlay() {
+    if (this.startOverlayEl && this.startOverlayEl.parentNode) {
+      this.startOverlayEl.remove();
+      this.startOverlayEl = null;
+    }
+  }
+
+  startAssistant(kind = 'claude', options = {}) {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return;
+    const type = kind === 'codex' ? 'start_codex' : 'start_claude';
+    this.socket.send(JSON.stringify({ type, options }));
+    this.hideStartOverlay();
   }
 }
 
