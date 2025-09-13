@@ -165,7 +165,12 @@ class PaneManager {
 
   enable() {
     this.enabled = true;
-    document.getElementById('terminalContainer').style.display = 'none';
+    const tc = document.getElementById('terminalContainer');
+    if (tc) {
+      tc.style.display = '';
+      const tw = tc.querySelector('.terminal-wrapper');
+      if (tw) tw.style.display = 'none';
+    }
     this.container.style.display = 'flex';
     this.applySplit();
     // Default: left pane uses current active session
@@ -182,7 +187,12 @@ class PaneManager {
   disable() {
     this.enabled = false;
     this.container.style.display = 'none';
-    document.getElementById('terminalContainer').style.display = '';
+    const tc = document.getElementById('terminalContainer');
+    if (tc) {
+      tc.style.display = '';
+      const tw = tc.querySelector('.terminal-wrapper');
+      if (tw) tw.style.display = '';
+    }
     // Show global tabs again
     const tabsSection = document.querySelector('.tabs-section');
     if (tabsSection) tabsSection.style.display = '';
