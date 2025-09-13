@@ -151,7 +151,7 @@ class ClaudeCodeWebInterface {
 
         // Plan modal title
         const planTitle = document.querySelector('#planModal .modal-header h2');
-        if (planTitle) planTitle.textContent = `📋 ${this.getAlias('claude')}'s Plan`;
+        if (planTitle) planTitle.innerHTML = `<span class="icon" aria-hidden="true">${window.icons?.clipboard?.(18) || ''}</span> ${this.getAlias('claude')}'s Plan`;
     }
     
     detectMobile() {
@@ -360,7 +360,7 @@ class ClaudeCodeWebInterface {
                 <div class="modal-body">
                     <div class="session-list">
                         ${this.claudeSessions.map(session => {
-                            const statusIcon = session.active ? '🟢' : '⚪';
+                            const statusIcon = `<span class=\"dot ${session.active ? 'dot-on' : 'dot-idle'}\"></span>`;
                             const clientsText = session.connectedClients === 1 ? '1 client' : `${session.connectedClients} clients`;
                             return `
                                 <div class="session-item" data-session-id="${session.id}" style="cursor: pointer; padding: 15px; border: 1px solid #333; border-radius: 5px; margin-bottom: 10px;">
@@ -369,7 +369,7 @@ class ClaudeCodeWebInterface {
                                         <div class="session-details">
                                             <div class="session-name">${session.name}</div>
                                             <div class="session-meta">${clientsText} • ${new Date(session.created).toLocaleString()}</div>
-                                            ${session.workingDir ? `<div class="session-folder" title="${session.workingDir}">📁 ${session.workingDir}</div>` : ''}
+                                            ${session.workingDir ? `<div class=\"session-folder\" title=\"${session.workingDir}\"><span class=\"icon\" aria-hidden=\"true\">${window.icons?.folder?.(14) || ''}</span> ${session.workingDir}</div>` : ''}
                                         </div>
                                     </div>
                                 </div>
@@ -973,7 +973,7 @@ class ClaudeCodeWebInterface {
         
         this.showOverlay('loadingSpinner');
         const loadingText = options.dangerouslySkipPermissions ? 
-            `Starting ${this.getAlias('claude')} (⚠️ Skipping permissions)...` : 
+            `Starting ${this.getAlias('claude')} (skipping permissions)...` : 
             `Starting ${this.getAlias('claude')}...`;
         document.getElementById('loadingSpinner').querySelector('p').textContent = loadingText;
     }
@@ -997,7 +997,7 @@ class ClaudeCodeWebInterface {
 
         this.showOverlay('loadingSpinner');
         const loadingText = options.dangerouslySkipPermissions ?
-            `Starting ${this.getAlias('codex')} (⚠️ Bypassing approvals and sandbox)...` :
+            `Starting ${this.getAlias('codex')} (bypassing approvals and sandbox)...` :
             `Starting ${this.getAlias('codex')}...`;
         document.getElementById('loadingSpinner').querySelector('p').textContent = loadingText;
     }
@@ -1542,7 +1542,7 @@ class ClaudeCodeWebInterface {
                 sessionItem.classList.add('active');
             }
             
-            const statusIcon = session.active ? '🟢' : '⚪';
+            const statusIcon = `<span class="dot ${session.active ? 'dot-on' : 'dot-idle'}"></span>`;
             const clientsText = session.connectedClients === 1 ? '1 client' : `${session.connectedClients} clients`;
             
             sessionItem.innerHTML = `
@@ -1551,7 +1551,7 @@ class ClaudeCodeWebInterface {
                     <div class="session-details">
                         <div class="session-name">${session.name}</div>
                         <div class="session-meta">${clientsText} • ${new Date(session.created).toLocaleTimeString()}</div>
-                        ${session.workingDir ? `<div class="session-folder" title="${session.workingDir}">📁 ${session.workingDir.split('/').pop() || '/'}</div>` : ''}
+                        ${session.workingDir ? `<div class=\"session-folder\" title=\"${session.workingDir}\"><span class=\"icon\" aria-hidden=\"true\">${window.icons?.folder?.(14) || ''}</span> ${session.workingDir.split('/').pop() || '/'}</div>` : ''}
                     </div>
                 </div>
                 <div class="session-actions">
@@ -1911,10 +1911,10 @@ class ClaudeCodeWebInterface {
     
     updatePlanModeIndicator(isActive) {
         const statusElement = document.getElementById('status');
+        if (!statusElement) return; // No explicit status area in current UI
         if (isActive) {
-            statusElement.innerHTML = '<span style="color: #10b981;">📋 Plan Mode Active</span>';
+            statusElement.innerHTML = `<span class="icon" style="color: var(--success);">${window.icons?.clipboard?.(14) || ''}</span> Plan Mode Active`;
         } else {
-            // Restore normal status
             if (this.socket && this.socket.readyState === WebSocket.OPEN) {
                 statusElement.textContent = 'Connected';
                 statusElement.className = 'status connected';
@@ -2074,27 +2074,13 @@ class ClaudeCodeWebInterface {
                 let rateDisplay;
                 
                 if (isMobile) {
-                    // Mobile: just show icon based on rate
-                    if (burnRate > 1000) {
-                        rateDisplay = '🔥🔥🔥';
-                    } else if (burnRate > 500) {
-                        rateDisplay = '🔥🔥';
-                    } else if (burnRate > 100) {
-                        rateDisplay = '🔥';
-                    } else if (burnRate > 50) {
-                        rateDisplay = '📈';
-                    } else {
-                        rateDisplay = '📊';
-                    }
+                    rateDisplay = `<span class="icon" aria-hidden="true">${window.icons?.chartLine?.(12) || ''}</span> ${burnRate}`;
                 } else {
-                    // Desktop: full display
                     const burnRateText = `${burnRate} tok/min`;
-                    const confidenceEmoji = sessionTimer.burnRateConfidence > 0.8 ? '🔥' : 
-                                           sessionTimer.burnRateConfidence > 0.5 ? '📊' : '📈';
-                    rateDisplay = `${burnRateText} ${confidenceEmoji}`;
+                    rateDisplay = `<span class="icon" aria-hidden="true">${window.icons?.chartLine?.(12) || ''}</span> ${burnRateText}`;
                 }
                 
-                document.getElementById('usageRate').textContent = rateDisplay;
+                document.getElementById('usageRate').innerHTML = rateDisplay;
                 
                 // Add depletion time if available
                 if (sessionTimer.depletionTime && sessionTimer.depletionConfidence > 0.5) {
@@ -2113,7 +2099,7 @@ class ClaudeCodeWebInterface {
                 // Fallback to simple rate
                 const hours = sessionTimer.hours + (sessionTimer.minutes / 60) + (sessionTimer.seconds / 3600);
                 const rate = hours > 0 ? sessionStats.requests / hours : 0;
-                document.getElementById('usageRate').textContent = rate > 0 ? `${rate.toFixed(1)}/h` : '0/h';
+                document.getElementById('usageRate').innerHTML = rate > 0 ? `<span class="icon" aria-hidden="true">${window.icons?.chartLine?.(12) || ''}</span> ${rate.toFixed(1)}/h` : '-';
             }
             
             // Show model distribution
@@ -2168,7 +2154,7 @@ class ClaudeCodeWebInterface {
             document.getElementById('usageTitle').textContent = '0h 0m';
             document.getElementById('usageTokens').textContent = isMobile ? '0%' : '0';
             document.getElementById('usageCost').textContent = '$0.00';
-            document.getElementById('usageRate').textContent = isMobile ? '⭕' : '0 tok/min';
+            document.getElementById('usageRate').textContent = '-';
             document.getElementById('usageModel').textContent = 'No usage';
             
             // Stop the timer update
@@ -2188,12 +2174,13 @@ class ClaudeCodeWebInterface {
     }
 
     getBurnRateIndicator(rate) {
-        // Return visual indicator based on burn rate
-        if (rate > 1000) return '🔥🔥🔥'; // Very high burn rate
-        if (rate > 500) return '🔥🔥';     // High burn rate
-        if (rate > 100) return '🔥';       // Moderate burn rate
-        if (rate > 50) return '📈';        // Low burn rate
-        return '📊';                       // Very low burn rate
+        // Minimalist indicator using a line chart icon and label
+        const icon = window.icons?.chartLine?.(12) || '';
+        if (rate > 1000) return `<span class="icon" aria-hidden="true">${icon}</span> Very high`;
+        if (rate > 500) return `<span class="icon" aria-hidden="true">${icon}</span> High`;
+        if (rate > 100) return `<span class="icon" aria-hidden="true">${icon}</span> Moderate`;
+        if (rate > 50) return `<span class="icon" aria-hidden="true">${icon}</span> Low`;
+        return `<span class="icon" aria-hidden="true">${icon}</span> Very low`;
     }
     
     showNotification(message) {
