@@ -596,49 +596,37 @@ class SessionTabManager {
     }
 
     async switchToTab(sessionId) {
+        // If tile view is enabled, tabs target the active pane (VS Code-style)
+        if (window.app?.paneManager?.enabled) {
+            const activeIdx = window.app.paneManager.activeIndex ?? 0;
+            window.app.paneManager.assignSession(activeIdx, sessionId);
+            return;
+        }
+
         // Remove active class from all tabs
         this.tabs.forEach(tab => tab.classList.remove('active'));
-        
+
         // Add active class to selected tab
         const tab = this.tabs.get(sessionId);
-        if (tab) {
-            tab.classList.add('active');
-            this.activeTabId = sessionId;
-            
-            // Update last accessed timestamp and clear unread indicator
-            const session = this.activeSessions.get(sessionId);
-            if (session) {
-                session.lastAccessed = Date.now();
-                
-                // Clear unread indicator for this tab
-                if (session.unreadOutput) {
-                    this.updateUnreadIndicator(sessionId, false);
-                }
-            }
-            
-            // Reorder tabs on mobile only when accessing hidden tabs
-            // This brings overflow tabs to the front for easier access
-            if (window.innerWidth <= 768) {
-                // Check if the clicked tab was in the overflow (position 3+)
-                const tabIndex = Array.from(this.tabs.keys()).indexOf(sessionId);
-                if (tabIndex >= 2) {
-                    // Tab was in overflow, bring it to front
-                    this.reorderTabsByLastAccessed();
-                }
-                // If tab was already visible (position 0-1), keep positions unchanged
-            }
-            
-            // Switch the main terminal to this session
-            await this.claudeInterface.joinSession(sessionId);
-            
-            // Update header info
-            this.updateHeaderInfo(sessionId);
-            
-            // Force update the overflow menu on mobile
-            if (window.innerWidth <= 768) {
-                this.updateOverflowMenu();
-            }
+        if (!tab) return;
+        tab.classList.add('active');
+        this.activeTabId = sessionId;
+
+        // Update last accessed timestamp and clear unread indicator
+        const session = this.activeSessions.get(sessionId);
+        if (session) {
+            session.lastAccessed = Date.now();
+            if (session.unreadOutput) this.updateUnreadIndicator(sessionId, false);
         }
+
+        if (window.innerWidth <= 768) {
+            const tabIndex = Array.from(this.tabs.keys()).indexOf(sessionId);
+            if (tabIndex >= 2) this.reorderTabsByLastAccessed();
+        }
+
+        await this.claudeInterface.joinSession(sessionId);
+        this.updateHeaderInfo(sessionId);
+        if (window.innerWidth <= 768) this.updateOverflowMenu();
     }
     
     reorderTabsByLastAccessed() {
