@@ -15,18 +15,18 @@
 }
 
 [data-theme="light"] {
-    --bg-primary: #ffffff;
-    --bg-secondary: #f6f8fa;
-    --bg-tertiary: #f0f3f6;
-    --text-primary: #24292f;
-    --text-secondary: #656d76;
-    --accent: #0969da;
-    --accent-hover: #0860ca;
-    --success: #1a7f37;
-    --error: #cf222e;
-    --warning: #9a6700;
-    --border: #d0d7de;
-    --border-hover: #bcc4ce;
+    --bg-primary: #f7f7f8;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f3f4f6;
+    --text-primary: #111827;
+    --text-secondary: #6b7280;
+    --accent: #0a84ff;
+    --accent-hover: #0666d0;
+    --success: #0f7b5c;
+    --error: #d92d20;
+    --warning: #a16207;
+    --border: #e6e7eb;
+    --border-hover: #d4d6db;
 }
 
 * {
@@ -42,7 +42,7 @@ html {
 }
 
 body {
-    font-family: var(--font-mono);
+    font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, var(--font-mono);
     background-color: var(--bg-primary);
     color: var(--text-primary);
     height: 100vh;
@@ -63,20 +63,34 @@ body {
     max-height: 100dvh;
 }
 
+# Icon helpers
+.icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+}
+
+/* Status dots (replace emoji dots) */
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: var(--border); }
+.dot.dot-on { background-color: var(--success); }
+.dot.dot-idle { background-color: #9ca3af; }
+.dot.dot-error { background-color: var(--error); }
+
 /* Header styles removed - using tab-based interface */
 
 /* Usage Stats Bar - Compact Single Line */
 .usage-stats-bar {
     background-color: var(--bg-secondary);
     border-bottom: 1px solid var(--border);
-    padding: 6px 12px;
+    padding: 8px 16px;
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
     align-items: center;
-    gap: 20px;
+    gap: 16px;
     font-size: 12px;
-    height: 32px;
+    min-height: 34px;
     overflow: hidden;
 }
 
@@ -94,7 +108,7 @@ body {
 .stat-value {
     color: var(--text-primary);
     font-weight: 500;
-    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-family: var(--font-mono);
     font-size: 12px;
 }
 
@@ -809,7 +823,7 @@ body {
     color: var(--text-primary);
     border-radius: 6px;
     cursor: pointer;
-    font-family: var(--font-mono);
+    font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, var(--font-mono);
     font-size: 12px;
     font-weight: 500;
     transition: all 0.2s ease;
@@ -895,7 +909,7 @@ body {
 #terminal {
     width: 100%;
     height: 100%;
-    padding: 16px;
+    padding: 20px;
     box-sizing: border-box;
 }
 

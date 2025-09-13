@@ -81,8 +81,9 @@ class AuthManager {
         `;
 
         loginForm.innerHTML = `
-            <h2 style="color: var(--text-primary, #f0f6fc); margin: 0 0 8px 0; font-family: 'JetBrains Mono', monospace;">
-                🔐 Authentication Required
+            <h2 style="color: var(--text-primary, #f0f6fc); margin: 0 0 8px 0; font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, 'JetBrains Mono', monospace; display: flex; align-items: center; gap: 8px;">
+                <span class="icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="10" width="18" height="11" rx="2"/><path d="M7 10V7a5 5 0 0 1 10 0v3"/></svg></span>
+                Authentication Required
             </h2>
             <p style="color: var(--text-secondary, #8b949e); margin: 0 0 24px 0; font-size: 14px;">
                 This Claude Code Web instance requires authentication.
@@ -103,7 +104,7 @@ class AuthManager {
                             border: 1px solid var(--border-color, #30363d);
                             border-radius: 6px;
                             color: var(--text-primary, #f0f6fc);
-                            font-family: 'JetBrains Mono', monospace;
+                            font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, 'JetBrains Mono', monospace;
                             font-size: 14px;
                             box-sizing: border-box;
                         "
@@ -117,11 +118,11 @@ class AuthManager {
                     style="
                         width: 100%;
                         padding: 10px 16px;
-                        background: var(--accent-color, #ff6b00);
+                        background: var(--accent);
                         color: white;
                         border: none;
                         border-radius: 6px;
-                        font-family: 'JetBrains Mono', monospace;
+                        font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, 'JetBrains Mono', monospace;
                         font-size: 14px;
                         font-weight: 500;
                         cursor: pointer;
