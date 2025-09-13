@@ -181,3 +181,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Notes
 - Client‑side feature; no API/CLI changes. State (pane tabs, active tab, widths) persists locally.
+
+## [2.13.0] - 2025-09-13
+
+### Added
+- Close Pane control: remove a split entirely (sockets cleaned up, layout reflows); clears when only one pane remains.
+
+### Changed
+- Removed focused‑pane border highlight for a cleaner look.
+- In tiled mode, the global top tab bar is hidden; manage tabs per split only.
+- Pane removal re-normalizes widths and rebuilds grid for consistent resizing; state persists.
+
+### Notes
+- UI‑only changes; no server/CLI surface changes.

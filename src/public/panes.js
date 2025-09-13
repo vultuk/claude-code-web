@@ -128,7 +128,7 @@ class PaneManager {
     document.querySelectorAll('.tile-close').forEach(btn => {
       btn.addEventListener('click', () => {
         const idx = parseInt(btn.dataset.index, 10);
-        this.clearPane(idx);
+        this.removePane(idx);
       });
     });
     // Populate selects and handle change
@@ -151,12 +151,22 @@ class PaneManager {
     const active = this.app?.currentClaudeSessionId;
     if (active) this.assignSession(0, active);
     this.focusPane(this.activeIndex || 0);
+    // Hide global tabs in tiled mode
+    const tabsSection = document.querySelector('.tabs-section');
+    if (tabsSection) tabsSection.style.display = 'none';
+    const overflow = document.getElementById('tabOverflowWrapper');
+    if (overflow) overflow.style.display = 'none';
     this.persist();
   }
   disable() {
     this.enabled = false;
     this.container.style.display = 'none';
     document.getElementById('terminalContainer').style.display = '';
+    // Show global tabs again
+    const tabsSection = document.querySelector('.tabs-section');
+    if (tabsSection) tabsSection.style.display = '';
+    const overflow = document.getElementById('tabOverflowWrapper');
+    if (overflow) overflow.style.display = '';
     this.persist();
   }
 
@@ -381,6 +391,76 @@ class PaneManager {
         sel.value = '';
       };
     }
+  }
+
+  removePane(index) {
+    if (this.panes.length <= 1) {
+      // Always keep at least one pane; just clear it
+      this.clearPane(index);
+      return;
+    }
+    // Close socket/terminal
+    try { this.panes[index]?.disconnect(); } catch (_) {}
+    // Remove state
+    const removedWidth = this.widths[index] || 0;
+    this.panes.splice(index, 1);
+    this.tabs.splice(index, 1);
+    // Re-normalize widths
+    const remain = 100 - removedWidth;
+    this.widths = this.widths.filter((_, i) => i !== index).map(w => (w * 100) / (remain || 100));
+    // Rebuild DOM grid cleanly
+    this.rebuildGrid();
+    this.persist();
+  }
+
+  rebuildGrid() {
+    // Clear
+    this.grid.innerHTML = '';
+    // Recreate panes + resizers
+    const count = this.panes.length;
+    const oldTabs = this.tabs.map(t => ({ list: [...t.list], active: t.active }));
+    this.panes = [];
+    for (let i = 0; i < count; i++) {
+      // Pane
+      const pane = document.createElement('div');
+      pane.className = 'tile-pane';
+      pane.dataset.index = String(i);
+      pane.innerHTML = `
+        <div class="tile-toolbar">
+          <div class="pane-tabs" data-index="${i}"></div>
+          <button class="pane-add" data-index="${i}" title="Add tab">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <select class="tile-session-select" data-index="${i}" style="display:none"></select>
+          <div class="spacer"></div>
+          <button class="tile-close" data-index="${i}" title="Close Pane">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="tile-terminal" id="tileTerminal${i}"></div>`;
+      this.grid.appendChild(pane);
+      // Add resizer except after last pane
+      if (i < count - 1) {
+        const rz = document.createElement('div');
+        rz.className = 'resizer';
+        rz.dataset.index = String(i);
+        this.grid.appendChild(rz);
+      }
+      const cp = new ClaudePane(i, this.app);
+      this.panes.push(cp);
+      this.bindPaneDnd(pane, i);
+      pane.addEventListener('mousedown', () => this.focusPane(i));
+      pane.querySelector('.tile-toolbar')?.addEventListener('mousedown', () => this.focusPane(i));
+    }
+    // Bind resizers and close buttons again
+    this.grid.querySelectorAll('.resizer').forEach((rz, idx) => this.bindResizer(rz, idx));
+    this.grid.querySelectorAll('.tile-close').forEach(btn => btn.addEventListener('click', () => this.removePane(parseInt(btn.dataset.index, 10))));
+    // Refresh selects and tabs
+    this.refreshSessionSelects();
+    this.tabs = oldTabs;
+    for (let i = 0; i < this.tabs.length; i++) this.renderPaneTabs(i);
+    // Apply sizes
+    this.applySplit();
   }
 }
 
