@@ -276,3 +276,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Remove an empty left column gap in tiled mode by hiding the single-pane container when tiles are enabled.
 - Restore per-pane assistant chooser overlay by not treating 'idle' sessions as already running.
+
+## [3.0.2] - 2025-09-13
+
+### Fixed
+- Stabilize tiled splitting: correct index math and use insertion helpers for columns/rows.
+- Reattach active sessions to terminals after grid rebuilds so sessions no longer appear to vanish.
+- Honor copy vs move when dragging tabs between splits and avoid removing from the wrong source pane.
+- Improve edge-of-grid splits to consistently place the tab into the intended new split.
