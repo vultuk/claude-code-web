@@ -458,6 +458,14 @@ body {
     margin-left: 4px;
 }
 
+.tab-actions { display: flex; gap: 6px; align-items: center; }
+.tab-tile {
+  width: 28px; height: 28px; display:flex; align-items:center; justify-content:center;
+  background: transparent; border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text-secondary); cursor: pointer; transition: all .2s; flex-shrink: 0; margin-left: 4px;
+}
+.tab-tile:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+
 .tab-new:hover {
     background-color: var(--bg-tertiary);
     color: var(--text-primary);
@@ -905,6 +913,26 @@ body {
     width: 100%;
     overflow: hidden;
 }
+
+/* Tiled panes */
+.tiles-container { flex: 1; display: flex; min-height: 0; }
+.tile-grid {
+  display: grid; grid-template-columns: 1fr 6px 1fr; grid-template-rows: 100%; width: 100%;
+}
+.tile-pane { display:flex; flex-direction: column; min-width: 0; border-left: 1px solid var(--border); }
+.tile-pane:first-child { border-left: none; }
+.tile-toolbar { display:flex; align-items:center; gap: 8px; padding: 6px 8px; background: var(--bg-secondary); border-bottom:1px solid var(--border); }
+.tile-toolbar .spacer { flex:1; }
+.tile-session-select { background: var(--bg-tertiary); color: var(--text-primary); border:1px solid var(--border); border-radius:6px; padding:6px 8px; font-family: var(--font-mono); font-size:12px; }
+.tile-close { background: transparent; border:1px solid var(--border); border-radius:4px; color: var(--text-secondary); width:26px; height:26px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.tile-close:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+.tile-terminal { flex:1; min-height:0; position: relative; }
+.tile-terminal .xterm { height: 100%; }
+
+.resizer {
+  background: var(--border); cursor: col-resize; width: 6px; height: 100%;
+}
+.resizer:hover { background: var(--border-hover); }
 
 #terminal {
     width: 100%;
