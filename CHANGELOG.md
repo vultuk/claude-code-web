@@ -206,3 +206,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Notes
 - UI/UX change only; no server/CLI API changes.
+## [2.15.0] - 2025-09-13
+
+### Added
+- Drag a pane tab to the grid’s right edge to create a new split and move the tab (VS Code‑like “drag to split”).
+
+### Changed
+- Pane tab items are now draggable between splits; dropping on another split moves the tab there.
+- Pane Add Tab button opens a session picker menu consistently across panes.
+
+### Notes
+- UI‑only; no server/CLI changes.

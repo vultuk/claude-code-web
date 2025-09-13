@@ -101,6 +101,27 @@ class PaneManager {
     this.initFromDom();
     this.restoreFromStorage();
     this.bindUI();
+
+    // Grid-level drag to create a new split on right edge
+    this.grid.addEventListener('dragover', (e) => {
+      const sid = e.dataTransfer?.getData('application/x-session-id');
+      if (!sid) return;
+      e.preventDefault();
+    });
+    this.grid.addEventListener('drop', (e) => {
+      const sid = e.dataTransfer?.getData('application/x-session-id');
+      if (!sid) return;
+      const rect = this.grid.getBoundingClientRect();
+      const nearRight = (e.clientX > rect.right - 60);
+      if (nearRight && this.panes.length < this.maxPanes) {
+        const sourcePane = parseInt(e.dataTransfer.getData('x-source-pane') || '-1', 10);
+        this.addPane(true);
+        const newIndex = this.panes.length - 1;
+        this.assignSession(newIndex, sid);
+        if (!isNaN(sourcePane) && sourcePane >= 0) this.removeTabFromPane(sourcePane, sid);
+        e.preventDefault();
+      }
+    });
   }
 
   initFromDom() {
@@ -331,12 +352,16 @@ class PaneManager {
     paneEl.addEventListener('dragleave', () => paneEl.classList.remove('drag-over'));
     paneEl.addEventListener('drop', (e) => {
       e.preventDefault(); paneEl.classList.remove('drag-over');
-      let sid = e.dataTransfer.getData('text/plain');
+      let sid = e.dataTransfer.getData('application/x-session-id') || e.dataTransfer.getData('text/plain');
       if (!sid) {
         const dragging = document.querySelector('.tabs-container .session-tab.dragging');
         sid = dragging?.dataset?.sessionId || '';
       }
-      if (sid) this.assignSession(index, sid);
+      if (sid) {
+        const sourcePane = parseInt(e.dataTransfer.getData('x-source-pane') || '-1', 10);
+        this.assignSession(index, sid);
+        if (!isNaN(sourcePane) && sourcePane >= 0 && sourcePane !== index) this.removeTabFromPane(sourcePane, sid);
+      }
     });
   }
 
@@ -361,6 +386,13 @@ class PaneManager {
       el.className = 'pane-tab' + (state.active === sid ? ' active' : '');
       el.title = s?.workingDir || name;
       el.innerHTML = `<span class="name">${name}</span><span class="close" title="Close">×</span>`;
+      el.draggable = true;
+      el.addEventListener('dragstart', (e) => {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('application/x-session-id', sid);
+        e.dataTransfer.setData('text/plain', sid);
+        e.dataTransfer.setData('x-source-pane', String(index));
+      });
       // activate
       el.addEventListener('click', (e) => {
         if ((e.target).classList.contains('close')) return;
@@ -464,6 +496,19 @@ class PaneManager {
     for (let i = 0; i < this.tabs.length; i++) this.renderPaneTabs(i);
     // Apply sizes
     this.applySplit();
+  }
+
+  removeTabFromPane(index, sid) {
+    const state = this.tabs[index];
+    if (!state) return;
+    const idx = state.list.indexOf(sid);
+    if (idx >= 0) state.list.splice(idx, 1);
+    if (state.active === sid) {
+      state.active = state.list[idx] || state.list[idx - 1] || state.list[0] || null;
+      this.panes[index].setSession(state.active || null);
+    }
+    this.renderPaneTabs(index);
+    this.persist();
   }
 
   openAddMenu(index, anchorEl) {
