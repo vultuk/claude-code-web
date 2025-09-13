@@ -383,12 +383,10 @@ class PaneManager {
       });
       holder.appendChild(el);
     });
-    if (addBtn && sel) {
-      addBtn.onclick = () => sel.click();
-      sel.onchange = (e) => {
-        const val = e.target.value;
-        if (val) this.assignSession(index, val);
-        sel.value = '';
+    if (addBtn) {
+      addBtn.onclick = (e) => {
+        e.stopPropagation();
+        this.openAddMenu(index, addBtn);
       };
     }
   }
@@ -455,12 +453,76 @@ class PaneManager {
     // Bind resizers and close buttons again
     this.grid.querySelectorAll('.resizer').forEach((rz, idx) => this.bindResizer(rz, idx));
     this.grid.querySelectorAll('.tile-close').forEach(btn => btn.addEventListener('click', () => this.removePane(parseInt(btn.dataset.index, 10))));
+    this.grid.querySelectorAll('.pane-add').forEach(btn => btn.addEventListener('click', (e) => {
+      const idx = parseInt(btn.dataset.index, 10);
+      this.openAddMenu(idx, btn);
+      e.stopPropagation();
+    }));
     // Refresh selects and tabs
     this.refreshSessionSelects();
     this.tabs = oldTabs;
     for (let i = 0; i < this.tabs.length; i++) this.renderPaneTabs(i);
     // Apply sizes
     this.applySplit();
+  }
+
+  openAddMenu(index, anchorEl) {
+    // Remove any existing menu
+    document.querySelectorAll('.pane-session-menu').forEach(m => m.remove());
+    // Build list of sessions
+    let sessions = (this.app?.claudeSessions) || [];
+    if ((!sessions || sessions.length === 0) && this.app?.sessionTabManager?.activeSessions) {
+      sessions = Array.from(this.app.sessionTabManager.activeSessions.values());
+    }
+    const menu = document.createElement('div');
+    menu.className = 'pane-session-menu';
+    if (!sessions || sessions.length === 0) {
+      menu.innerHTML = `<div class="pane-session-empty">No sessions available</div>
+                        <div class="pane-session-action">Create New Session…</div>`;
+      menu.querySelector('.pane-session-action').onclick = () => {
+        document.body.click(); // close
+        this.app?.showFolderBrowser?.();
+      };
+    } else {
+      const used = new Set((this.tabs[index]?.list) || []);
+      // Show available sessions (include also ones already used so you can add duplicates if desired)
+      const items = sessions.map(s => {
+        const el = document.createElement('div');
+        el.className = 'pane-session-item' + (used.has(s.id) ? ' used' : '');
+        const name = s.name || s.id.slice(0,6)+'…';
+        el.textContent = name;
+        el.title = s.workingDir || name;
+        el.onclick = () => {
+          this.assignSession(index, s.id);
+          document.body.click();
+        };
+        return el;
+      });
+      items.forEach(el => menu.appendChild(el));
+      const sep = document.createElement('div'); sep.className='pane-session-sep'; menu.appendChild(sep);
+      const createEl = document.createElement('div'); createEl.className='pane-session-action'; createEl.textContent = 'Create New Session…';
+      createEl.onclick = () => { document.body.click(); this.app?.showFolderBrowser?.(); };
+      menu.appendChild(createEl);
+    }
+    document.body.appendChild(menu);
+    // Position near anchor
+    const r = anchorEl.getBoundingClientRect();
+    const top = r.bottom + window.scrollY + 6;
+    const left = r.left + window.scrollX;
+    menu.style.top = `${top}px`;
+    menu.style.left = `${left}px`;
+    // Close on outside click or Escape
+    const close = (ev) => {
+      if (ev.type === 'keydown' && ev.key !== 'Escape') return;
+      if (ev.type === 'click' && menu.contains(ev.target)) return;
+      menu.remove();
+      document.removeEventListener('click', close, true);
+      document.removeEventListener('keydown', close, true);
+    };
+    setTimeout(() => {
+      document.addEventListener('click', close, true);
+      document.addEventListener('keydown', close, true);
+    }, 0);
   }
 }
 

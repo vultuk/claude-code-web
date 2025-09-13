@@ -194,3 +194,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Notes
 - UI‑only changes; no server/CLI surface changes.
+## [2.14.0] - 2025-09-13
+
+### Changed
+- Always-on multi‑pane mode: the tiled view is now the default and only mode.
+- Global top tab bar is hidden in multi‑pane; manage tabs per split.
+- Removed tile view toggle button.
+
+### Fixed
+- Pane “+” button now opens a reliable session picker menu and works in every pane.
+
+### Notes
+- UI/UX change only; no server/CLI API changes.

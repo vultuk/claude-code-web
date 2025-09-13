@@ -467,6 +467,10 @@ body {
 .tab-tile:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 .tab-tile[disabled] { opacity: .5; cursor: not-allowed; }
 
+/* Always multi-pane: hide global tabs */
+.session-tabs-bar .tabs-section { display: none !important; }
+#tabOverflowWrapper { display: none !important; }
+
 .tab-new:hover {
     background-color: var(--bg-tertiary);
     color: var(--text-primary);
@@ -929,6 +933,15 @@ body {
 .pane-tab .close:hover { opacity:1; }
 .pane-add { background: transparent; border:1px solid var(--border); border-radius:4px; width:24px; height:24px; color: var(--text-secondary); display:flex; align-items:center; justify-content:center; cursor:pointer; }
 .pane-add:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+
+/* Pane session picker menu */
+.pane-session-menu { position: absolute; z-index: 3000; min-width: 220px; background: var(--bg-secondary); border:1px solid var(--border); border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.35); padding:6px; }
+.pane-session-item { padding:8px 10px; border-radius:6px; cursor:pointer; color: var(--text-primary); }
+.pane-session-item.used { color: var(--text-secondary); }
+.pane-session-item:hover { background: var(--bg-tertiary); }
+.pane-session-sep { height:1px; background: var(--border); margin:6px 0; }
+.pane-session-action { padding:8px 10px; color: var(--accent); cursor:pointer; border-radius:6px; }
+.pane-session-action:hover { background: var(--bg-tertiary); }
 .tile-session-select { background: var(--bg-tertiary); color: var(--text-primary); border:1px solid var(--border); border-radius:6px; padding:6px 8px; font-family: var(--font-mono); font-size:12px; }
 .tile-close { background: transparent; border:1px solid var(--border); border-radius:4px; color: var(--text-secondary); width:26px; height:26px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
 .tile-close:hover { background: var(--bg-tertiary); color: var(--text-primary); }

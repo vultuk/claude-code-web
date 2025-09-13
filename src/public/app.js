@@ -73,7 +73,7 @@ class ClaudeCodeWebInterface {
         this.setupTerminal();
         this.setupUI();
         this.setupPlanDetector();
-        // Pane manager after UI exists
+        // Pane manager after UI exists (always-on multi-pane)
         this.paneManager = new PaneManager(this);
         this.loadSettings();
         this.applyAliasesToUI();
@@ -85,6 +85,10 @@ class ClaudeCodeWebInterface {
         // Initialize the session tab manager and wait for sessions to load
         this.sessionTabManager = new SessionTabManager(this);
         await this.sessionTabManager.init();
+        // Always enable multi-pane mode and hide global tabs
+        if (this.paneManager && !this.paneManager.enabled) {
+            this.paneManager.enable();
+        }
         
         // Show mode switcher on mobile
         if (this.isMobile) {
