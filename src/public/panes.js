@@ -159,7 +159,8 @@ class ClaudePane {
       const sm = this.app?.sessionTabManager;
       if (sm && sm.activeSessions) {
         const rec = sm.activeSessions.get(id);
-        if (rec && (rec.status === 'active' || rec.status === 'idle')) return true;
+        // Consider only 'active' as running. 'idle' may mean newly created and never started.
+        if (rec && rec.status === 'active') return true;
       }
     } catch (_) {}
     return false;
@@ -255,7 +256,8 @@ class PaneManager {
     this.enabled = true;
     const tc = document.getElementById('terminalContainer');
     if (tc) {
-      tc.style.display = '';
+      // Hide the single-pane container to avoid an empty column gap
+      tc.style.display = 'none';
       const tw = tc.querySelector('.terminal-wrapper');
       if (tw) tw.style.display = 'none';
     }
