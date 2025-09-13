@@ -221,3 +221,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Start‑prompt (Claude/Codex) overlay now appears in multi‑pane mode: terminal container is kept available for overlays even when panes are active.
+## [2.16.0] - 2025-09-13
+
+### Added
+- Per‑pane start prompt overlay: when a session is attached to a pane and hasn’t produced output yet, the pane shows a local dialog to pick the assistant (Claude/Codex), including dangerous variants.
+
+### Changed
+- Overlays no longer rely on the single‑pane terminal; the per‑pane overlay sits within each split.
+
+### Notes
+- UI‑only; no server/CLI changes.
