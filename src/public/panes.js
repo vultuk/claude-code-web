@@ -92,31 +92,28 @@ class PaneManager {
     this.enabled = false;
     this.grid = document.getElementById('tileGrid');
     this.container = document.getElementById('tilesContainer');
-    this.resizer = document.getElementById('tileResizer');
-    this.panes = [new ClaudePane(0, app), new ClaudePane(1, app)];
-    this.splitPos = 50; // percentage
+    // Initialize panes from DOM
+    this.panes = [];
+    this.widths = []; // percentages per pane
+    this.maxPanes = 4;
+    this.initFromDom();
     this.restoreFromStorage();
     this.bindUI();
   }
 
+  initFromDom() {
+    const paneEls = Array.from(this.grid.querySelectorAll('.tile-pane'));
+    this.panes = paneEls.map((el, i) => new ClaudePane(i, this.app));
+    const count = this.panes.length || 2;
+    this.widths = Array(count).fill(100 / count);
+    this.applySplit();
+  }
+
   bindUI() {
-    if (this.resizer) {
-      let dragging = false;
-      const onMove = (e) => {
-        if (!dragging) return;
-        const rect = this.grid.getBoundingClientRect();
-        const x = e.clientX || (e.touches && e.touches[0]?.clientX);
-        const pct = Math.max(15, Math.min(85, ((x - rect.left) / rect.width) * 100));
-        this.splitPos = pct;
-        this.applySplit();
-      };
-      this.resizer.addEventListener('mousedown', () => { dragging = true; document.body.style.userSelect = 'none'; });
-      window.addEventListener('mouseup', () => { dragging = false; document.body.style.userSelect = ''; });
-      window.addEventListener('mousemove', onMove);
-      this.resizer.addEventListener('touchstart', () => { dragging = true; }, { passive: true });
-      window.addEventListener('touchend', () => { dragging = false; }, { passive: true });
-      window.addEventListener('touchmove', onMove, { passive: false });
-    }
+    // Setup resizers
+    this.grid.querySelectorAll('.resizer').forEach((rz, index) => {
+      this.bindResizer(rz, index);
+    });
     document.querySelectorAll('.tile-close').forEach(btn => {
       btn.addEventListener('click', () => {
         const idx = parseInt(btn.dataset.index, 10);
@@ -152,9 +149,13 @@ class PaneManager {
   }
 
   applySplit() {
-    const a = Math.round(this.splitPos);
-    const b = 100 - a;
-    this.grid.style.gridTemplateColumns = `${a}% 6px ${b}%`;
+    // Build columns: width% + 6px between panes
+    const cols = [];
+    this.widths.forEach((w, i) => {
+      cols.push(`${w}%`);
+      if (i < this.widths.length - 1) cols.push('6px');
+    });
+    this.grid.style.gridTemplateColumns = cols.join(' ');
     this.panes.forEach(p => p.fit());
   }
 
@@ -189,7 +190,7 @@ class PaneManager {
     try {
       const state = {
         enabled: this.enabled,
-        split: this.splitPos,
+        widths: this.widths,
         sessions: this.panes.map(p => p.sessionId)
       };
       localStorage.setItem('cc-web-tiles', JSON.stringify(state));
@@ -201,15 +202,102 @@ class PaneManager {
       const raw = localStorage.getItem('cc-web-tiles');
       if (!raw) return;
       const st = JSON.parse(raw);
-      if (typeof st.split === 'number') this.splitPos = st.split;
+      if (Array.isArray(st.widths) && st.widths.length >= 2) this.widths = st.widths;
       if (st.enabled) {
         setTimeout(() => this.enable(), 0);
+        // Ensure pane count matches saved sessions (limit to max)
+        const needed = Math.min(this.maxPanes, Math.max(2, (st.sessions || []).length));
+        while (this.panes.length < needed) this.addPane(false);
+        this.applySplit();
         // sessions will be assigned after app loads sessions; do it lazily
         setTimeout(() => {
           (st.sessions || []).forEach((id, i) => id && this.assignSession(i, id));
         }, 500);
       }
     } catch (_) {}
+  }
+
+  addPane(persist = true) {
+    if (this.panes.length >= this.maxPanes) return;
+    const index = this.panes.length;
+    // Insert resizer
+    const rz = document.createElement('div');
+    rz.className = 'resizer';
+    rz.dataset.index = String(index - 1);
+    this.grid.appendChild(rz);
+    this.bindResizer(rz, index - 1);
+    // Insert pane
+    const pane = document.createElement('div');
+    pane.className = 'tile-pane';
+    pane.dataset.index = String(index);
+    pane.innerHTML = `
+      <div class="tile-toolbar">
+        <select class="tile-session-select" data-index="${index}"></select>
+        <div class="spacer"></div>
+        <button class="tile-close" data-index="${index}" title="Close Pane">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="tile-terminal" id="tileTerminal${index}"></div>
+    `;
+    this.grid.appendChild(pane);
+    const cp = new ClaudePane(index, this.app);
+    this.panes.push(cp);
+    // Recompute widths equally
+    const n = this.panes.length;
+    this.widths = Array(n).fill(100 / n);
+    this.applySplit();
+    this.refreshSessionSelects();
+    // Drag & drop listeners for pane
+    this.bindPaneDnd(pane, index);
+    if (persist) this.persist();
+  }
+
+  bindResizer(rz, leftIndex) {
+    let dragging = false;
+    let startX = 0;
+    let startLeft = 0;
+    let startRight = 0;
+    const onDown = (e) => {
+      dragging = true;
+      startX = (e.touches ? e.touches[0].clientX : e.clientX);
+      startLeft = this.widths[leftIndex];
+      startRight = this.widths[leftIndex + 1];
+      document.body.style.userSelect = 'none';
+    };
+    const onMove = (e) => {
+      if (!dragging) return;
+      const x = (e.touches ? e.touches[0].clientX : e.clientX);
+      const rect = this.grid.getBoundingClientRect();
+      const deltaPct = ((x - startX) / rect.width) * 100;
+      let newLeft = Math.max(10, Math.min(90, startLeft + deltaPct));
+      let newRight = startLeft + startRight - newLeft;
+      if (newRight < 10) { newRight = 10; newLeft = startLeft + startRight - 10; }
+      this.widths[leftIndex] = newLeft;
+      this.widths[leftIndex + 1] = newRight;
+      this.applySplit();
+    };
+    const onUp = () => { dragging = false; document.body.style.userSelect = ''; this.persist(); };
+    rz.addEventListener('mousedown', onDown);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    rz.addEventListener('touchstart', onDown, { passive: true });
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onUp, { passive: true });
+  }
+
+  bindPaneDnd(paneEl, index) {
+    paneEl.addEventListener('dragover', (e) => { e.preventDefault(); paneEl.classList.add('drag-over'); });
+    paneEl.addEventListener('dragleave', () => paneEl.classList.remove('drag-over'));
+    paneEl.addEventListener('drop', (e) => {
+      e.preventDefault(); paneEl.classList.remove('drag-over');
+      let sid = e.dataTransfer.getData('text/plain');
+      if (!sid) {
+        const dragging = document.querySelector('.tabs-container .session-tab.dragging');
+        sid = dragging?.dataset?.sessionId || '';
+      }
+      if (sid) this.assignSession(index, sid);
+    });
   }
 }
 
