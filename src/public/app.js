@@ -1090,6 +1090,14 @@ class ClaudeCodeWebInterface {
 
     showOverlay(contentId) {
         const overlay = document.getElementById('overlay');
+        if (this.paneManager?.enabled) {
+            const tc = document.getElementById('terminalContainer');
+            if (tc) {
+                tc.style.display = '';
+                const tw = tc.querySelector('.terminal-wrapper');
+                if (tw) tw.style.display = 'none';
+            }
+        }
         const contents = ['loadingSpinner', 'startPrompt', 'errorMessage'];
         
         contents.forEach(id => {
@@ -1105,6 +1113,10 @@ class ClaudeCodeWebInterface {
             console.log('[hideOverlay] Hiding overlay, current display:', overlay.style.display);
             overlay.style.display = 'none';
             console.log('[hideOverlay] Overlay hidden, new display:', overlay.style.display);
+            if (this.paneManager?.enabled) {
+                const tc = document.getElementById('terminalContainer');
+                if (tc) tc.style.display = 'none';
+            }
         } else {
             console.error('[hideOverlay] Overlay element not found!');
         }

@@ -217,3 +217,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Notes
 - UI‑only; no server/CLI changes.
+## [2.15.1] - 2025-09-13
+
+### Fixed
+- Start‑prompt (Claude/Codex) overlay now appears in multi‑pane mode: terminal container is kept available for overlays even when panes are active.
