@@ -537,10 +537,10 @@ class PaneManager {
         else if (x > r.width * 0.72) dir = 'right';
         else if (y < r.height * 0.28) dir = 'top';
         else if (y > r.height * 0.72) dir = 'bottom';
+        const sourcePane = parseInt(e.dataTransfer.getData('x-source-pane') || '-1', 10);
         if (dir) {
           this.splitAt(index, dir, sid, copy);
         } else {
-          const sourcePane = parseInt(e.dataTransfer.getData('x-source-pane') || '-1', 10);
           this.assignSession(index, sid);
           if (!copy && !isNaN(sourcePane) && sourcePane >= 0 && sourcePane !== index) this.removeTabFromPane(sourcePane, sid);
         }
@@ -752,6 +752,13 @@ class PaneManager {
         this.panes[i].container = document.getElementById(`tileTerminal${i}`);
       }
     }
+    // Reattach active sessions to their (possibly re-rendered) terminals
+    for (let i = 0; i < this.tabs.length; i++) {
+      const t = this.tabs[i];
+      if (t && t.active) {
+        try { this.panes[i]?.setSession(t.active); } catch (_) {}
+      }
+    }
   }
 
   removeTabFromPane(index, sid) {
@@ -832,99 +839,104 @@ class PaneManager {
   splitEdge(direction, sid, copy, sourcePane) {
     if (direction === 'left') {
       if (this.rows * (this.cols + 1) > this.maxPanes) return;
-      this.cols += 1; this.widths = Array(this.cols).fill(100 / this.cols);
-      const newPanes = []; const newTabs = [];
-      for (let r = 0; r < this.rows; r++) {
-        // empty first column
-        newPanes.push(new ClaudePane(newPanes.length, this.app)); newTabs.push({ list: [], active: null });
-        for (let c = 0; c < this.cols - 1; c++) {
-          const oldIdx = r * (this.cols - 1) + c;
-          newPanes.push(this.panes[oldIdx]); newTabs.push(this.tabs[oldIdx]);
-        }
-      }
-      this.panes = newPanes; this.tabs = newTabs; this.rebuildGrid();
-      this.assignSession(0, sid);
+      this.insertColumn(0);
+      const target = 0; // top-left
+      this.assignSession(target, sid);
       if (!copy && !isNaN(sourcePane) && sourcePane >= 0) this.removeTabFromPane(sourcePane, sid);
     } else if (direction === 'right') {
       if (this.rows * (this.cols + 1) > this.maxPanes) return;
-      this.cols += 1; this.widths = Array(this.cols).fill(100 / this.cols);
-      for (let r = 0; r < this.rows; r++) { this.panes.push(new ClaudePane(this.panes.length, this.app)); this.tabs.push({ list: [], active: null }); }
-      this.rebuildGrid();
-      const target = this.cols - 1; this.assignSession(target, sid);
+      this.insertColumn(this.cols - 1);
+      const target = this.cols - 1; // top-right
+      this.assignSession(target, sid);
       if (!copy && !isNaN(sourcePane) && sourcePane >= 0) this.removeTabFromPane(sourcePane, sid);
     } else if (direction === 'top') {
       if ((this.rows + 1) * this.cols > this.maxPanes) return;
-      if (this.rows === 1) { this.rows = 2; this.heights = [50, 50]; }
-      // prepend empty row
-      const newPanes = []; const newTabs = [];
-      for (let c = 0; c < this.cols; c++) { newPanes.push(new ClaudePane(newPanes.length, this.app)); newTabs.push({ list: [], active: null }); }
-      for (let c = 0; c < this.cols; c++) { const oldIdx = c; newPanes.push(this.panes[oldIdx]); newTabs.push(this.tabs[oldIdx]); }
-      this.panes = newPanes; this.tabs = newTabs; this.rebuildGrid();
-      this.assignSession(0, sid);
+      this.insertRow(0);
+      const target = 0; // top-left
+      this.assignSession(target, sid);
       if (!copy && !isNaN(sourcePane) && sourcePane >= 0) this.removeTabFromPane(sourcePane, sid);
     } else if (direction === 'bottom') {
       if ((this.rows + 1) * this.cols > this.maxPanes) return;
-      if (this.rows === 1) { this.rows = 2; this.heights = [50, 50]; }
-      for (let c = 0; c < this.cols; c++) { this.panes.push(new ClaudePane(this.panes.length, this.app)); this.tabs.push({ list: [], active: null }); }
-      this.rebuildGrid();
-      const target = (this.rows - 1) * this.cols; this.assignSession(target, sid);
+      this.insertRow(this.rows - 1);
+      const target = (this.rows - 1) * this.cols; // bottom-left
+      this.assignSession(target, sid);
       if (!copy && !isNaN(sourcePane) && sourcePane >= 0) this.removeTabFromPane(sourcePane, sid);
     }
   }
 
   // Split a specific cell in a given direction
   splitAt(index, direction, sid, copy = false) {
-    const col = index % this.cols; const row = Math.floor(index / this.cols);
+    const oldCols = this.cols; const oldRows = this.rows;
+    const col = index % oldCols; const row = Math.floor(index / oldCols);
     if (direction === 'left') {
-      if (this.rows * (this.cols + 1) > this.maxPanes) return;
-      this.cols += 1; this.widths = Array(this.cols).fill(100 / this.cols);
-      const newPanes = []; const newTabs = [];
-      for (let r = 0; r < this.rows; r++) {
-        for (let c = 0; c < this.cols; c++) {
-          if (c === col) { newPanes.push(new ClaudePane(newPanes.length, this.app)); newTabs.push({ list: [], active: null }); }
-          const oldIdx = r * (this.cols - 1) + (c > col ? c - 1 : c);
-          newPanes.push(this.panes[oldIdx]); newTabs.push(this.tabs[oldIdx]);
-        }
-      }
-      this.panes = newPanes; this.tabs = newTabs; this.rebuildGrid();
-      const target = row * this.cols + col; this.assignSession(target, sid);
-      if (!copy) this.removeTabFromPane(index + 1, sid);
+      if (oldRows * (oldCols + 1) > this.maxPanes) return;
+      this.insertColumn(col - 1 < 0 ? 0 : col - 1);
+      const target = row * this.cols + col;
+      const srcAfter = row * this.cols + (col + 1);
+      this.assignSession(target, sid);
+      if (!copy) this.removeTabFromPane(srcAfter, sid);
     } else if (direction === 'right') {
-      if (this.rows * (this.cols + 1) > this.maxPanes) return;
-      this.cols += 1; this.widths = Array(this.cols).fill(100 / this.cols);
-      const newPanes = []; const newTabs = [];
-      for (let r = 0; r < this.rows; r++) {
-        for (let c = 0; c < this.cols; c++) {
-          const oldIdx = r * (this.cols - 1) + (c <= col ? c : c - 1);
-          newPanes.push(this.panes[oldIdx]); newTabs.push(this.tabs[oldIdx]);
+      if (oldRows * (oldCols + 1) > this.maxPanes) return;
+      this.insertColumn(col);
+      const target = row * this.cols + (col + 1);
+      const srcAfter = row * this.cols + col;
+      this.assignSession(target, sid);
+      if (!copy) this.removeTabFromPane(srcAfter, sid);
+    } else if (direction === 'top') {
+      if ((oldRows + 1) * oldCols > this.maxPanes) return;
+      this.insertRow(row - 1 < 0 ? 0 : row - 1);
+      const target = row * this.cols + col;
+      const srcAfter = (row + 1) * this.cols + col;
+      this.assignSession(target, sid);
+      if (!copy) this.removeTabFromPane(srcAfter, sid);
+    } else if (direction === 'bottom') {
+      if ((oldRows + 1) * oldCols > this.maxPanes) return;
+      this.insertRow(row);
+      const target = (row + 1) * this.cols + col;
+      const srcAfter = row * this.cols + col;
+      this.assignSession(target, sid);
+      if (!copy) this.removeTabFromPane(srcAfter, sid);
+    }
+  }
+
+  insertColumn(insertAfterCol) {
+    const oldCols = this.cols; const rows = this.rows;
+    const oldPanes = this.panes.slice(); const oldTabs = this.tabs.map(t => ({ list: [...(t?.list||[])], active: t?.active || null }));
+    const newPanes = []; const newTabs = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < oldCols; c++) {
+        newPanes.push(oldPanes[r * oldCols + c]);
+        newTabs.push(oldTabs[r * oldCols + c]);
+        if (c === insertAfterCol) {
+          newPanes.push(new ClaudePane(0, this.app));
+          newTabs.push({ list: [], active: null });
         }
       }
-      this.panes = newPanes; this.tabs = newTabs; this.rebuildGrid();
-      const target = row * this.cols + (col + 1); this.assignSession(target, sid);
-      if (!copy) this.removeTabFromPane(index, sid);
-    } else if (direction === 'top') {
-      if ((this.rows + 1) * this.cols > this.maxPanes) return;
-      if (this.rows === 1) { this.rows = 2; this.heights = [50, 50]; }
-      const newPanes = []; const newTabs = [];
-      for (let r = 0; r < this.rows; r++) {
-        if (r === row) { for (let c = 0; c < this.cols; c++) { newPanes.push(new ClaudePane(newPanes.length, this.app)); newTabs.push({ list: [], active: null }); } }
-        for (let c = 0; c < this.cols; c++) { const oldIdx = (r > row ? r - 1 : r) * this.cols + c; newPanes.push(this.panes[oldIdx]); newTabs.push(this.tabs[oldIdx]); }
-      }
-      this.panes = newPanes; this.tabs = newTabs; this.rebuildGrid();
-      const target = row * this.cols + col; this.assignSession(target, sid);
-      if (!copy) this.removeTabFromPane(index + this.cols, sid);
-    } else if (direction === 'bottom') {
-      if ((this.rows + 1) * this.cols > this.maxPanes) return;
-      if (this.rows === 1) { this.rows = 2; this.heights = [50, 50]; }
-      const newPanes = []; const newTabs = [];
-      for (let r = 0; r < this.rows; r++) {
-        for (let c = 0; c < this.cols; c++) { const oldIdx = r * this.cols + c; newPanes.push(this.panes[oldIdx]); newTabs.push(this.tabs[oldIdx]); }
-        if (r === row) { for (let c = 0; c < this.cols; c++) { newPanes.push(new ClaudePane(newPanes.length, this.app)); newTabs.push({ list: [], active: null }); } }
-      }
-      this.panes = newPanes; this.tabs = newTabs; this.rebuildGrid();
-      const target = (row + 1) * this.cols + col; this.assignSession(target, sid);
-      if (!copy) this.removeTabFromPane(index, sid);
     }
+    this.cols = oldCols + 1;
+    this.widths = Array(this.cols).fill(100 / this.cols);
+    this.panes = newPanes; this.tabs = newTabs;
+    this.rebuildGrid();
+  }
+
+  insertRow(insertAfterRow) {
+    if (this.rows >= 2) return; // cap rows to 2
+    const oldRows = this.rows; const cols = this.cols;
+    const oldPanes = this.panes.slice(); const oldTabs = this.tabs.map(t => ({ list: [...(t?.list||[])], active: t?.active || null }));
+    const newPanes = []; const newTabs = [];
+    for (let r = 0; r < oldRows; r++) {
+      for (let c = 0; c < cols; c++) {
+        newPanes.push(oldPanes[r * cols + c]);
+        newTabs.push(oldTabs[r * cols + c]);
+      }
+      if (r === insertAfterRow) {
+        for (let c = 0; c < cols; c++) { newPanes.push(new ClaudePane(0, this.app)); newTabs.push({ list: [], active: null }); }
+      }
+    }
+    this.rows = oldRows + 1;
+    this.heights = this.rows === 2 ? [50, 50] : [100];
+    this.panes = newPanes; this.tabs = newTabs;
+    this.rebuildGrid();
   }
 
   openAddMenu(index, anchorEl) {
