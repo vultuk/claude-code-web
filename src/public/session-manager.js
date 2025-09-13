@@ -281,7 +281,7 @@ class SessionTabManager {
         if (tabsContainer) {
             tabsContainer.addEventListener('dragstart', (e) => {
                 if (e.target.classList.contains('session-tab')) {
-                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.effectAllowed = 'copyMove';
                     e.dataTransfer.setData('text/html', e.target.innerHTML);
                     const sid = e.target.dataset.sessionId;
                     if (sid) e.dataTransfer.setData('text/plain', sid);
@@ -570,6 +570,12 @@ class SessionTabManager {
                 this.renameTab(sessionId);
             }
         });
+
+        // Context menu: Close Others, Split Right, Move to Split
+        tab.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            this.openTabContextMenu(sessionId, e.clientX, e.clientY);
+        });
         
         tabsContainer.appendChild(tab);
         this.tabs.set(sessionId, tab);
@@ -735,6 +741,48 @@ class SessionTabManager {
                 saveNewName();
             }
         });
+    }
+
+    // Close all other tabs except the given session
+    closeOthers(sessionId) {
+        const ids = Array.from(this.tabs.keys());
+        ids.forEach(id => { if (id !== sessionId) this.closeSession(id); });
+    }
+
+    // Context menu for a session tab
+    openTabContextMenu(sessionId, clientX, clientY) {
+        // Remove existing menus
+        document.querySelectorAll('.pane-session-menu').forEach(m => m.remove());
+        const menu = document.createElement('div');
+        menu.className = 'pane-session-menu';
+        const addItem = (label, fn, disabled = false) => {
+            const el = document.createElement('div');
+            el.className = 'pane-session-item' + (disabled ? ' used' : '');
+            el.textContent = label;
+            if (!disabled) el.onclick = () => { try { fn(); } finally { menu.remove(); } };
+            return el;
+        };
+        menu.appendChild(addItem('Close Others', () => this.closeOthers(sessionId)));
+        menu.appendChild(addItem('Split Right', () => {
+            if (!window.app?.paneManager?.enabled) window.app?.paneManager?.enable?.();
+            window.app?.paneManager?.splitEdge?.('right', sessionId, false, -1);
+        }));
+        // Move to Split submenu
+        const pm = window.app?.paneManager;
+        if (pm && pm.panes && pm.panes.length > 0) {
+            const sep = document.createElement('div'); sep.className = 'pane-session-sep'; menu.appendChild(sep);
+            const label = document.createElement('div'); label.className='pane-session-item used'; label.textContent='Move to Split:'; label.style.cursor='default'; menu.appendChild(label);
+            for (let i = 0; i < pm.panes.length; i++) {
+                const el = document.createElement('div'); el.className='pane-session-item'; el.textContent = `Split ${i+1}`;
+                el.onclick = () => { pm.assignSession(i, sessionId); menu.remove(); };
+                menu.appendChild(el);
+            }
+        }
+        document.body.appendChild(menu);
+        menu.style.top = `${clientY + 4}px`;
+        menu.style.left = `${clientX + 4}px`;
+        const close = (ev) => { if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('mousedown', close, true); } };
+        setTimeout(() => document.addEventListener('mousedown', close, true), 0);
     }
 
     createNewSession() {

@@ -240,3 +240,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Notes
 - UI/behavior change only; no server/CLI API changes.
+
+## [2.18.0] - 2025-09-13
+
+### Added
+- Tab context menus for both global tabs and per‑pane tabs:
+  - Close Others
+  - Split Right
+  - Move to Split (choose destination split)
+- Drag‑to‑split in all directions (left/right/top/bottom) with visual drop hints.
+- Ctrl/Cmd‑drag to copy a tab to another split; default drag moves the tab.
+
+### Changed
+- Vertical splits supported (up to 2 rows) with a horizontal resizer; sizes persist.
+- Edge‑of‑grid drops create splits on that edge; drag cursor reflects copy vs move.
+- Layout persistence now includes rows, cols, and heights in `cc-web-tiles`.
+
+### Notes
+- UI‑only features; no server/CLI API changes.
