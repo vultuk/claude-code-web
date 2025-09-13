@@ -33,6 +33,8 @@ class ClaudePane {
 
   ensureTerminal() {
     if (this.terminal) return;
+    // Refresh container in case grid was rebuilt
+    this.container = document.getElementById(`tileTerminal${this.index}`);
     this.terminal = new Terminal({
       fontFamily: this.app?.terminal?.options?.fontFamily || "JetBrains Mono, monospace",
       fontSize: this.app?.terminal?.options?.fontSize || 14,
@@ -172,51 +174,59 @@ class PaneManager {
     this.container = document.getElementById('tilesContainer');
     // Initialize panes from DOM
     this.panes = [];
-    this.widths = []; // percentages per pane
+    this.widths = []; // percentages per column
+    this.heights = [100]; // percentages per row
+    this.rows = 1;
+    this.cols = 1;
     this.tabs = [];   // per-pane tabs: [{list:[sessionId], active: sessionId}]
-    this.maxPanes = 4;
+    this.maxPanes = 4; // total cells (rows*cols) limit
     this.activeIndex = 0;
     this.initFromDom();
     this.restoreFromStorage();
     this.bindUI();
 
-    // Grid-level drag to create a new split on right edge
+    // Grid-level drag to create a new split near edges
     this.grid.addEventListener('dragover', (e) => {
       const sid = e.dataTransfer?.getData('application/x-session-id');
       if (!sid) return;
       e.preventDefault();
+      e.dataTransfer.dropEffect = (e.ctrlKey || e.metaKey) ? 'copy' : 'move';
     });
     this.grid.addEventListener('drop', (e) => {
       const sid = e.dataTransfer?.getData('application/x-session-id');
       if (!sid) return;
       const rect = this.grid.getBoundingClientRect();
+      const nearLeft = (e.clientX < rect.left + 60);
       const nearRight = (e.clientX > rect.right - 60);
-      if (nearRight && this.panes.length < this.maxPanes) {
-        const sourcePane = parseInt(e.dataTransfer.getData('x-source-pane') || '-1', 10);
-        this.addPane(true);
-        const newIndex = this.panes.length - 1;
-        this.assignSession(newIndex, sid);
-        if (!isNaN(sourcePane) && sourcePane >= 0) this.removeTabFromPane(sourcePane, sid);
-        e.preventDefault();
+      const nearTop = (e.clientY < rect.top + 60);
+      const nearBottom = (e.clientY > rect.bottom - 60);
+      const sourcePane = parseInt(e.dataTransfer.getData('x-source-pane') || '-1', 10);
+      const copy = !!(e.ctrlKey || e.metaKey);
+
+      if ((nearLeft || nearRight || nearTop || nearBottom)) {
+        if (nearLeft) {
+          this.splitEdge('left', sid, copy, sourcePane);
+          e.preventDefault();
+        } else if (nearRight) {
+          this.splitEdge('right', sid, copy, sourcePane);
+          e.preventDefault();
+        } else if (nearTop) {
+          this.splitEdge('top', sid, copy, sourcePane);
+          e.preventDefault();
+        } else if (nearBottom) {
+          this.splitEdge('bottom', sid, copy, sourcePane);
+          e.preventDefault();
+        }
       }
     });
   }
 
   initFromDom() {
-    const paneEls = Array.from(this.grid.querySelectorAll('.tile-pane'));
-    this.panes = paneEls.map((el, i) => {
-      // focus handlers and DnD for initial panes
-      this.bindPaneDnd(el, i);
-      el.addEventListener('mousedown', () => this.focusPane(i));
-      el.querySelector('.tile-toolbar')?.addEventListener('mousedown', () => this.focusPane(i));
-      return new ClaudePane(i, this.app);
-    });
-    const count = this.panes.length || 2;
-    this.widths = Array(count).fill(100 / count);
-    this.tabs = Array(count).fill(0).map(() => ({ list: [], active: null }));
-    this.applySplit();
-    // Render empty tab bars
-    this.panes.forEach((_, i) => this.renderPaneTabs(i));
+    // Start with a single cell
+    this.rows = 1; this.cols = 1; this.widths = [100]; this.heights = [100];
+    this.panes = [new ClaudePane(0, this.app)];
+    this.tabs = [{ list: [], active: null }];
+    this.rebuildGrid();
   }
 
   bindUI() {
@@ -280,13 +290,13 @@ class PaneManager {
   }
 
   applySplit() {
-    // Build columns: width% + 6px between panes
+    // Build columns and rows with resizers between tracks
     const cols = [];
-    this.widths.forEach((w, i) => {
-      cols.push(`${w}%`);
-      if (i < this.widths.length - 1) cols.push('6px');
-    });
+    this.widths.forEach((w, i) => { cols.push(`${w}%`); if (i < this.widths.length - 1) cols.push('6px'); });
+    const rows = [];
+    this.heights.forEach((h, i) => { rows.push(`${h}%`); if (i < this.heights.length - 1) rows.push('6px'); });
     this.grid.style.gridTemplateColumns = cols.join(' ');
+    this.grid.style.gridTemplateRows = rows.join(' ');
     this.panes.forEach(p => p.fit());
   }
 
@@ -329,6 +339,9 @@ class PaneManager {
       const state = {
         enabled: this.enabled,
         widths: this.widths,
+        heights: this.heights,
+        rows: this.rows,
+        cols: this.cols,
         tabs: this.tabs
       };
       localStorage.setItem('cc-web-tiles', JSON.stringify(state));
@@ -340,22 +353,23 @@ class PaneManager {
       const raw = localStorage.getItem('cc-web-tiles');
       if (!raw) return;
       const st = JSON.parse(raw);
-      if (Array.isArray(st.widths) && st.widths.length >= 2) this.widths = st.widths;
+      if (Array.isArray(st.widths) && st.widths.length >= 1) this.widths = st.widths;
+      if (Array.isArray(st.heights) && st.heights.length >= 1) this.heights = st.heights;
+      if (typeof st.rows === 'number' && st.rows >= 1) this.rows = Math.min(2, st.rows);
+      if (typeof st.cols === 'number' && st.cols >= 1) this.cols = Math.max(1, Math.min(4, st.cols));
       if (st.enabled) {
-        setTimeout(() => this.enable(), 0);
-        // Ensure pane count matches saved sessions (limit to max)
-        const needed = Math.min(this.maxPanes, Math.max(2, (st.tabs || []).length));
-        while (this.panes.length < needed) this.addPane(false);
-        this.applySplit();
+        // Rebuild grid now with stored rows/cols
+        this.rebuildGrid();
         // rebuild pane tabs after sessions list loads
         setTimeout(() => {
           this.tabs = (st.tabs || []).map(t => ({ list: Array.isArray(t.list) ? t.list : [], active: t.active || null }));
-          // ensure arrays for all panes
           while (this.tabs.length < this.panes.length) this.tabs.push({ list: [], active: null });
-          this.tabs.forEach((t, i) => {
+          for (let i = 0; i < this.panes.length; i++) {
             this.renderPaneTabs(i);
-            if (t.active) this.panes[i].setSession(t.active);
-          });
+            const t = this.tabs[i];
+            if (t && t.active) this.panes[i]?.setSession(t.active);
+          }
+          this.enable();
         }, 500);
       }
     } catch (_) {}
@@ -435,20 +449,99 @@ class PaneManager {
     window.addEventListener('touchend', onUp, { passive: true });
   }
 
+  bindRowResizer(rz, topRowIndex) {
+    let dragging = false;
+    let startY = 0;
+    let startTop = 0;
+    let startBottom = 0;
+    const onDown = (e) => {
+      dragging = true;
+      startY = (e.touches ? e.touches[0].clientY : e.clientY);
+      startTop = this.heights[topRowIndex];
+      startBottom = this.heights[topRowIndex + 1];
+      document.body.style.userSelect = 'none';
+    };
+    const onMove = (e) => {
+      if (!dragging) return;
+      const y = (e.touches ? e.touches[0].clientY : e.clientY);
+      const rect = this.grid.getBoundingClientRect();
+      const deltaPct = ((y - startY) / rect.height) * 100;
+      let newTop = Math.max(10, Math.min(90, startTop + deltaPct));
+      let newBottom = startTop + startBottom - newTop;
+      if (newBottom < 10) { newBottom = 10; newTop = startTop + startBottom - 10; }
+      this.heights[topRowIndex] = newTop;
+      this.heights[topRowIndex + 1] = newBottom;
+      this.applySplit();
+    };
+    const onUp = () => { dragging = false; document.body.style.userSelect = ''; this.persist(); };
+    rz.addEventListener('mousedown', onDown);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    rz.addEventListener('touchstart', onDown, { passive: true });
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onUp, { passive: true });
+  }
+
   bindPaneDnd(paneEl, index) {
-    paneEl.addEventListener('dragover', (e) => { e.preventDefault(); paneEl.classList.add('drag-over'); });
-    paneEl.addEventListener('dragleave', () => paneEl.classList.remove('drag-over'));
+    const ensureHints = () => {
+      let hints = paneEl.querySelector('.pane-drop-hints');
+      if (!hints) {
+        hints = document.createElement('div');
+        hints.className = 'pane-drop-hints';
+        hints.innerHTML = '<div class="hint left"></div><div class="hint right"></div><div class="hint top"></div><div class="hint bottom"></div>';
+        paneEl.appendChild(hints);
+      }
+      return hints;
+    };
+    const clearHints = () => {
+      const h = paneEl.querySelector('.pane-drop-hints');
+      if (h) { h.querySelectorAll('.hint').forEach(el => el.classList.remove('active')); h.style.display = 'none'; }
+    };
+    const highlight = (dir) => {
+      const h = ensureHints();
+      h.style.display = 'block';
+      h.querySelectorAll('.hint').forEach(el => el.classList.remove('active'));
+      if (!dir) return;
+      const sel = dir === 'left' ? '.left' : dir === 'right' ? '.right' : dir === 'top' ? '.top' : '.bottom';
+      const el = h.querySelector(sel); if (el) el.classList.add('active');
+    };
+    paneEl.addEventListener('dragover', (e) => {
+      e.preventDefault(); paneEl.classList.add('drag-over');
+      e.dataTransfer.dropEffect = (e.ctrlKey || e.metaKey) ? 'copy' : 'move';
+      const r = paneEl.getBoundingClientRect();
+      const x = e.clientX - r.left; const y = e.clientY - r.top;
+      const left = x < r.width * 0.28;
+      const right = x > r.width * 0.72;
+      const top = y < r.height * 0.28;
+      const bottom = y > r.height * 0.72;
+      let dir = null;
+      if (left) dir = 'left'; else if (right) dir = 'right'; else if (top) dir = 'top'; else if (bottom) dir = 'bottom';
+      highlight(dir);
+    });
+    paneEl.addEventListener('dragleave', () => { paneEl.classList.remove('drag-over'); clearHints(); });
     paneEl.addEventListener('drop', (e) => {
-      e.preventDefault(); paneEl.classList.remove('drag-over');
+      e.preventDefault(); paneEl.classList.remove('drag-over'); clearHints();
       let sid = e.dataTransfer.getData('application/x-session-id') || e.dataTransfer.getData('text/plain');
       if (!sid) {
         const dragging = document.querySelector('.tabs-container .session-tab.dragging');
         sid = dragging?.dataset?.sessionId || '';
       }
+      const copy = !!(e.ctrlKey || e.metaKey);
       if (sid) {
-        const sourcePane = parseInt(e.dataTransfer.getData('x-source-pane') || '-1', 10);
-        this.assignSession(index, sid);
-        if (!isNaN(sourcePane) && sourcePane >= 0 && sourcePane !== index) this.removeTabFromPane(sourcePane, sid);
+        const r = paneEl.getBoundingClientRect();
+        const x = e.clientX - r.left; const y = e.clientY - r.top;
+        let dir = null;
+        if (x < r.width * 0.28) dir = 'left';
+        else if (x > r.width * 0.72) dir = 'right';
+        else if (y < r.height * 0.28) dir = 'top';
+        else if (y > r.height * 0.72) dir = 'bottom';
+        if (dir) {
+          this.splitAt(index, dir, sid, copy);
+        } else {
+          const sourcePane = parseInt(e.dataTransfer.getData('x-source-pane') || '-1', 10);
+          this.assignSession(index, sid);
+          if (!copy && !isNaN(sourcePane) && sourcePane >= 0 && sourcePane !== index) this.removeTabFromPane(sourcePane, sid);
+        }
       }
     });
   }
@@ -476,7 +569,7 @@ class PaneManager {
       el.innerHTML = `<span class="name">${name}</span><span class="close" title="Close">×</span>`;
       el.draggable = true;
       el.addEventListener('dragstart', (e) => {
-        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.effectAllowed = 'copyMove';
         e.dataTransfer.setData('application/x-session-id', sid);
         e.dataTransfer.setData('text/plain', sid);
         e.dataTransfer.setData('x-source-pane', String(index));
@@ -493,6 +586,11 @@ class PaneManager {
       el.querySelector('.close').addEventListener('click', async (e) => {
         e.stopPropagation();
         await this.closeSessionCompletely(sid);
+      });
+      // context menu
+      el.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        this.openPaneTabContextMenu(index, sid, e.clientX, e.clientY);
       });
       holder.appendChild(el);
     });
@@ -513,59 +611,128 @@ class PaneManager {
     }
     // Close socket/terminal
     try { this.panes[index]?.disconnect(); } catch (_) {}
-    // Remove state
-    const removedWidth = this.widths[index] || 0;
-    this.panes.splice(index, 1);
-    this.tabs.splice(index, 1);
-    // Re-normalize widths
-    const remain = 100 - removedWidth;
-    this.widths = this.widths.filter((_, i) => i !== index).map(w => (w * 100) / (remain || 100));
-    // Rebuild DOM grid cleanly
-    this.rebuildGrid();
+    // Clear the cell
+    this.tabs[index] = { list: [], active: null };
+    this.panes[index]?.setSession(null);
+    this.renderPaneTabs(index);
+    // If entire row or column now empty, compress
+    const col = index % this.cols; const row = Math.floor(index / this.cols);
+    const colEmpty = () => {
+      for (let r = 0; r < this.rows; r++) {
+        const t = this.tabs[r * this.cols + col];
+        if (t && (t.active || (t.list && t.list.length))) return false;
+      }
+      return true;
+    };
+    const rowEmpty = () => {
+      for (let c = 0; c < this.cols; c++) {
+        const t = this.tabs[row * this.cols + c];
+        if (t && (t.active || (t.list && t.list.length))) return false;
+      }
+      return true;
+    };
+    if (this.cols > 1 && colEmpty()) {
+      // Remove the column
+      const newPanes = []; const newTabs = [];
+      for (let r = 0; r < this.rows; r++) {
+        for (let c = 0; c < this.cols; c++) {
+          if (c === col) continue;
+          const idx = r * this.cols + c;
+          newPanes.push(this.panes[idx]);
+          newTabs.push(this.tabs[idx]);
+        }
+      }
+      this.cols -= 1; this.widths = Array(this.cols).fill(100 / this.cols);
+      this.panes = newPanes; this.tabs = newTabs;
+      this.rebuildGrid();
+    } else if (this.rows > 1 && rowEmpty()) {
+      // Remove the row
+      const newPanes = []; const newTabs = [];
+      for (let r = 0; r < this.rows; r++) {
+        if (r === row) continue;
+        for (let c = 0; c < this.cols; c++) {
+          const idx = r * this.cols + c;
+          newPanes.push(this.panes[idx]);
+          newTabs.push(this.tabs[idx]);
+        }
+      }
+      this.rows -= 1; this.heights = [100];
+      this.panes = newPanes; this.tabs = newTabs;
+      this.rebuildGrid();
+    }
     this.persist();
   }
 
   rebuildGrid() {
-    // Clear
+    // Normalize arrays length
+    const cells = this.rows * this.cols;
+    while (this.panes.length < cells) this.panes.push(new ClaudePane(this.panes.length, this.app));
+    while (this.tabs.length < cells) this.tabs.push({ list: [], active: null });
+    this.panes = this.panes.slice(0, cells);
+    this.tabs = this.tabs.slice(0, cells);
+
+    // Clear grid
     this.grid.innerHTML = '';
-    // Recreate panes + resizers
-    const count = this.panes.length;
-    const oldTabs = this.tabs.map(t => ({ list: [...t.list], active: t.active }));
-    this.panes = [];
-    for (let i = 0; i < count; i++) {
-      // Pane
-      const pane = document.createElement('div');
-      pane.className = 'tile-pane';
-      pane.dataset.index = String(i);
-      pane.innerHTML = `
-        <div class="tile-toolbar">
-          <div class="pane-tabs" data-index="${i}"></div>
-          <button class="pane-add" data-index="${i}" title="Add tab">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          </button>
-          <select class="tile-session-select" data-index="${i}" style="display:none"></select>
-          <div class="spacer"></div>
-          <button class="tile-close" data-index="${i}" title="Close Pane">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
-        </div>
-        <div class="tile-terminal" id="tileTerminal${i}"></div>`;
-      this.grid.appendChild(pane);
-      // Add resizer except after last pane
-      if (i < count - 1) {
-        const rz = document.createElement('div');
-        rz.className = 'resizer';
-        rz.dataset.index = String(i);
-        this.grid.appendChild(rz);
+
+    // Template tracks
+    const cols = []; this.widths = this.widths.slice(0, this.cols);
+    this.widths.forEach((w, i) => { cols.push(`${w}%`); if (i < this.cols - 1) cols.push('6px'); });
+    const rows = []; this.heights = this.heights.slice(0, this.rows);
+    this.heights.forEach((h, i) => { rows.push(`${h}%`); if (i < this.rows - 1) rows.push('6px'); });
+    this.grid.style.gridTemplateColumns = cols.join(' ');
+    this.grid.style.gridTemplateRows = rows.join(' ');
+
+    // Content cells
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        const idx = r * this.cols + c;
+        const pane = document.createElement('div');
+        pane.className = 'tile-pane';
+        pane.dataset.index = String(idx);
+        pane.style.gridColumn = String(c * 2 + 1);
+        pane.style.gridRow = String(r * 2 + 1);
+        pane.innerHTML = `
+          <div class="tile-toolbar">
+            <div class="pane-tabs" data-index="${idx}"></div>
+            <button class="pane-add" data-index="${idx}" title="Add tab">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1=\"12\" y1=\"5\" x2=\"12\" y2=\"19\"/><line x1=\"5\" y1=\"12\" x2=\"19\" y2=\"12\"/></svg>
+            </button>
+            <select class="tile-session-select" data-index="${idx}" style="display:none"></select>
+            <div class="spacer"></div>
+            <button class="tile-close" data-index="${idx}" title="Close Pane">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1=\"18\" y1=\"6\" x2=\"6\" y2=\"18\"/><line x1=\"6\" y1=\"6\" x2=\"18\" y2=\"18\"/></svg>
+            </button>
+          </div>
+          <div class="tile-terminal" id="tileTerminal${idx}"></div>`;
+        this.grid.appendChild(pane);
+        this.bindPaneDnd(pane, idx);
+        pane.addEventListener('mousedown', () => this.focusPane(idx));
+        pane.querySelector('.tile-toolbar')?.addEventListener('mousedown', () => this.focusPane(idx));
       }
-      const cp = new ClaudePane(i, this.app);
-      this.panes.push(cp);
-      this.bindPaneDnd(pane, i);
-      pane.addEventListener('mousedown', () => this.focusPane(i));
-      pane.querySelector('.tile-toolbar')?.addEventListener('mousedown', () => this.focusPane(i));
     }
-    // Bind resizers and close buttons again
-    this.grid.querySelectorAll('.resizer').forEach((rz, idx) => this.bindResizer(rz, idx));
+
+    // Vertical resizers between columns
+    for (let i = 0; i < this.cols - 1; i++) {
+      const rz = document.createElement('div');
+      rz.className = 'resizer';
+      rz.dataset.index = String(i);
+      rz.style.gridColumn = String(i * 2 + 2);
+      rz.style.gridRow = '1 / -1';
+      this.grid.appendChild(rz);
+      this.bindResizer(rz, i);
+    }
+    // Horizontal resizers between rows
+    for (let r = 0; r < this.rows - 1; r++) {
+      const rr = document.createElement('div');
+      rr.className = 'row-resizer';
+      rr.dataset.index = String(r);
+      rr.style.gridRow = String(r * 2 + 2);
+      rr.style.gridColumn = '1 / -1';
+      this.grid.appendChild(rr);
+      this.bindRowResizer(rr, r);
+    }
+
+    // Wire controls
     this.grid.querySelectorAll('.tile-close').forEach(btn => btn.addEventListener('click', () => this.removePane(parseInt(btn.dataset.index, 10))));
     this.grid.querySelectorAll('.pane-add').forEach(btn => btn.addEventListener('click', (e) => {
       const idx = parseInt(btn.dataset.index, 10);
@@ -573,12 +740,16 @@ class PaneManager {
       this.app?.showFolderBrowser?.();
       e.stopPropagation();
     }));
-    // Refresh selects and tabs
     this.refreshSessionSelects();
-    this.tabs = oldTabs;
     for (let i = 0; i < this.tabs.length; i++) this.renderPaneTabs(i);
-    // Apply sizes
     this.applySplit();
+    // Update pane indices and containers
+    for (let i = 0; i < this.panes.length; i++) {
+      if (this.panes[i]) {
+        this.panes[i].index = i;
+        this.panes[i].container = document.getElementById(`tileTerminal${i}`);
+      }
+    }
   }
 
   removeTabFromPane(index, sid) {
@@ -616,6 +787,142 @@ class PaneManager {
     // Also remove global tab if present
     try { this.app?.sessionTabManager?.closeSession?.(sessionId); } catch (_) {}
     this.persist();
+  }
+
+  // Context menu for per-pane tabs
+  openPaneTabContextMenu(index, sid, clientX, clientY) {
+    document.querySelectorAll('.pane-session-menu').forEach(m => m.remove());
+    const menu = document.createElement('div');
+    menu.className = 'pane-session-menu';
+    const addItem = (label, fn) => {
+      const el = document.createElement('div');
+      el.className = 'pane-session-item';
+      el.textContent = label;
+      el.onclick = () => { try { fn(); } finally { menu.remove(); } };
+      return el;
+    };
+    // Close Others (within this split)
+    menu.appendChild(addItem('Close Others', () => {
+      const t = this.tabs[index]; if (!t) return; const others = t.list.filter(x => x !== sid);
+      others.forEach(o => this.removeTabFromPane(index, o));
+    }));
+    // Split Right
+    menu.appendChild(addItem('Split Right', () => this.splitAt(index, 'right', sid, false)));
+    // Move to Split submenu - list other splits
+    if (this.panes.length > 1) {
+      const sep = document.createElement('div'); sep.className='pane-session-sep'; menu.appendChild(sep);
+      const label = document.createElement('div'); label.className='pane-session-item used'; label.textContent='Move to Split:'; label.style.cursor='default'; menu.appendChild(label);
+      for (let i = 0; i < this.panes.length; i++) {
+        if (i === index) continue;
+        const el = document.createElement('div'); el.className='pane-session-item'; el.textContent = `Split ${i+1}`;
+        el.onclick = () => { this.assignSession(i, sid); this.removeTabFromPane(index, sid); menu.remove(); };
+        menu.appendChild(el);
+      }
+    }
+    document.body.appendChild(menu);
+    menu.style.top = `${clientY + 4}px`;
+    menu.style.left = `${clientX + 4}px`;
+    const close = (ev) => { if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('mousedown', close, true); } };
+    setTimeout(() => document.addEventListener('mousedown', close, true), 0);
+  }
+
+  // Split when dragged to the container edge
+  splitEdge(direction, sid, copy, sourcePane) {
+    if (direction === 'left') {
+      if (this.rows * (this.cols + 1) > this.maxPanes) return;
+      this.cols += 1; this.widths = Array(this.cols).fill(100 / this.cols);
+      const newPanes = []; const newTabs = [];
+      for (let r = 0; r < this.rows; r++) {
+        // empty first column
+        newPanes.push(new ClaudePane(newPanes.length, this.app)); newTabs.push({ list: [], active: null });
+        for (let c = 0; c < this.cols - 1; c++) {
+          const oldIdx = r * (this.cols - 1) + c;
+          newPanes.push(this.panes[oldIdx]); newTabs.push(this.tabs[oldIdx]);
+        }
+      }
+      this.panes = newPanes; this.tabs = newTabs; this.rebuildGrid();
+      this.assignSession(0, sid);
+      if (!copy && !isNaN(sourcePane) && sourcePane >= 0) this.removeTabFromPane(sourcePane, sid);
+    } else if (direction === 'right') {
+      if (this.rows * (this.cols + 1) > this.maxPanes) return;
+      this.cols += 1; this.widths = Array(this.cols).fill(100 / this.cols);
+      for (let r = 0; r < this.rows; r++) { this.panes.push(new ClaudePane(this.panes.length, this.app)); this.tabs.push({ list: [], active: null }); }
+      this.rebuildGrid();
+      const target = this.cols - 1; this.assignSession(target, sid);
+      if (!copy && !isNaN(sourcePane) && sourcePane >= 0) this.removeTabFromPane(sourcePane, sid);
+    } else if (direction === 'top') {
+      if ((this.rows + 1) * this.cols > this.maxPanes) return;
+      if (this.rows === 1) { this.rows = 2; this.heights = [50, 50]; }
+      // prepend empty row
+      const newPanes = []; const newTabs = [];
+      for (let c = 0; c < this.cols; c++) { newPanes.push(new ClaudePane(newPanes.length, this.app)); newTabs.push({ list: [], active: null }); }
+      for (let c = 0; c < this.cols; c++) { const oldIdx = c; newPanes.push(this.panes[oldIdx]); newTabs.push(this.tabs[oldIdx]); }
+      this.panes = newPanes; this.tabs = newTabs; this.rebuildGrid();
+      this.assignSession(0, sid);
+      if (!copy && !isNaN(sourcePane) && sourcePane >= 0) this.removeTabFromPane(sourcePane, sid);
+    } else if (direction === 'bottom') {
+      if ((this.rows + 1) * this.cols > this.maxPanes) return;
+      if (this.rows === 1) { this.rows = 2; this.heights = [50, 50]; }
+      for (let c = 0; c < this.cols; c++) { this.panes.push(new ClaudePane(this.panes.length, this.app)); this.tabs.push({ list: [], active: null }); }
+      this.rebuildGrid();
+      const target = (this.rows - 1) * this.cols; this.assignSession(target, sid);
+      if (!copy && !isNaN(sourcePane) && sourcePane >= 0) this.removeTabFromPane(sourcePane, sid);
+    }
+  }
+
+  // Split a specific cell in a given direction
+  splitAt(index, direction, sid, copy = false) {
+    const col = index % this.cols; const row = Math.floor(index / this.cols);
+    if (direction === 'left') {
+      if (this.rows * (this.cols + 1) > this.maxPanes) return;
+      this.cols += 1; this.widths = Array(this.cols).fill(100 / this.cols);
+      const newPanes = []; const newTabs = [];
+      for (let r = 0; r < this.rows; r++) {
+        for (let c = 0; c < this.cols; c++) {
+          if (c === col) { newPanes.push(new ClaudePane(newPanes.length, this.app)); newTabs.push({ list: [], active: null }); }
+          const oldIdx = r * (this.cols - 1) + (c > col ? c - 1 : c);
+          newPanes.push(this.panes[oldIdx]); newTabs.push(this.tabs[oldIdx]);
+        }
+      }
+      this.panes = newPanes; this.tabs = newTabs; this.rebuildGrid();
+      const target = row * this.cols + col; this.assignSession(target, sid);
+      if (!copy) this.removeTabFromPane(index + 1, sid);
+    } else if (direction === 'right') {
+      if (this.rows * (this.cols + 1) > this.maxPanes) return;
+      this.cols += 1; this.widths = Array(this.cols).fill(100 / this.cols);
+      const newPanes = []; const newTabs = [];
+      for (let r = 0; r < this.rows; r++) {
+        for (let c = 0; c < this.cols; c++) {
+          const oldIdx = r * (this.cols - 1) + (c <= col ? c : c - 1);
+          newPanes.push(this.panes[oldIdx]); newTabs.push(this.tabs[oldIdx]);
+        }
+      }
+      this.panes = newPanes; this.tabs = newTabs; this.rebuildGrid();
+      const target = row * this.cols + (col + 1); this.assignSession(target, sid);
+      if (!copy) this.removeTabFromPane(index, sid);
+    } else if (direction === 'top') {
+      if ((this.rows + 1) * this.cols > this.maxPanes) return;
+      if (this.rows === 1) { this.rows = 2; this.heights = [50, 50]; }
+      const newPanes = []; const newTabs = [];
+      for (let r = 0; r < this.rows; r++) {
+        if (r === row) { for (let c = 0; c < this.cols; c++) { newPanes.push(new ClaudePane(newPanes.length, this.app)); newTabs.push({ list: [], active: null }); } }
+        for (let c = 0; c < this.cols; c++) { const oldIdx = (r > row ? r - 1 : r) * this.cols + c; newPanes.push(this.panes[oldIdx]); newTabs.push(this.tabs[oldIdx]); }
+      }
+      this.panes = newPanes; this.tabs = newTabs; this.rebuildGrid();
+      const target = row * this.cols + col; this.assignSession(target, sid);
+      if (!copy) this.removeTabFromPane(index + this.cols, sid);
+    } else if (direction === 'bottom') {
+      if ((this.rows + 1) * this.cols > this.maxPanes) return;
+      if (this.rows === 1) { this.rows = 2; this.heights = [50, 50]; }
+      const newPanes = []; const newTabs = [];
+      for (let r = 0; r < this.rows; r++) {
+        for (let c = 0; c < this.cols; c++) { const oldIdx = r * this.cols + c; newPanes.push(this.panes[oldIdx]); newTabs.push(this.tabs[oldIdx]); }
+        if (r === row) { for (let c = 0; c < this.cols; c++) { newPanes.push(new ClaudePane(newPanes.length, this.app)); newTabs.push({ list: [], active: null }); } }
+      }
+      this.panes = newPanes; this.tabs = newTabs; this.rebuildGrid();
+      const target = (row + 1) * this.cols + col; this.assignSession(target, sid);
+      if (!copy) this.removeTabFromPane(index, sid);
+    }
   }
 
   openAddMenu(index, anchorEl) {
