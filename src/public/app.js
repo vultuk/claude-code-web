@@ -32,6 +32,7 @@ class ClaudeCodeWebInterface {
         this.sessionTimer = null;
         this.sessionTimerInterval = null;
         
+        this.paneManager = null;
         this.init();
     }
 
@@ -72,6 +73,8 @@ class ClaudeCodeWebInterface {
         this.setupTerminal();
         this.setupUI();
         this.setupPlanDetector();
+        // Pane manager after UI exists
+        this.paneManager = new PaneManager(this);
         this.loadSettings();
         this.applyAliasesToUI();
         this.disablePullToRefresh();
@@ -109,6 +112,7 @@ class ClaudeCodeWebInterface {
         
         window.addEventListener('resize', () => {
             this.fitTerminal();
+            if (this.paneManager?.enabled) this.paneManager.panes.forEach(p => p.fit());
         });
         
         window.addEventListener('beforeunload', () => {
@@ -431,6 +435,19 @@ class ClaudeCodeWebInterface {
         if (dangerousCodexBtn) dangerousCodexBtn.addEventListener('click', () => this.startCodexSession({ dangerouslySkipPermissions: true }));
         if (settingsBtn) settingsBtn.addEventListener('click', () => this.showSettings());
         if (retryBtn) retryBtn.addEventListener('click', () => this.reconnect());
+        
+        // Tile view toggle
+        const tileToggle = document.getElementById('tileViewToggle');
+        if (tileToggle) {
+            tileToggle.addEventListener('click', () => {
+                if (!this.paneManager) return;
+                if (this.paneManager.enabled) {
+                    this.paneManager.disable();
+                } else {
+                    this.paneManager.enable();
+                }
+            });
+        }
         
         // Mobile menu event listeners
         if (closeMenuBtn) closeMenuBtn.addEventListener('click', () => this.closeMobileMenu());
@@ -947,6 +964,8 @@ class ClaudeCodeWebInterface {
                     message.plan,
                     message.limits
                 );
+                // Also refresh pane session selectors when sessions list changes
+                if (this.paneManager) this.paneManager.refreshSessionSelects();
                 break;
                 
             default:
@@ -1155,6 +1174,7 @@ class ClaudeCodeWebInterface {
         }
 
         this.terminal.options.fontSize = settings.fontSize;
+        if (this.paneManager?.panes) this.paneManager.panes.forEach(p => { if (p.terminal) p.terminal.options.fontSize = settings.fontSize; p.fit();});
         
         this.fitTerminal();
     }
@@ -2248,5 +2268,6 @@ document.head.appendChild(style);
 
 document.addEventListener('DOMContentLoaded', () => {
     const app = new ClaudeCodeWebInterface();
+    window.app = app;
     app.startHeartbeat();
 });
