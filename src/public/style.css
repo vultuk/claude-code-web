@@ -941,7 +941,7 @@ body {
 .resizer:hover { background: var(--border-hover); }
 
 .tile-pane.drag-over { outline: 2px dashed var(--accent); outline-offset: -2px; }
-.tile-pane.active { box-shadow: inset 0 0 0 2px var(--accent); }
+/* Removed active border per user request */
 
 #terminal {
     width: 100%;
