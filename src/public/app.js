@@ -1095,6 +1095,8 @@ class ClaudeCodeWebInterface {
         const settings = this.loadSettings();
         document.getElementById('fontSize').value = settings.fontSize;
         document.getElementById('fontSizeValue').textContent = settings.fontSize + 'px';
+        const themeSelect = document.getElementById('themeSelect');
+        if (themeSelect) themeSelect.value = settings.theme === 'light' ? 'light' : 'dark';
         document.getElementById('showTokenStats').checked = settings.showTokenStats;
     }
 
@@ -1110,7 +1112,8 @@ class ClaudeCodeWebInterface {
     loadSettings() {
         const defaults = {
             fontSize: 14,
-            showTokenStats: true
+            showTokenStats: true,
+            theme: 'dark'
         };
         
         try {
@@ -1125,7 +1128,8 @@ class ClaudeCodeWebInterface {
     saveSettings() {
         const settings = {
             fontSize: parseInt(document.getElementById('fontSize').value),
-            showTokenStats: document.getElementById('showTokenStats').checked
+            showTokenStats: document.getElementById('showTokenStats').checked,
+            theme: (document.getElementById('themeSelect')?.value) || 'dark'
         };
         
         try {
@@ -1143,7 +1147,13 @@ class ClaudeCodeWebInterface {
         if (usageStatsContainer) {
             usageStatsContainer.style.display = settings.showTokenStats ? 'flex' : 'none';
         }
-        
+        // Apply theme (dark is default; light sets attribute)
+        if (settings.theme === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
+        } else {
+            document.documentElement.removeAttribute('data-theme');
+        }
+
         this.terminal.options.fontSize = settings.fontSize;
         
         this.fitTerminal();

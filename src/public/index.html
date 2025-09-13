@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -25,6 +25,20 @@
     <meta name="msapplication-TileColor" content="#161b22">
     <meta name="msapplication-TileImage" content="/icon-144.png">
     
+    <!-- Apply saved theme early to avoid flash -->
+    <script>
+      (function() {
+        try {
+          const s = JSON.parse(localStorage.getItem('cc-web-settings') || '{}');
+          if (s && s.theme === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
+          } else {
+            // Dark is default — ensure no 'light' override is set
+            document.documentElement.removeAttribute('data-theme');
+          }
+        } catch (_) { /* ignore */ }
+      })();
+    </script>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -157,6 +171,13 @@
                         <label for="fontSize">Font Size:</label>
                         <input type="range" id="fontSize" min="10" max="24" value="14">
                         <span id="fontSizeValue">14px</span>
+                    </div>
+                    <div class="setting-group">
+                        <label for="themeSelect">Theme:</label>
+                        <select id="themeSelect">
+                            <option value="dark">Dark</option>
+                            <option value="light">Light</option>
+                        </select>
                     </div>
                     <div class="setting-group">
                         <label for="showTokenStats">Show Token Stats:</label>

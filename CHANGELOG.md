@@ -133,3 +133,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Startup logs show configured aliases.
 - README updated with alias usage examples.
+## [2.9.0] - 2025-09-13
+
+### Added
+- Theme toggle in Settings with persistence (Dark/Light).
+- Early theme application to avoid flash of incorrect theme on load.
+
+### Changed
+- Default theme set to Dark; Light can be selected in Settings.
+
+### Notes
+- UI-only change; no server/CLI APIs modified.
