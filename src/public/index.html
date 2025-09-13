@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -28,7 +28,7 @@
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/xterm@5.3.0/lib/xterm.js"></script>
     <script src="https://unpkg.com/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
     <script src="https://unpkg.com/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.js"></script>
@@ -103,7 +103,7 @@
 
         <div class="mobile-menu" id="mobileMenu">
             <div class="mobile-menu-header">
-                <h2>🤖 Claude Code</h2>
+                <h2><span class="icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 10h.01M16 10h.01M8 16c1.333-1 2.667-1 4 0 1.333 1 2.667 1 4 0"/></svg></span> Claude Code</h2>
                 <button class="close-menu-btn" id="closeMenuBtn">&times;</button>
             </div>
             <div class="mobile-menu-content">
@@ -131,9 +131,9 @@
                             <p>Select one to start in this directory.</p>
                             <div class="start-buttons">
                                 <button id="startBtn" class="btn btn-primary">Start Claude</button>
-                                <button id="dangerousSkipBtn" class="btn btn-danger" title="Dangerously skip permissions (⚠️ Use with caution)">Dangerous Claude</button>
+                                <button id="dangerousSkipBtn" class="btn btn-danger" title="Dangerously skip permissions. Use with caution.">Dangerous Claude</button>
                                 <button id="startCodexBtn" class="btn btn-primary">Start Codex</button>
-                                <button id="dangerousCodexBtn" class="btn btn-danger" title="Bypass approvals and sandbox (⚠️ Use with caution)">Dangerous Codex</button>
+                                <button id="dangerousCodexBtn" class="btn btn-danger" title="Bypass approvals and sandbox. Use with caution.">Dangerous Codex</button>
                             </div>
                         </div>
                         <div class="error-message" id="errorMessage" style="display: none;">
@@ -172,8 +172,16 @@
         <div class="plan-modal" id="planModal">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2>📋 Claude's Plan</h2>
-                    <button class="close-btn" id="closePlanBtn">&times;</button>
+                    <h2>
+                        <span class="icon" aria-hidden="true">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="4" y="3" width="16" height="18" rx="2"/>
+                                <line x1="8" y1="7" x2="16" y2="7"/>
+                            </svg>
+                        </span>
+                        Claude's Plan
+                    </h2>
+                    <button class="close-btn" id="closePlanBtn" title="Close">&times;</button>
                 </div>
                 <div class="modal-body">
                     <div class="plan-status" id="planStatus">
@@ -185,8 +193,23 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-success" id="acceptPlanBtn">✅ Accept Plan</button>
-                    <button class="btn btn-danger" id="rejectPlanBtn">❌ Reject Plan</button>
+                    <button class="btn btn-success" id="acceptPlanBtn">
+                        <span class="icon" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                        </span>
+                        Accept Plan
+                    </button>
+                    <button class="btn btn-danger" id="rejectPlanBtn">
+                        <span class="icon" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18"/>
+                                <line x1="6" y1="6" x2="18" y2="18"/>
+                            </svg>
+                        </span>
+                        Reject Plan
+                    </button>
                 </div>
             </div>
         </div>
@@ -285,6 +308,7 @@
     <script src="auth.js"></script>
     <script src="plan-detector.js"></script>
     <script src="session-manager.js"></script>
+    <script src="icons.js"></script>
     <script src="app.js"></script>
     
     <!-- Service Worker Registration -->
@@ -333,18 +357,18 @@
                 const installBtn = document.createElement('button');
                 installBtn.id = 'installBtn';
                 installBtn.className = 'install-btn';
-                installBtn.innerHTML = '📥 Install App';
+                installBtn.innerHTML = '<span class="icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M5 21h14"/></svg></span> Install App';
                 installBtn.style.cssText = `
                     position: fixed;
                     bottom: 20px;
                     right: 20px;
                     padding: 12px 20px;
-                    background: var(--accent-color, #ff6b00);
+                    background: var(--accent);
                     color: white;
                     border: none;
                     border-radius: 8px;
                     cursor: pointer;
-                    font-family: 'JetBrains Mono', monospace;
+                    font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, 'JetBrains Mono', monospace;
                     font-size: 14px;
                     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
                     z-index: 1000;

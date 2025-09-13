@@ -7,6 +7,13 @@ class SessionTabManager {
         this.notificationsEnabled = false;
         this.requestNotificationPermission();
     }
+
+    getAlias(kind) {
+        if (this.claudeInterface && typeof this.claudeInterface.getAlias === 'function') {
+            return this.claudeInterface.getAlias(kind);
+        }
+        return kind === 'codex' ? 'Codex' : 'Claude';
+    }
     
     requestNotificationPermission() {
         if ('Notification' in window) {
@@ -73,7 +80,7 @@ class SessionTabManager {
         const originalTitle = document.title;
         let flashCount = 0;
         const flashInterval = setInterval(() => {
-            document.title = flashCount % 2 === 0 ? `🔔 ${title}` : originalTitle;
+            document.title = flashCount % 2 === 0 ? `• ${title}` : originalTitle;
             flashCount++;
             if (flashCount > 6) {
                 clearInterval(flashInterval);
@@ -216,7 +223,7 @@ class SessionTabManager {
             promptDiv.innerHTML = `
                 <div style="margin-bottom: 10px;">
                     <strong>Enable Desktop Notifications?</strong><br>
-                    Get notified when Claude completes tasks in background tabs.
+                    Get notified when ${this.getAlias('claude')} completes tasks in background tabs.
                 </div>
                 <div style="display: flex; gap: 10px;">
                     <button id="enableNotifications" style="
@@ -388,7 +395,12 @@ class SessionTabManager {
             
             item.innerHTML = `
                 <span class="overflow-tab-name">${tabElement.querySelector('.tab-name').textContent}</span>
-                <span class="overflow-tab-close" data-session-id="${sessionId}">✕</span>
+                <span class="overflow-tab-close" data-session-id="${sessionId}" title="Close tab">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </span>
             `;
             
             // Click to switch to tab
@@ -523,7 +535,12 @@ class SessionTabManager {
                 <span class="tab-status ${status}"></span>
                 <span class="tab-name" title="${workingDir || sessionName}">${displayName}</span>
             </div>
-            <span class="tab-close">✕</span>
+            <span class="tab-close" title="Close tab">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </span>
         `;
         
         // Tab click handler
@@ -853,7 +870,7 @@ class SessionTabManager {
                             
                             // Send notification that Claude appears to have finished
                             this.sendNotification(
-                                `✅ ${sessionName} - Claude appears finished`,
+                                `${sessionName} — ${this.getAlias('claude')} appears finished`,
                                 `No output for 90 seconds (worked for ${Math.round(duration / 1000)}s)`,
                                 sessionId
                             );
@@ -914,7 +931,7 @@ class SessionTabManager {
             this.updateUnreadIndicator(sessionId, true);
             
             this.sendNotification(
-                `✅ ${sessionName}`,
+                `${sessionName}`,
                 message,
                 sessionId
             );

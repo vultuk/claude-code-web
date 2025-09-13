@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.8.0] - 2025-09-13
+
+### Added
+- Inline SVG icon system across the UI to replace emojis for a premium, minimalist look.
+- New icon helper at `src/public/icons.js` for consistent, dependency‑free icons.
+- Subtle status indicators using CSS dots (active/idle/error) in place of emoji glyphs.
+
+### Changed
+- Refined visual design: cohesive light palette by default, improved spacing and rhythm, and cleaner typography (Inter for UI, JetBrains Mono for terminal/stats).
+- Usage rate display now uses an icon + text rather than emoji; improved readability on mobile/desktop.
+- Plan modal header and action buttons now include icons; tooltips and labels simplified.
+- Notifications and headings no longer use emojis; copy updated for a professional tone.
+- Auth prompt UI aligned with the new palette and iconography.
+
+### Fixed
+- Prevented potential null‑element errors in plan mode indicator updates.
+
+### Notes
+- No API or CLI changes. Dark theme variables remain; switch by removing `data-theme="light"` or adding a toggle.
+
 ## [2.5.0] - 2025-08-22
 
 ### Added
@@ -100,3 +120,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.1.3] - Previous Release
 - Previous version baseline
+## [2.6.1] - 2025-08-29
+
+### Added
+- Assistant alias support across CLI, server, and UI.
+  - New CLI flags: `--claude-alias <name>` and `--codex-alias <name>`.
+  - New env vars: `CLAUDE_ALIAS`, `CODEX_ALIAS`.
+  - `/api/config` now returns `aliases` for the frontend.
+- UI now displays configured aliases in buttons, prompts, and messages.
+- Tests: added `test/server-alias.test.js` to validate server alias configuration.
+
+### Changed
+- Startup logs show configured aliases.
+- README updated with alias usage examples.
