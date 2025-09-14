@@ -921,7 +921,7 @@ body {
 
 /* Tiled panes */
 .tiles-container { flex: 1; display: flex; min-height: 0; }
-.tile-grid { display: grid; grid-template-columns: 1fr; grid-template-rows: 100%; width: 100%; }
+.tile-grid { display: grid; grid-template-columns: 1fr; grid-template-rows: 100%; width: 100%; flex: 1; min-width: 0; }
 .tile-pane { display:flex; flex-direction: column; min-width: 0; border-left: 1px solid var(--border); }
 .tile-pane:first-child { border-left: none; }
 .tile-toolbar { display:flex; align-items:center; gap: 8px; padding: 6px 8px; background: var(--bg-secondary); border-bottom:1px solid var(--border); }
@@ -988,11 +988,12 @@ body {
 }
 
 .terminal-overlay {
-    position: absolute;
+    position: fixed; /* Cover the full app regardless of container visibility */
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
+    z-index: 5000;
     background-color: rgba(13, 17, 23, 0.95);
     display: flex;
     align-items: center;
