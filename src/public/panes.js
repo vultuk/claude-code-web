@@ -79,6 +79,21 @@ class ClaudePane {
           this.hadOutput = true;
           this.hideStartOverlay();
         }
+      } else if (msg.type === 'session_joined') {
+        // Replay recent buffer so existing sessions show content immediately
+        if (Array.isArray(msg.outputBuffer) && msg.outputBuffer.length) {
+          const joined = msg.outputBuffer.join('');
+          const filtered = joined.replace(/\x1b\[\[?[IO]/g, '');
+          this.terminal.write(filtered);
+          if (filtered) {
+            this.hadOutput = true;
+            this.hideStartOverlay();
+          }
+        }
+      } else if (msg.type === 'error') {
+        // Show errors in terminal UI for visibility
+        const text = (msg.message || 'Error').toString();
+        this.terminal.write(`\r\n\x1b[31m${text}\x1b[0m\r\n`);
       }
     };
     this.socket.onclose = () => {};
@@ -267,11 +282,7 @@ class PaneManager {
     const active = this.app?.currentClaudeSessionId;
     if (active) this.assignSession(0, active);
     this.focusPane(this.activeIndex || 0);
-    // Hide global tabs in tiled mode
-    const tabsSection = document.querySelector('.tabs-section');
-    if (tabsSection) tabsSection.style.display = 'none';
-    const overflow = document.getElementById('tabOverflowWrapper');
-    if (overflow) overflow.style.display = 'none';
+    // Keep global tabs visible; they target the active pane (VS Code-style)
     this.persist();
   }
   disable() {
@@ -283,11 +294,7 @@ class PaneManager {
       const tw = tc.querySelector('.terminal-wrapper');
       if (tw) tw.style.display = '';
     }
-    // Show global tabs again
-    const tabsSection = document.querySelector('.tabs-section');
-    if (tabsSection) tabsSection.style.display = '';
-    const overflow = document.getElementById('tabOverflowWrapper');
-    if (overflow) overflow.style.display = '';
+    // Global tabs remain visible in both modes
     this.persist();
   }
 
@@ -739,7 +746,12 @@ class PaneManager {
     this.grid.querySelectorAll('.pane-add').forEach(btn => btn.addEventListener('click', (e) => {
       const idx = parseInt(btn.dataset.index, 10);
       this.focusPane(idx);
-      this.app?.showFolderBrowser?.();
+      // Shift-click to create a new session directly; normal click opens session picker
+      if (e.shiftKey) {
+        this.app?.showFolderBrowser?.();
+      } else {
+        this.openAddMenu(idx, btn);
+      }
       e.stopPropagation();
     }));
     this.refreshSessionSelects();

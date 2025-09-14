@@ -467,9 +467,7 @@ body {
 .tab-tile:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 .tab-tile[disabled] { opacity: .5; cursor: not-allowed; }
 
-/* Always multi-pane: hide global tabs */
-.session-tabs-bar .tabs-section { display: none !important; }
-#tabOverflowWrapper { display: none !important; }
+/* Global tabs are visible; panes can be enabled optionally */
 
 .tab-new:hover {
     background-color: var(--bg-tertiary);
