@@ -143,29 +143,6 @@
                 <div class="terminal-wrapper">
                     <div id="terminal"></div>
                 </div>
-                <div class="terminal-overlay" id="overlay" style="display: none;">
-                    <div class="overlay-content">
-                        <div class="loading-spinner" id="loadingSpinner">
-                            <div class="spinner"></div>
-                            <p>Connecting to Claude Code...</p>
-                        </div>
-                        <div class="start-prompt" id="startPrompt" style="display: none;">
-                            <h2>Choose Your Assistant</h2>
-                            <p>Select one to start in this directory.</p>
-                            <div class="start-buttons">
-                                <button id="startBtn" class="btn btn-primary">Start Claude</button>
-                                <button id="dangerousSkipBtn" class="btn btn-danger" title="Dangerously skip permissions. Use with caution.">Dangerous Claude</button>
-                                <button id="startCodexBtn" class="btn btn-primary">Start Codex</button>
-                                <button id="dangerousCodexBtn" class="btn btn-danger" title="Bypass approvals and sandbox. Use with caution.">Dangerous Codex</button>
-                            </div>
-                        </div>
-                        <div class="error-message" id="errorMessage" style="display: none;">
-                            <h3>Connection Error</h3>
-                            <p id="errorText"></p>
-                            <button id="retryBtn" class="btn btn-primary">Retry</button>
-                        </div>
-                    </div>
-                </div>
             </div>
             <!-- Tiled Panes Container (hidden by default) -->
             <div class="tiles-container" id="tilesContainer" style="display:none;">
@@ -187,6 +164,31 @@
                 </div>
             </div>
         </main>
+
+        <!-- App-wide overlay (moved out of terminal container to avoid width issues) -->
+        <div class="terminal-overlay" id="overlay" style="display: none;">
+            <div class="overlay-content">
+                <div class="loading-spinner" id="loadingSpinner">
+                    <div class="spinner"></div>
+                    <p>Connecting to Claude Code...</p>
+                </div>
+                <div class="start-prompt" id="startPrompt" style="display: none;">
+                    <h2>Choose Your Assistant</h2>
+                    <p>Select one to start in this directory.</p>
+                    <div class="start-buttons">
+                        <button id="startBtn" class="btn btn-primary">Start Claude</button>
+                        <button id="dangerousSkipBtn" class="btn btn-danger" title="Dangerously skip permissions. Use with caution.">Dangerous Claude</button>
+                        <button id="startCodexBtn" class="btn btn-primary">Start Codex</button>
+                        <button id="dangerousCodexBtn" class="btn btn-danger" title="Bypass approvals and sandbox. Use with caution.">Dangerous Codex</button>
+                    </div>
+                </div>
+                <div class="error-message" id="errorMessage" style="display: none;">
+                    <h3>Connection Error</h3>
+                    <p id="errorText"></p>
+                    <button id="retryBtn" class="btn btn-primary">Retry</button>
+                </div>
+            </div>
+        </div>
 
         <div class="settings-modal" id="settingsModal">
             <div class="modal-content">
