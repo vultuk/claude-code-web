@@ -289,3 +289,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reattach active sessions to terminals after grid rebuilds so sessions no longer appear to vanish.
 - Honor copy vs move when dragging tabs between splits and avoid removing from the wrong source pane.
 - Improve edge-of-grid splits to consistently place the tab into the intended new split.
+## [3.0.4] - 2025-09-14
+
+### Fixed
+- Restore VS Code-style tab workflow: global tabs are visible in both single and tiled modes; selecting a tab targets the active pane.
+- Make tiled panes optional again (no auto-enable on load); preserve pane layout and assignments across refresh via localStorage.
+- Pane “+” opens a reliable session picker (Shift+click opens folder browser to create a new one).
+- When attaching an existing session to a split, replay recent output buffer so tabs don’t look like “new” empty sessions.
+- Remove CSS that hid tabs in tiled mode; panes fill width without interfering with the tab bar.
