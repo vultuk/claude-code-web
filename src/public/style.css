@@ -442,6 +442,17 @@ body {
     background-color: var(--border);
 }
 
+.tab-name-input {
+    width: 100%;
+    font: inherit;
+    color: var(--text-primary);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-hover);
+    border-radius: 4px;
+    padding: 2px 4px;
+    outline: none;
+}
+
 .tab-new {
     width: 28px;
     height: 28px;

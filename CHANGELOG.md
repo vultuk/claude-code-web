@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.1.0] - 2025-09-15
+
+### Added
+- Middle-click tab closing, inline rename styling, and automatic scroll-into-view for the active session tab to mirror VS Code ergonomics.
+
+### Changed
+- Session tabs now maintain explicit order and MRU history, improving Ctrl/Cmd+Tab navigation, drag reordering, and pane targeting parity with VS Code.
+- Mobile overflow counters and menus refresh automatically on resize or drag, keeping hidden sessions reachable across devices.
+
+### Fixed
+- Tabs now disappear immediately when the backend deletes a session, preventing stale entries and redundant DELETE calls.
+
 ## [3.0.3] - 2025-09-14
 
 ### Fixed
