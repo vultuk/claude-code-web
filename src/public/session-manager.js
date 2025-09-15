@@ -4,6 +4,8 @@ class SessionTabManager {
         this.tabs = new Map(); // sessionId -> tab element
         this.activeSessions = new Map(); // sessionId -> session data
         this.activeTabId = null;
+        this.tabOrder = []; // visual order of tabs
+        this.tabHistory = []; // most recently used order
         this.notificationsEnabled = false;
         this.requestNotificationPermission();
     }
@@ -189,6 +191,56 @@ class SessionTabManager {
         }
     }
 
+    getOrderedTabIds() {
+        // Filter out any ids that may have been removed without updating the order array
+        this.tabOrder = this.tabOrder.filter(id => this.tabs.has(id));
+        return [...this.tabOrder];
+    }
+
+    getOrderedTabElements() {
+        return this.getOrderedTabIds()
+            .map(id => this.tabs.get(id))
+            .filter(Boolean);
+    }
+
+    syncOrderFromDom() {
+        const tabsContainer = document.getElementById('tabsContainer');
+        if (!tabsContainer) return;
+        const ids = Array.from(tabsContainer.querySelectorAll('.session-tab'))
+            .map(tab => tab.dataset.sessionId)
+            .filter(Boolean);
+        if (ids.length) {
+            this.tabOrder = ids;
+        }
+    }
+
+    ensureTabVisible(sessionId) {
+        const tab = this.tabs.get(sessionId);
+        if (!tab) return;
+        const scrollContainer = tab.closest('.tabs-section');
+        if (!scrollContainer) return;
+        const tabRect = tab.getBoundingClientRect();
+        const containerRect = scrollContainer.getBoundingClientRect();
+
+        if (tabRect.left < containerRect.left) {
+            scrollContainer.scrollLeft += tabRect.left - containerRect.left - 16;
+        } else if (tabRect.right > containerRect.right) {
+            scrollContainer.scrollLeft += tabRect.right - containerRect.right + 16;
+        }
+    }
+
+    updateTabHistory(sessionId) {
+        this.tabHistory = this.tabHistory.filter(id => id !== sessionId && this.tabs.has(id));
+        this.tabHistory.unshift(sessionId);
+        if (this.tabHistory.length > 50) {
+            this.tabHistory.length = 50;
+        }
+    }
+
+    removeFromHistory(sessionId) {
+        this.tabHistory = this.tabHistory.filter(id => id !== sessionId);
+    }
+
     async init() {
         this.setupTabBar();
         this.setupKeyboardShortcuts();
@@ -282,9 +334,12 @@ class SessionTabManager {
             tabsContainer.addEventListener('dragstart', (e) => {
                 if (e.target.classList.contains('session-tab')) {
                     e.dataTransfer.effectAllowed = 'copyMove';
-                    e.dataTransfer.setData('text/html', e.target.innerHTML);
                     const sid = e.target.dataset.sessionId;
-                    if (sid) e.dataTransfer.setData('text/plain', sid);
+                    if (sid) {
+                        e.dataTransfer.setData('text/plain', sid);
+                        e.dataTransfer.setData('application/x-session-id', sid);
+                        e.dataTransfer.setData('x-source-pane', '-1');
+                    }
                     e.target.classList.add('dragging');
                 }
             });
@@ -292,12 +347,16 @@ class SessionTabManager {
             tabsContainer.addEventListener('dragend', (e) => {
                 if (e.target.classList.contains('session-tab')) {
                     e.target.classList.remove('dragging');
+                    this.syncOrderFromDom();
+                    this.updateTabOverflow();
+                    this.updateOverflowMenu();
                 }
             });
             
             tabsContainer.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 const draggingTab = tabsContainer.querySelector('.dragging');
+                if (!draggingTab) return;
                 const afterElement = this.getDragAfterElement(tabsContainer, e.clientX);
                 
                 if (afterElement == null) {
@@ -305,6 +364,10 @@ class SessionTabManager {
                 } else {
                     tabsContainer.insertBefore(draggingTab, afterElement);
                 }
+            });
+
+            tabsContainer.addEventListener('drop', (e) => {
+                e.preventDefault();
             });
         }
     }
@@ -332,6 +395,7 @@ class SessionTabManager {
         // Update overflow on window resize
         window.addEventListener('resize', () => {
             this.updateTabOverflow();
+            this.updateOverflowMenu();
         });
     }
     
@@ -348,11 +412,12 @@ class SessionTabManager {
             if (overflowWrapper) {
                 overflowWrapper.style.display = 'none';
             }
+            if (overflowCount) overflowCount.textContent = '';
             return;
         }
         
         // On mobile, show only first 2 tabs
-        const tabsArray = Array.from(this.tabs.values());
+        const tabsArray = this.getOrderedTabElements();
         
         tabsArray.forEach((tab, index) => {
             if (index < 2) {
@@ -375,6 +440,9 @@ class SessionTabManager {
             if (overflowWrapper) {
                 overflowWrapper.style.display = 'none';
             }
+            if (overflowCount) {
+                overflowCount.textContent = '';
+            }
         }
     }
     
@@ -382,12 +450,13 @@ class SessionTabManager {
         const menu = document.getElementById('tabOverflowMenu');
         if (!menu) return;
         
-        const tabs = Array.from(this.tabs.entries());
-        const overflowTabs = tabs.slice(2); // Get tabs after the first 2
+        const overflowIds = this.getOrderedTabIds().slice(2);
         
         menu.innerHTML = '';
         
-        overflowTabs.forEach(([sessionId, tabElement]) => {
+        overflowIds.forEach((sessionId) => {
+            const tabElement = this.tabs.get(sessionId);
+            if (!tabElement) return;
             const session = this.activeSessions.get(sessionId);
             if (!session) return;
             
@@ -552,7 +621,7 @@ class SessionTabManager {
         
         // Tab click handler
         tab.addEventListener('click', async (e) => {
-            if (!e.target.classList.contains('tab-close')) {
+            if (!e.target.closest('.tab-close')) {
                 await this.switchToTab(sessionId);
             }
         });
@@ -566,8 +635,17 @@ class SessionTabManager {
         
         // Double-click to rename
         tab.addEventListener('dblclick', (e) => {
-            if (!e.target.classList.contains('tab-close')) {
+            if (!e.target.closest('.tab-close')) {
                 this.renameTab(sessionId);
+            }
+        });
+
+        // Middle click to close (VS Code behavior)
+        tab.addEventListener('auxclick', (e) => {
+            if (e.button === 1) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.closeSession(sessionId);
             }
         });
 
@@ -579,7 +657,10 @@ class SessionTabManager {
         
         tabsContainer.appendChild(tab);
         this.tabs.set(sessionId, tab);
-        
+        if (!this.tabOrder.includes(sessionId)) {
+            this.tabOrder.push(sessionId);
+        }
+
         // Store session data with timestamp and activity tracking
         this.activeSessions.set(sessionId, {
             id: sessionId,
@@ -594,20 +675,18 @@ class SessionTabManager {
         
         // Update overflow on mobile
         this.updateTabOverflow();
-        
+        this.updateOverflowMenu();
+
         // If this is the first tab and autoSwitch is enabled, make it active
         if (this.tabs.size === 1 && autoSwitch) {
             this.switchToTab(sessionId);
         }
     }
 
-    async switchToTab(sessionId) {
-        // If tile view is enabled, tabs target the active pane (VS Code-style)
-        if (window.app?.paneManager?.enabled) {
-            const activeIdx = window.app.paneManager.activeIndex ?? 0;
-            window.app.paneManager.assignSession(activeIdx, sessionId);
-            return;
-        }
+    async switchToTab(sessionId, options = {}) {
+        if (!this.tabs.has(sessionId)) return;
+
+        const { skipHistoryUpdate = false } = options;
 
         // Remove active class from all tabs
         this.tabs.forEach(tab => tab.classList.remove('active'));
@@ -617,6 +696,7 @@ class SessionTabManager {
         if (!tab) return;
         tab.classList.add('active');
         this.activeTabId = sessionId;
+        this.ensureTabVisible(sessionId);
 
         // Update last accessed timestamp and clear unread indicator
         const session = this.activeSessions.get(sessionId);
@@ -625,14 +705,31 @@ class SessionTabManager {
             if (session.unreadOutput) this.updateUnreadIndicator(sessionId, false);
         }
 
+        if (!skipHistoryUpdate) {
+            this.updateTabHistory(sessionId);
+        }
+
         if (window.innerWidth <= 768) {
-            const tabIndex = Array.from(this.tabs.keys()).indexOf(sessionId);
+            const tabIndex = this.getOrderedTabIds().indexOf(sessionId);
             if (tabIndex >= 2) this.reorderTabsByLastAccessed();
+        }
+
+        this.updateOverflowMenu();
+
+        // If tile view is enabled, tabs target the active pane (VS Code-style)
+        if (window.app?.paneManager?.enabled) {
+            const activeIdx = window.app.paneManager.activeIndex ?? 0;
+            window.app.paneManager.assignSession(activeIdx, sessionId);
+            if (this.claudeInterface) {
+                this.claudeInterface.currentClaudeSessionId = sessionId;
+                if (session) this.claudeInterface.currentClaudeSessionName = session.name;
+            }
+            this.updateHeaderInfo(sessionId);
+            return;
         }
 
         await this.claudeInterface.joinSession(sessionId);
         this.updateHeaderInfo(sessionId);
-        if (window.innerWidth <= 768) this.updateOverflowMenu();
     }
     
     reorderTabsByLastAccessed() {
@@ -640,65 +737,69 @@ class SessionTabManager {
         if (!tabsContainer) return;
         
         // Get all tabs sorted by last accessed time (most recent first)
-        const sortedTabs = Array.from(this.tabs.entries())
+        const sortedIds = this.getOrderedTabIds()
             .sort((a, b) => {
-                const sessionA = this.activeSessions.get(a[0]);
-                const sessionB = this.activeSessions.get(b[0]);
+                const sessionA = this.activeSessions.get(a);
+                const sessionB = this.activeSessions.get(b);
                 const timeA = sessionA ? sessionA.lastAccessed : 0;
                 const timeB = sessionB ? sessionB.lastAccessed : 0;
                 return timeB - timeA; // Most recent first
             });
-        
-        // Clear and rebuild tabs map in the new order
-        this.tabs.clear();
-        
-        // Reorder DOM elements and rebuild map
-        sortedTabs.forEach(([sessionId, tabElement]) => {
-            tabsContainer.appendChild(tabElement);
-            this.tabs.set(sessionId, tabElement);
+
+        sortedIds.forEach((sessionId) => {
+            const tabElement = this.tabs.get(sessionId);
+            if (tabElement) {
+                tabsContainer.appendChild(tabElement);
+            }
         });
+
+        this.tabOrder = sortedIds;
         
         // Update overflow on mobile
         this.updateTabOverflow();
     }
 
-    closeSession(sessionId) {
+    closeSession(sessionId, { skipServerRequest = false } = {}) {
         const tab = this.tabs.get(sessionId);
         if (!tab) return;
-        
-        // Confirm closure if session is active
-        const session = this.activeSessions.get(sessionId);
-        if (session && session.status === 'active') {
-            if (!confirm(`Close active session "${session.name}"?`)) {
-                return;
-            }
-        }
-        
+
+        const orderedIds = this.getOrderedTabIds();
+        const closedIndex = orderedIds.indexOf(sessionId);
+
         // Remove tab
         tab.remove();
         this.tabs.delete(sessionId);
         this.activeSessions.delete(sessionId);
-        
+        this.tabOrder = orderedIds.filter(id => id !== sessionId);
+        this.removeFromHistory(sessionId);
+
         // Update overflow on mobile
         this.updateTabOverflow();
-        
-        // Close the session on server
-        const authHeaders = window.authManager ? window.authManager.getAuthHeaders() : {};
-        fetch(`/api/sessions/${sessionId}`, { 
-            method: 'DELETE',
-            headers: authHeaders
-        })
-            .catch(err => console.error('Failed to delete session:', err));
-        
+        this.updateOverflowMenu();
+
+        if (!skipServerRequest) {
+            const authHeaders = window.authManager ? window.authManager.getAuthHeaders() : {};
+            fetch(`/api/sessions/${sessionId}`, { 
+                method: 'DELETE',
+                headers: authHeaders
+            })
+                .catch(err => console.error('Failed to delete session:', err));
+        }
+
         // If this was the active tab, switch to another
         if (this.activeTabId === sessionId) {
             this.activeTabId = null;
-            if (this.tabs.size > 0) {
-                const firstTabId = this.tabs.keys().next().value;
-                this.switchToTab(firstTabId);
+            let fallbackId = this.tabHistory.find(id => this.tabs.has(id));
+            if (!fallbackId && this.tabOrder.length > 0) {
+                const nextIndex = closedIndex >= 0 ? Math.min(closedIndex, this.tabOrder.length - 1) : 0;
+                fallbackId = this.tabOrder[nextIndex];
+            }
+
+            if (fallbackId) {
+                this.switchToTab(fallbackId);
             }
         }
-        
+
     }
 
     renameTab(sessionId) {
@@ -745,7 +846,7 @@ class SessionTabManager {
 
     // Close all other tabs except the given session
     closeOthers(sessionId) {
-        const ids = Array.from(this.tabs.keys());
+        const ids = this.getOrderedTabIds();
         ids.forEach(id => { if (id !== sessionId) this.closeSession(id); });
     }
 
@@ -800,21 +901,31 @@ class SessionTabManager {
     }
 
     switchToNextTab() {
-        const tabIds = Array.from(this.tabs.keys());
+        if (this.tabHistory.length > 1) {
+            const nextId = this.tabHistory.find((id) => id !== this.activeTabId && this.tabs.has(id));
+            if (nextId) {
+                this.switchToTab(nextId);
+                return;
+            }
+        }
+
+        const tabIds = this.getOrderedTabIds();
+        if (tabIds.length === 0) return;
         const currentIndex = tabIds.indexOf(this.activeTabId);
-        const nextIndex = (currentIndex + 1) % tabIds.length;
+        const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % tabIds.length : 0;
         this.switchToTab(tabIds[nextIndex]);
     }
 
     switchToPreviousTab() {
-        const tabIds = Array.from(this.tabs.keys());
+        const tabIds = this.getOrderedTabIds();
+        if (tabIds.length === 0) return;
         const currentIndex = tabIds.indexOf(this.activeTabId);
-        const prevIndex = (currentIndex - 1 + tabIds.length) % tabIds.length;
+        const prevIndex = currentIndex >= 0 ? (currentIndex - 1 + tabIds.length) % tabIds.length : tabIds.length - 1;
         this.switchToTab(tabIds[prevIndex]);
     }
 
     switchToTabByIndex(index) {
-        const tabIds = Array.from(this.tabs.keys());
+        const tabIds = this.getOrderedTabIds();
         if (index < tabIds.length) {
             this.switchToTab(tabIds[index]);
         }
