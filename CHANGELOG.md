@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.2.1] - 2025-10-23
+
+### Fixed
+- Corrected agent command from `claude-agent` to `cursor-agent` in AgentBridge
+- Updated command search paths to use `~/.cursor/` instead of `~/.agent/`
+
 ## [3.2.0] - 2025-10-23
 
 ### Added
