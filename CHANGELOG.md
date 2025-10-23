@@ -1,5 +1,25 @@
 # Changelog
 
+## [3.2.0] - 2025-10-23
+
+### Added
+- Cursor Agent (`cursor-agent`) support as a third CLI option alongside Claude and Codex
+- New CLI flag: `--agent-alias <name>` to customize the display name for Cursor Agent (default: "Cursor")
+- New environment variable: `AGENT_ALIAS` for setting the agent alias
+- "Start Cursor" button in assistant selection UI (main overlay and per-pane overlays)
+- Full WebSocket message handling for `start_agent`, `agent_started`, and `agent_stopped` events
+- Agent session management in `AgentBridge` with automatic command detection
+
+### Changed
+- Updated startup logs to display all three assistant aliases (Claude, Codex, Agent)
+- Enhanced `/api/config` endpoint to include agent alias
+- Extended session management to support three concurrent agent types per session
+
+### Notes
+- Backwards-compatible feature addition; existing Claude and Codex functionality unchanged
+- Agent bridge searches for `cursor-agent` in standard paths (~/.cursor/local/cursor-agent, ~/.local/bin/cursor-agent, etc.)
+- No special CLI flags required for agent (unlike Claude's `--dangerously-skip-permissions` or Codex's bypass flag)
+
 ## [3.1.0] - 2025-09-15
 
 ### Added

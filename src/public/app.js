@@ -141,7 +141,13 @@ class ClaudeCodeWebInterface {
     }
 
     getAlias(kind) {
-        return (this.aliases && this.aliases[kind]) ? this.aliases[kind] : (kind === 'codex' ? 'Codex' : 'Claude');
+        if (this.aliases && this.aliases[kind]) {
+            return this.aliases[kind];
+        }
+        // Default aliases
+        if (kind === 'codex') return 'Codex';
+        if (kind === 'agent') return 'Cursor';
+        return 'Claude';
     }
 
     applyAliasesToUI() {
@@ -150,10 +156,12 @@ class ClaudeCodeWebInterface {
         const dangerousSkipBtn = document.getElementById('dangerousSkipBtn');
         const startCodexBtn = document.getElementById('startCodexBtn');
         const dangerousCodexBtn = document.getElementById('dangerousCodexBtn');
+        const startAgentBtn = document.getElementById('startAgentBtn');
         if (startBtn) startBtn.textContent = `Start ${this.getAlias('claude')}`;
         if (dangerousSkipBtn) dangerousSkipBtn.textContent = `Dangerous ${this.getAlias('claude')}`;
         if (startCodexBtn) startCodexBtn.textContent = `Start ${this.getAlias('codex')}`;
         if (dangerousCodexBtn) dangerousCodexBtn.textContent = `Dangerous ${this.getAlias('codex')}`;
+        if (startAgentBtn) startAgentBtn.textContent = `Start ${this.getAlias('agent')}`;
 
         // Plan modal title
         const planTitle = document.querySelector('#planModal .modal-header h2');
@@ -424,6 +432,7 @@ class ClaudeCodeWebInterface {
         const dangerousSkipBtn = document.getElementById('dangerousSkipBtn');
         const startCodexBtn = document.getElementById('startCodexBtn');
         const dangerousCodexBtn = document.getElementById('dangerousCodexBtn');
+        const startAgentBtn = document.getElementById('startAgentBtn');
         const settingsBtn = document.getElementById('settingsBtn');
         const retryBtn = document.getElementById('retryBtn');
         
@@ -435,6 +444,7 @@ class ClaudeCodeWebInterface {
         if (dangerousSkipBtn) dangerousSkipBtn.addEventListener('click', () => this.startClaudeSession({ dangerouslySkipPermissions: true }));
         if (startCodexBtn) startCodexBtn.addEventListener('click', () => this.startCodexSession());
         if (dangerousCodexBtn) dangerousCodexBtn.addEventListener('click', () => this.startCodexSession({ dangerouslySkipPermissions: true }));
+        if (startAgentBtn) startAgentBtn.addEventListener('click', () => this.startAgentSession());
         if (settingsBtn) settingsBtn.addEventListener('click', () => this.showSettings());
         if (retryBtn) retryBtn.addEventListener('click', () => this.reconnect());
         
@@ -732,6 +742,14 @@ class ClaudeCodeWebInterface {
                     this.sessionTabManager.updateTabStatus(this.currentClaudeSessionId, 'active');
                 }
                 break;
+            case 'agent_started':
+                this.hideOverlay();
+                this.loadSessions();
+                this.requestUsageStats();
+                if (this.sessionTabManager && this.currentClaudeSessionId) {
+                    this.sessionTabManager.updateTabStatus(this.currentClaudeSessionId, 'active');
+                }
+                break;
                 
             case 'claude_stopped':
                 this.terminal.writeln(`\r\n\x1b[33m${this.getAlias('claude')} stopped\x1b[0m`);
@@ -741,6 +759,11 @@ class ClaudeCodeWebInterface {
                 break;
             case 'codex_stopped':
                 this.terminal.writeln(`\r\n\x1b[33mCodex Code stopped\x1b[0m`);
+                this.showOverlay('startPrompt');
+                this.loadSessions();
+                break;
+            case 'agent_stopped':
+                this.terminal.writeln(`\r\n\x1b[33m${this.getAlias('agent')} stopped\x1b[0m`);
                 this.showOverlay('startPrompt');
                 this.loadSessions();
                 break;
@@ -870,6 +893,28 @@ class ClaudeCodeWebInterface {
         const loadingText = options.dangerouslySkipPermissions ?
             `Starting ${this.getAlias('codex')} (bypassing approvals and sandbox)...` :
             `Starting ${this.getAlias('codex')}...`;
+        document.getElementById('loadingSpinner').querySelector('p').textContent = loadingText;
+    }
+
+    startAgentSession(options = {}) {
+        // If no session, create one first
+        if (!this.currentClaudeSessionId) {
+            const sessionName = `Session ${new Date().toLocaleString()}`;
+            this.send({
+                type: 'create_session',
+                name: sessionName,
+                workingDir: this.selectedWorkingDir
+            });
+            // Wait for session creation, then start Agent
+            setTimeout(() => {
+                this.send({ type: 'start_agent', options });
+            }, 500);
+        } else {
+            this.send({ type: 'start_agent', options });
+        }
+        
+        this.showOverlay('loadingSpinner');
+        const loadingText = `Starting ${this.getAlias('agent')}...`;
         document.getElementById('loadingSpinner').querySelector('p').textContent = loadingText;
     }
 

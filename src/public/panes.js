@@ -121,7 +121,7 @@ class ClaudePane {
   }
 
   showStartOverlay() {
-    // Build a minimal per-pane start overlay (Claude/Codex)
+    // Build a minimal per-pane start overlay (Claude/Codex/Agent)
     if (!this.container) return;
     this.hideStartOverlay();
     const ov = document.createElement('div');
@@ -135,6 +135,7 @@ class ClaudePane {
           <button class="btn btn-danger" data-kind="claude" data-danger>Dangerous ${this.app?.getAlias?.('claude') || 'Claude'}</button>
           <button class="btn btn-primary" data-kind="codex">Start ${this.app?.getAlias?.('codex') || 'Codex'}</button>
           <button class="btn btn-danger" data-kind="codex" data-danger>Dangerous ${this.app?.getAlias?.('codex') || 'Codex'}</button>
+          <button class="btn btn-primary" data-kind="agent">Start ${this.app?.getAlias?.('agent') || 'Cursor'}</button>
         </div>
       </div>`;
     ov.querySelectorAll('button').forEach(btn => {
@@ -157,7 +158,9 @@ class ClaudePane {
 
   startAssistant(kind = 'claude', options = {}) {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return;
-    const type = kind === 'codex' ? 'start_codex' : 'start_claude';
+    let type = 'start_claude';
+    if (kind === 'codex') type = 'start_codex';
+    else if (kind === 'agent') type = 'start_agent';
     this.socket.send(JSON.stringify({ type, options }));
     this.hideStartOverlay();
   }
