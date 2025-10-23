@@ -755,66 +755,99 @@ body {
     overflow: hidden;
 }
 
-/* Tiled panes */
-.tiles-container { flex: 1; display: flex; min-height: 0; }
-.tile-grid { display: grid; grid-template-columns: 1fr; grid-template-rows: 100%; width: 100%; flex: 1; min-width: 0; }
-.tile-pane { display:flex; flex-direction: column; min-width: 0; border-left: 1px solid var(--border); }
-.tile-pane:first-child { border-left: none; }
-.tile-toolbar { display:flex; align-items:center; gap: 8px; padding: 6px 8px; background: var(--bg-secondary); border-bottom:1px solid var(--border); }
-.tile-toolbar .spacer { flex:1; }
-.pane-tabs { display:flex; gap: 4px; align-items: center; overflow: auto; max-width: 70%; }
-.pane-tab { display:flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid var(--border); border-radius:6px; background: var(--bg-tertiary); color: var(--text-secondary); cursor:pointer; user-select:none; white-space:nowrap; }
-.pane-tab.active { color: var(--text-primary); background: var(--bg-primary); border-color: var(--border-hover); }
-.pane-tab .close { display:flex; align-items:center; justify-content:center; width:14px; height:14px; opacity:.7; }
-.pane-tab .close:hover { opacity:1; }
-.pane-add { background: transparent; border:1px solid var(--border); border-radius:4px; width:24px; height:24px; color: var(--text-secondary); display:flex; align-items:center; justify-content:center; cursor:pointer; }
-.pane-add:hover { background: var(--bg-tertiary); color: var(--text-primary); }
-
-/* Pane session picker menu */
+/* Context menu for tabs */
 .pane-session-menu { position: absolute; z-index: 3000; min-width: 220px; background: var(--bg-secondary); border:1px solid var(--border); border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.35); padding:6px; }
 .pane-session-item { padding:8px 10px; border-radius:6px; cursor:pointer; color: var(--text-primary); }
 .pane-session-item.used { color: var(--text-secondary); }
 .pane-session-item:hover { background: var(--bg-tertiary); }
-.pane-session-sep { height:1px; background: var(--border); margin:6px 0; }
-.pane-session-action { padding:8px 10px; color: var(--accent); cursor:pointer; border-radius:6px; }
-.pane-session-action:hover { background: var(--bg-tertiary); }
 
-/* Per-pane start overlay */
-.pane-start-overlay { position:absolute; inset:0; background: rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; z-index: 5; }
-.pane-start-card { background: var(--bg-secondary); border:1px solid var(--border); border-radius:12px; padding:16px 20px; width: 90%; max-width: 420px; text-align:center; box-shadow: 0 12px 40px rgba(0,0,0,.4); }
-.pane-start-card h3 { margin: 0 0 6px 0; font-size: 16px; }
-.pane-start-card p { margin: 0 0 14px 0; color: var(--text-secondary); font-size: 13px; }
-.pane-start-actions { display:flex; flex-wrap: wrap; gap:8px; align-items:center; justify-content:center; }
-.tile-session-select { background: var(--bg-tertiary); color: var(--text-primary); border:1px solid var(--border); border-radius:6px; padding:6px 8px; font-family: var(--font-mono); font-size:12px; }
-.tile-close { background: transparent; border:1px solid var(--border); border-radius:4px; color: var(--text-secondary); width:26px; height:26px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
-.tile-close:hover { background: var(--bg-tertiary); color: var(--text-primary); }
-.tile-terminal { flex:1; min-height:0; position: relative; }
-.tile-terminal .xterm { height: 100%; }
-
-.resizer {
-  background: var(--border); cursor: col-resize; width: 6px; height: 100%;
+/* Split View */
+.split-container {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    position: relative;
 }
-.resizer:hover { background: var(--border-hover); }
 
-.tile-pane.drag-over { outline: 2px dashed var(--accent); outline-offset: -2px; }
-/* Horizontal row resizer for vertical splits */
-.row-resizer {
-  background: var(--border);
-  cursor: row-resize;
-  height: 6px;
+.split-pane {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: var(--bg-primary);
+    transition: border-color 0.2s ease;
+}
+
+.split-pane.split-active {
+    border: 2px solid var(--accent);
+}
+
+.split-terminal-wrapper {
+    flex: 1;
+    min-height: 0;
   width: 100%;
+    display: flex;
+    flex-direction: column;
 }
-.row-resizer:hover { background: var(--border-hover); }
 
-/* Drag-to-split visual hints */
-.pane-drop-hints { position: absolute; inset: 0; pointer-events: none; z-index: 6; }
-.pane-drop-hints .hint { position: absolute; border: 2px dashed rgba(88,166,255,0.35); background: rgba(88,166,255,0.08); opacity: 0; transition: opacity .08s ease; border-radius: 6px; }
-.pane-drop-hints .hint.active { opacity: 1; }
-.pane-drop-hints .hint.left { left: 0; top: 0; bottom: 0; width: 28%; }
-.pane-drop-hints .hint.right { right: 0; top: 0; bottom: 0; width: 28%; }
-.pane-drop-hints .hint.top { top: 0; left: 0; right: 0; height: 28%; }
-.pane-drop-hints .hint.bottom { bottom: 0; left: 0; right: 0; height: 28%; }
-/* Removed active border per user request */
+.split-left {
+    width: 50%;
+}
+
+.split-right {
+    width: 50%;
+}
+
+.split-divider {
+    width: 6px;
+  background: var(--border);
+    cursor: col-resize;
+    flex-shrink: 0;
+    transition: background 0.2s ease;
+}
+
+.split-divider:hover {
+    background: var(--border-hover);
+}
+
+.split-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 10;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: all 0.2s ease;
+}
+
+.split-close:hover {
+    opacity: 1;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+/* Drop zone for drag-to-split */
+.split-drop-zone {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 100px;
+    background: rgba(88, 166, 255, 0.15);
+    border: 2px dashed rgba(88, 166, 255, 0.5);
+    border-radius: 8px;
+    pointer-events: none;
+    z-index: 100;
+}
 
 #terminal {
     width: 100%;

@@ -36,6 +36,7 @@ npx claude-code-web --disable-auth
 - 🌍 **Multi-Browser Access** - Connect to the same session from different browsers/devices
 - 💾 **Session Persistence** - Sessions remain active even when disconnecting
 - 📜 **Output Buffering** - Reconnect and see previous output from your session
+- 🔀 **VS Code-Style Split View** - Drag tabs to create side-by-side terminals for different sessions
 
 ## Installation
 

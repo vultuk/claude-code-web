@@ -247,8 +247,6 @@ class SessionTabManager {
         this.setupOverflowDropdown();
         await this.loadSessions();
         this.updateTabOverflow();
-        // Update pane session pickers if present
-        if (window.app?.paneManager) window.app.paneManager.refreshSessionSelects();
         
         // Show notification permission prompt after a slight delay
         setTimeout(() => {
@@ -574,9 +572,6 @@ class SessionTabManager {
             
             console.log('[SessionManager.loadSessions] Final tabs.size:', this.tabs.size);
             
-            // Refresh pane selects on load/update
-            if (window.app?.paneManager) window.app.paneManager.refreshSessionSelects();
-            
             return sessions;
         } catch (error) {
             console.error('Failed to load sessions:', error);
@@ -717,17 +712,6 @@ class SessionTabManager {
         this.updateOverflowMenu();
 
         // If tile view is enabled, tabs target the active pane (VS Code-style)
-        if (window.app?.paneManager?.enabled) {
-            const activeIdx = window.app.paneManager.activeIndex ?? 0;
-            window.app.paneManager.assignSession(activeIdx, sessionId);
-            if (this.claudeInterface) {
-                this.claudeInterface.currentClaudeSessionId = sessionId;
-                if (session) this.claudeInterface.currentClaudeSessionName = session.name;
-            }
-            this.updateHeaderInfo(sessionId);
-            return;
-        }
-
         await this.claudeInterface.joinSession(sessionId);
         this.updateHeaderInfo(sessionId);
     }
@@ -864,21 +848,6 @@ class SessionTabManager {
             return el;
         };
         menu.appendChild(addItem('Close Others', () => this.closeOthers(sessionId)));
-        menu.appendChild(addItem('Split Right', () => {
-            if (!window.app?.paneManager?.enabled) window.app?.paneManager?.enable?.();
-            window.app?.paneManager?.splitEdge?.('right', sessionId, false, -1);
-        }));
-        // Move to Split submenu
-        const pm = window.app?.paneManager;
-        if (pm && pm.panes && pm.panes.length > 0) {
-            const sep = document.createElement('div'); sep.className = 'pane-session-sep'; menu.appendChild(sep);
-            const label = document.createElement('div'); label.className='pane-session-item used'; label.textContent='Move to Split:'; label.style.cursor='default'; menu.appendChild(label);
-            for (let i = 0; i < pm.panes.length; i++) {
-                const el = document.createElement('div'); el.className='pane-session-item'; el.textContent = `Split ${i+1}`;
-                el.onclick = () => { pm.assignSession(i, sessionId); menu.remove(); };
-                menu.appendChild(el);
-            }
-        }
         document.body.appendChild(menu);
         menu.style.top = `${clientY + 4}px`;
         menu.style.left = `${clientX + 4}px`;
