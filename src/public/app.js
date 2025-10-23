@@ -108,7 +108,8 @@ class ClaudeCodeWebInterface {
             console.log('[Init] Overlay should be hidden now');
         } else {
             console.log('[Init] No sessions found, showing folder browser');
-            // No sessions - show folder picker to create first session
+            // No sessions - hide loading overlay and show folder picker to create first session
+            this.hideOverlay();
             this.showFolderBrowser();
         }
         
@@ -410,11 +411,13 @@ class ClaudeCodeWebInterface {
         
         document.getElementById('closeSessionSelection').addEventListener('click', () => {
             modal.remove();
+            this.hideOverlay();
             this.showFolderBrowser();
         });
         
         document.getElementById('selectSessionNewFolder').addEventListener('click', () => {
             modal.remove();
+            this.hideOverlay();
             this.showFolderBrowser();
         });
         
@@ -422,6 +425,7 @@ class ClaudeCodeWebInterface {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 modal.remove();
+                this.hideOverlay();
                 this.showFolderBrowser();
             }
         });
