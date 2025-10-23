@@ -11,7 +11,7 @@ const program = new Command();
 program
   .name('cc-web')
   .description('Web-based interface for Claude Code CLI')
-  .version('3.2.1')
+  .version('3.2.2')
   .option('-p, --port <number>', 'port to run the server on', '32352')
   .option('--no-open', 'do not automatically open browser')
   .option('--auth <token>', 'authentication token for secure access')

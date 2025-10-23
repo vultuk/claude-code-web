@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.2] - 2025-10-23
+
+### Fixed
+- Fixed loading spinner overlay remaining visible when showing folder browser
+- Added proper overlay hiding before showing folder browser in all locations
+- Resolves issue where users couldn't interact with folder browser due to stuck spinner
+
 ## [3.2.1] - 2025-10-23
 
 ### Fixed
