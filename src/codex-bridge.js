@@ -84,7 +84,8 @@ class CodexBridge {
         process: codexProcess,
         workingDir,
         created: new Date(),
-        active: true
+        active: true,
+        killTimeout: null
       };
 
       this.sessions.set(sessionId, session);
@@ -105,6 +106,11 @@ class CodexBridge {
 
       codexProcess.onExit((exitCode, signal) => {
         console.log(`Codex session ${sessionId} exited with code ${exitCode}, signal ${signal}`);
+        // Clear kill timeout if process exited naturally
+        if (session.killTimeout) {
+          clearTimeout(session.killTimeout);
+          session.killTimeout = null;
+        }
         session.active = false;
         this.sessions.delete(sessionId);
         onExit(exitCode, signal);
@@ -112,6 +118,11 @@ class CodexBridge {
 
       codexProcess.on('error', (error) => {
         console.error(`Codex session ${sessionId} error:`, error);
+        // Clear kill timeout if process errored
+        if (session.killTimeout) {
+          clearTimeout(session.killTimeout);
+          session.killTimeout = null;
+        }
         session.active = false;
         this.sessions.delete(sessionId);
         onError(error);
@@ -159,9 +170,15 @@ class CodexBridge {
     }
 
     try {
+      // Clear any existing kill timeout
+      if (session.killTimeout) {
+        clearTimeout(session.killTimeout);
+        session.killTimeout = null;
+      }
+
       if (session.active && session.process) {
         session.process.kill('SIGTERM');
-        setTimeout(() => {
+        session.killTimeout = setTimeout(() => {
           if (session.active && session.process) {
             session.process.kill('SIGKILL');
           }

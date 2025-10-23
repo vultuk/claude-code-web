@@ -56,6 +56,8 @@ class SessionStore {
             // Write to a temporary file first, then rename (atomic operation)
             const tempFile = `${this.sessionsFile}.tmp`;
             await fs.writeFile(tempFile, JSON.stringify(data, null, 2));
+            // Ensure directory still exists before rename (handles race conditions)
+            await fs.mkdir(this.storageDir, { recursive: true });
             await fs.rename(tempFile, this.sessionsFile);
             
             return true;

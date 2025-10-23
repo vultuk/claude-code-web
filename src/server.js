@@ -43,6 +43,7 @@ class ClaudeCodeWebServer {
     });
     this.autoSaveInterval = null;
     this.startTime = Date.now(); // Track server start time
+    this.isShuttingDown = false; // Flag to prevent duplicate shutdown
     // Commands dropdown removed
     // Assistant aliases (for UI display only)
     this.aliases = {
@@ -87,6 +88,12 @@ class ClaudeCodeWebServer {
   }
   
   async handleShutdown() {
+    // Prevent multiple shutdown attempts
+    if (this.isShuttingDown) {
+      return;
+    }
+    this.isShuttingDown = true;
+
     console.log('\nGracefully shutting down...');
     await this.saveSessionsToDisk();
     if (this.autoSaveInterval) {
