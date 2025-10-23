@@ -1062,11 +1062,7 @@ class ClaudeCodeWebInterface {
     }
 
     applySettings(settings) {
-        // Apply token stats visibility
-        const usageStatsContainer = document.getElementById('usageStatsContainer');
-        if (usageStatsContainer) {
-            usageStatsContainer.style.display = settings.showTokenStats ? 'flex' : 'none';
-        }
+        // Token stats bar removed - no longer needed
         // Apply theme (dark is default; light sets attribute)
         if (settings.theme === 'light') {
             document.documentElement.setAttribute('data-theme', 'light');
@@ -1867,52 +1863,13 @@ class ClaudeCodeWebInterface {
     }
 
     startSessionTimerUpdate() {
-        // Clear existing timer if any
-        if (this.sessionTimerInterval) {
-            clearInterval(this.sessionTimerInterval);
-        }
-        
-        // Update timer every second - just show remaining time
-        this.sessionTimerInterval = setInterval(() => {
-            if (this.sessionTimer && this.sessionTimer.startTime) {
-                const startTime = new Date(this.sessionTimer.startTime);
-                const now = new Date();
-                const elapsedMs = now - startTime;
-                
-                // Use session duration from server if available, default to 5 hours
-                const sessionHours = (this.sessionTimer && this.sessionTimer.sessionDurationHours) || 5;
-                const sessionDurationMs = sessionHours * 60 * 60 * 1000;
-                const remainingMs = Math.max(0, sessionDurationMs - elapsedMs);
-                
-                // Format remaining time only
-                let displayText;
-                if (remainingMs > 0) {
-                    const remainingHours = Math.floor(remainingMs / (1000 * 60 * 60));
-                    const remainingMinutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
-                    displayText = `${remainingHours}h ${remainingMinutes}m`;
-                } else {
-                    displayText = '0h 0m';
-                }
-                
-                // Update the title element with remaining time
-                const titleElement = document.getElementById('usageTitle');
-                if (titleElement) {
-                    titleElement.textContent = displayText;
-                }
-            }
-        }, 1000);
+        // Token usage timer removed - no UI elements to update
+        return;
     }
 
     updateUsageDisplay(sessionStats, dailyStats, sessionTimer, analytics, burnRate, plan, limits) {
-        if (!sessionStats && !dailyStats) return;
-        
-        this.sessionStats = sessionStats;
-        this.dailyStats = dailyStats;
-        this.sessionTimer = sessionTimer;
-        this.analytics = analytics;
-        this.burnRate = burnRate;
-        this.currentPlan = plan;
-        this.planLimits = limits;
+        // Token usage display removed - no UI elements to update
+        return;
         
         // Container is already visible by default
         

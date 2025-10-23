@@ -1,5 +1,27 @@
 # Changelog
 
+## [3.3.0] - 2025-10-23
+
+### Fixed
+- **Critical**: Fixed syntax error in `server.js` close() method causing improper indentation in agent session cleanup
+- **Critical**: Fixed memory leaks in all three bridge files (claude-bridge.js, codex-bridge.js, agent-bridge.js) by properly tracking and clearing kill timeouts
+- Fixed race condition in `session-store.js` where atomic rename could fail if directory was deleted between write and rename operations
+- Fixed duplicate signal handlers in `server.js` that could cause double-shutdown attempts
+- Removed call to undefined method `clearProcessedEntriesCache()` in `usage-reader.js`
+- Removed unused `sessionCache` Map variable from `usage-reader.js`
+- Added missing test coverage for agent alias in server alias tests
+- Fixed test cleanup warnings by ensuring storage directory exists before save operations
+
+### Changed
+- Removed token usage top bar from UI - no longer displays real-time token statistics in the header
+- Updated `applySettings()` to reflect removal of token stats visibility toggle
+- Disabled `updateUsageDisplay()` and `startSessionTimerUpdate()` functions as UI elements no longer exist
+
+### Notes
+- All bug fixes are backward-compatible
+- Usage statistics backend code still runs but is no longer displayed in the UI
+- Test suite passing: 12/12 tests
+
 ## [3.2.2] - 2025-10-23
 
 ### Fixed

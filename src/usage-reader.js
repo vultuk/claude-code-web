@@ -10,7 +10,6 @@ class UsageReader {
     this.cacheTime = null;
     this.cacheTimeout = 5000; // Cache for 5 seconds for more real-time updates
     this.sessionDurationHours = sessionDurationHours; // Default 5 hours from first message
-    this.sessionCache = new Map(); // Cache for session detection
     this.overlappingSessions = []; // Track overlapping sessions
   }
 
@@ -557,9 +556,6 @@ class UsageReader {
       if (!sessionId) {
         return null;
       }
-      
-      // Clear processed entries to ensure fresh data
-      this.clearProcessedEntriesCache();
       
       // Find the JSONL file for this session
       const sessionFile = path.join(this.claudeProjectsPath, path.basename(process.cwd()).replace(/[^a-zA-Z0-9-]/g, '-'), `${sessionId}.jsonl`);
