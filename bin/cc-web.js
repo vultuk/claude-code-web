@@ -11,7 +11,7 @@ const program = new Command();
 program
   .name('cc-web')
   .description('Web-based interface for Claude Code CLI')
-  .version('3.1.0')
+  .version('3.2.0')
   .option('-p, --port <number>', 'port to run the server on', '32352')
   .option('--no-open', 'do not automatically open browser')
   .option('--auth <token>', 'authentication token for secure access')
@@ -23,6 +23,7 @@ program
   .option('--plan <type>', 'subscription plan (pro, max5, max20)', 'max20')
   .option('--claude-alias <name>', 'display alias for Claude (default: env CLAUDE_ALIAS or "Claude")')
   .option('--codex-alias <name>', 'display alias for Codex (default: env CODEX_ALIAS or "Codex")')
+  .option('--agent-alias <name>', 'display alias for Agent (default: env AGENT_ALIAS or "Cursor")')
   .option('--ngrok-auth-token <token>', 'ngrok auth token to open a public tunnel')
   .option('--ngrok-domain <domain>', 'ngrok reserved domain to use for the tunnel')
   .parse();
@@ -73,6 +74,7 @@ async function main() {
       // UI aliases for assistants
       claudeAlias: options.claudeAlias || process.env.CLAUDE_ALIAS || 'Claude',
       codexAlias: options.codexAlias || process.env.CODEX_ALIAS || 'Codex',
+      agentAlias: options.agentAlias || process.env.AGENT_ALIAS || 'Cursor',
       folderMode: true // Always use folder mode
     };
 
@@ -80,7 +82,7 @@ async function main() {
     console.log(`Port: ${port}`);
     console.log('Mode: Folder selection mode');
     console.log(`Plan: ${options.plan}`);
-    console.log(`Aliases: Claude → "${serverOptions.claudeAlias}", Codex → "${serverOptions.codexAlias}"`);
+    console.log(`Aliases: Claude → "${serverOptions.claudeAlias}", Codex → "${serverOptions.codexAlias}", Agent → "${serverOptions.agentAlias}"`);
     
     // Display authentication status prominently
     if (noAuth) {

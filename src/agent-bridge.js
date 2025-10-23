@@ -1,0 +1,194 @@
+const { spawn } = require('node-pty');
+const path = require('path');
+const fs = require('fs');
+
+class AgentBridge {
+  constructor() {
+    this.sessions = new Map();
+    this.agentCommand = this.findAgentCommand();
+  }
+
+  findAgentCommand() {
+    const possibleCommands = [
+      path.join(process.env.HOME || '/', '.cursor', 'local', 'cursor-agent'),
+      'cursor-agent',
+      path.join(process.env.HOME || '/', '.local', 'bin', 'cursor-agent'),
+      '/usr/local/bin/cursor-agent',
+      '/usr/bin/cursor-agent'
+    ];
+
+    for (const cmd of possibleCommands) {
+      try {
+        if (fs.existsSync(cmd) || this.commandExists(cmd)) {
+          console.log(`Found Agent command at: ${cmd}`);
+          return cmd;
+        }
+      } catch (error) {
+        continue;
+      }
+    }
+
+    console.error('Agent command not found, using default "cursor-agent"');
+    return 'cursor-agent';
+  }
+
+  commandExists(command) {
+    try {
+      require('child_process').execFileSync('which', [command], { stdio: 'ignore' });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  async startSession(sessionId, options = {}) {
+    if (this.sessions.has(sessionId)) {
+      throw new Error(`Session ${sessionId} already exists`);
+    }
+
+    const {
+      workingDir = process.cwd(),
+      onOutput = () => {},
+      onExit = () => {},
+      onError = () => {},
+      cols = 80,
+      rows = 24
+    } = options;
+
+    try {
+      console.log(`Starting Agent session ${sessionId}`);
+      console.log(`Command: ${this.agentCommand}`);
+      console.log(`Working directory: ${workingDir}`);
+      console.log(`Terminal size: ${cols}x${rows}`);
+
+      const agentProcess = spawn(this.agentCommand, [], {
+        cwd: workingDir,
+        env: {
+          ...process.env,
+          TERM: 'xterm-256color',
+          FORCE_COLOR: '1',
+          COLORTERM: 'truecolor'
+        },
+        cols,
+        rows,
+        name: 'xterm-color'
+      });
+
+      const session = {
+        process: agentProcess,
+        workingDir,
+        created: new Date(),
+        active: true
+      };
+
+      this.sessions.set(sessionId, session);
+
+      let dataBuffer = '';
+
+      agentProcess.onData((data) => {
+        if (process.env.DEBUG) {
+          console.log(`Agent session ${sessionId} output:`, data);
+        }
+        // Keep a small rolling buffer to detect prompts if needed later
+        dataBuffer += data;
+        if (dataBuffer.length > 10000) {
+          dataBuffer = dataBuffer.slice(-5000);
+        }
+        onOutput(data);
+      });
+
+      agentProcess.onExit((exitCode, signal) => {
+        console.log(`Agent session ${sessionId} exited with code ${exitCode}, signal ${signal}`);
+        session.active = false;
+        this.sessions.delete(sessionId);
+        onExit(exitCode, signal);
+      });
+
+      agentProcess.on('error', (error) => {
+        console.error(`Agent session ${sessionId} error:`, error);
+        session.active = false;
+        this.sessions.delete(sessionId);
+        onError(error);
+      });
+
+      console.log(`Agent session ${sessionId} started successfully`);
+      return session;
+
+    } catch (error) {
+      console.error(`Failed to start Agent session ${sessionId}:`, error);
+      throw new Error(`Failed to start Agent: ${error.message}`);
+    }
+  }
+
+  async sendInput(sessionId, data) {
+    const session = this.sessions.get(sessionId);
+    if (!session || !session.active) {
+      throw new Error(`Session ${sessionId} not found or not active`);
+    }
+
+    try {
+      session.process.write(data);
+    } catch (error) {
+      throw new Error(`Failed to send input to session ${sessionId}: ${error.message}`);
+    }
+  }
+
+  async resize(sessionId, cols, rows) {
+    const session = this.sessions.get(sessionId);
+    if (!session || !session.active) {
+      throw new Error(`Session ${sessionId} not found or not active`);
+    }
+
+    try {
+      session.process.resize(cols, rows);
+    } catch (error) {
+      console.warn(`Failed to resize session ${sessionId}:`, error.message);
+    }
+  }
+
+  async stopSession(sessionId) {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      return;
+    }
+
+    try {
+      if (session.active && session.process) {
+        session.process.kill('SIGTERM');
+        setTimeout(() => {
+          if (session.active && session.process) {
+            session.process.kill('SIGKILL');
+          }
+        }, 5000);
+      }
+    } catch (error) {
+      console.warn(`Error stopping agent session ${sessionId}:`, error.message);
+    }
+
+    session.active = false;
+    this.sessions.delete(sessionId);
+  }
+
+  getSession(sessionId) {
+    return this.sessions.get(sessionId);
+  }
+
+  getAllSessions() {
+    return Array.from(this.sessions.entries()).map(([id, session]) => ({
+      id,
+      workingDir: session.workingDir,
+      created: session.created,
+      active: session.active
+    }));
+  }
+
+  async cleanup() {
+    const sessionIds = Array.from(this.sessions.keys());
+    for (const sessionId of sessionIds) {
+      await this.stopSession(sessionId);
+    }
+  }
+}
+
+module.exports = AgentBridge;
+
