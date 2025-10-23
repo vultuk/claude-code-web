@@ -79,13 +79,6 @@
                 </div>
             </div>
             <div class="tab-actions">
-                <button class="tab-tile" id="addPaneBtn" title="Add Pane">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="3" y="3" width="18" height="18" rx="2"/>
-                        <line x1="12" y1="8" x2="12" y2="16"/>
-                        <line x1="8" y1="12" x2="16" y2="12"/>
-                    </svg>
-                </button>
                 <button class="tab-settings" id="settingsBtn" title="Settings">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
@@ -114,25 +107,6 @@
             <div class="terminal-container" id="terminalContainer" data-view="single">
                 <div class="terminal-wrapper">
                     <div id="terminal"></div>
-                </div>
-            </div>
-            <!-- Tiled Panes Container (hidden by default) -->
-            <div class="tiles-container" id="tilesContainer" style="display:none;">
-                <div class="tile-grid" id="tileGrid">
-                    <div class="tile-pane" data-index="0">
-                        <div class="tile-toolbar">
-                            <div class="pane-tabs" data-index="0"></div>
-                            <button class="pane-add" data-index="0" title="Add tab">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                            </button>
-                            <select class="tile-session-select" data-index="0" style="display:none"></select>
-                            <div class="spacer"></div>
-                            <button class="tile-close" data-index="0" title="Close Pane">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            </button>
-                        </div>
-                        <div class="tile-terminal" id="tileTerminal0"></div>
-                    </div>
                 </div>
             </div>
         </main>
@@ -332,7 +306,7 @@
     <script src="auth.js"></script>
     <script src="plan-detector.js"></script>
     <script src="session-manager.js"></script>
-    <script src="panes.js"></script>
+    <script src="splits.js"></script>
     <script src="icons.js"></script>
     <script src="app.js"></script>
     

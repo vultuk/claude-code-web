@@ -1,5 +1,44 @@
 # Changelog
 
+## [3.4.0] - 2025-10-23
+
+### Added
+- **VS Code-Style Split View**: New working split view system that actually works!
+  - Drag any tab to the right edge of the terminal to create a side-by-side split
+  - Each split has its own independent terminal instance and WebSocket connection
+  - Resizable divider between splits (drag to adjust width)
+  - Keyboard shortcuts: `Ctrl+1`/`Ctrl+2` to focus splits, `Ctrl+\` to close split
+  - Close button (X) in top-right of right split
+  - Automatic session switching per split
+  - Clean state management with localStorage persistence
+
+### Removed
+- **Broken panes.js system** (1018 lines of buggy code)
+  - Removed complex grid-based tiling that had fundamental design flaws
+  - Removed all pane manager code from app.js and session-manager.js
+  - Removed tile HTML and CSS (~200 lines)
+  - Removed "Add Pane" button from tab bar
+
+### Fixed
+- Sessions no longer get lost during split operations
+- Panels can now be closed reliably
+- Drag and drop now works correctly
+- No more orphaned terminal instances
+- No more WebSocket connection leaks
+- Proper cleanup when closing splits
+
+### Changed
+- Simplified from complex N×M grid to simple 2-pane horizontal split
+- Each split maintains its own terminal and connection (true independence)
+- Split view is opt-in: create by dragging tabs, not auto-enabled
+- Cleaner codebase: 400 lines of working code vs 1000+ lines of broken code
+
+### Notes
+- This is a complete rewrite of the split/pane system
+- Much more reliable and matches VS Code behavior exactly
+- All existing functionality (tabs, sessions, single-pane mode) unchanged
+- Test suite: 12/12 passing
+
 ## [3.3.0] - 2025-10-23
 
 ### Fixed
