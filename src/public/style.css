@@ -1230,6 +1230,7 @@ body {
     background-color: transparent !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
+    z-index: 1 !important;
 }
 
 .xterm .xterm-screen {
@@ -1248,8 +1249,8 @@ body {
 
 /* Fix scrollbar extending beyond viewport */
 .xterm-viewport::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 14px;
+    height: 14px;
 }
 
 .xterm-viewport::-webkit-scrollbar-track {
@@ -1257,12 +1258,14 @@ body {
 }
 
 .xterm-viewport::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 5px;
+    background: #555;
+    border-radius: 7px;
+    border: 2px solid var(--bg-secondary);
+    min-height: 40px;
 }
 
 .xterm-viewport::-webkit-scrollbar-thumb:hover {
-    background: var(--border-hover);
+    background: #777;
 }
 
 /* Folder Browser Modal */
