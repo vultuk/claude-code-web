@@ -9,21 +9,46 @@ class ClaudeBridge {
   }
 
   findClaudeCommand() {
-    const possibleCommands = [
+    // Allow override via environment variable
+    if (process.env.CLAUDE_COMMAND) {
+      console.log(`Using CLAUDE_COMMAND from environment: ${process.env.CLAUDE_COMMAND}`);
+      return process.env.CLAUDE_COMMAND;
+    }
+
+    const isWindows = process.platform === 'win32';
+    const homeDir = process.env.HOME || process.env.USERPROFILE || '/';
+
+    const possibleCommands = isWindows ? [
+      'claude',
+      'claude.exe',
+      'claude-code',
+      'claude-code.exe',
+      path.join(homeDir, '.local', 'bin', 'claude.exe'),
+      path.join(homeDir, '.claude', 'local', 'claude.exe'),
+      path.join(homeDir, 'AppData', 'Local', 'Programs', 'claude', 'claude.exe'),
+      path.join(homeDir, 'AppData', 'Roaming', 'npm', 'claude.cmd'),
+    ] : [
       '/home/ec2-user/.claude/local/claude',
       'claude',
       'claude-code',
-      path.join(process.env.HOME || '/', '.claude', 'local', 'claude'),
-      path.join(process.env.HOME || '/', '.local', 'bin', 'claude'),
+      path.join(homeDir, '.claude', 'local', 'claude'),
+      path.join(homeDir, '.local', 'bin', 'claude'),
       '/usr/local/bin/claude',
       '/usr/bin/claude'
     ];
 
     for (const cmd of possibleCommands) {
       try {
-        if (fs.existsSync(cmd) || this.commandExists(cmd)) {
+        if (fs.existsSync(cmd)) {
           console.log(`Found Claude command at: ${cmd}`);
           return cmd;
+        }
+        const resolvedPath = this.commandExists(cmd);
+        if (resolvedPath) {
+          // Use the full path if available (string), otherwise use the command name
+          const finalCmd = typeof resolvedPath === 'string' ? resolvedPath : cmd;
+          console.log(`Found Claude command at: ${finalCmd}`);
+          return finalCmd;
         }
       } catch (error) {
         continue;
@@ -35,9 +60,13 @@ class ClaudeBridge {
   }
 
   commandExists(command) {
+    const isWindows = process.platform === 'win32';
+    const whichCmd = isWindows ? 'where' : 'which';
     try {
-      require('child_process').execFileSync('which', [command], { stdio: 'ignore' });
-      return true;
+      const result = require('child_process').execFileSync(whichCmd, [command], { encoding: 'utf8' });
+      // Return the first line (full path) on Windows, or the path on Unix
+      const fullPath = result.split(/\r?\n/)[0].trim();
+      return fullPath || true;
     } catch (error) {
       return false;
     }
