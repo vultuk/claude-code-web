@@ -360,6 +360,39 @@ class ClaudeCodeWebInterface {
                 this.send({ type: 'resize', cols, rows });
             }
         });
+
+        // Handle F6 to force terminal redraw (fixes garbled display)
+        // F6 is not used by xterm or browsers, so it works reliably
+        document.addEventListener('keydown', (event) => {
+            if (event.code === 'F6' || event.key === 'F6') {
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
+                console.log('F6 pressed, forcing terminal redraw...');
+                if (this.terminal && this.fitAddon) {
+                    try {
+                        // Force full re-render by resize trick:
+                        // 1. Get current dimensions
+                        const cols = this.terminal.cols;
+                        const rows = this.terminal.rows;
+                        // 2. Resize to slightly different size
+                        this.terminal.resize(cols - 1, rows);
+                        // 3. Restore original size (forces complete re-render)
+                        requestAnimationFrame(() => {
+                            this.terminal.resize(cols, rows);
+                            this.terminal.refresh(0, rows - 1);
+                            this.terminal.scrollToBottom();
+                            console.log('Terminal redraw completed (F6)');
+                        });
+                    } catch (e) {
+                        console.error('Terminal redraw failed:', e);
+                    }
+                } else {
+                    console.warn('Terminal or fitAddon not available');
+                }
+                return false;
+            }
+        }, true);
     }
 
     showSessionSelectionModal() {
