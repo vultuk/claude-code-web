@@ -7,23 +7,34 @@ class SessionStore {
         // Store sessions in user's home directory
         this.storageDir = path.join(os.homedir(), '.claude-code-web');
         this.sessionsFile = path.join(this.storageDir, 'sessions.json');
-        this.initializeStorage();
+        this.initialized = false;
+        this.initPromise = this.initializeStorage();
     }
 
     async initializeStorage() {
         try {
             // Create storage directory if it doesn't exist
             await fs.mkdir(this.storageDir, { recursive: true });
+            this.initialized = true;
         } catch (error) {
             console.error('Failed to create storage directory:', error);
         }
     }
 
+    async ensureInitialized() {
+        if (!this.initialized) {
+            await this.initPromise;
+        }
+    }
+
     async saveSessions(sessions) {
         try {
+            // Ensure initialization is complete
+            await this.ensureInitialized();
+
             // Ensure storage directory exists
             await fs.mkdir(this.storageDir, { recursive: true });
-            
+
             // Convert Map to array for JSON serialization
             const sessionsArray = Array.from(sessions.entries()).map(([id, session]) => ({
                 id,
@@ -53,13 +64,22 @@ class SessionStore {
                 sessions: sessionsArray
             };
 
-            // Write to a temporary file first, then rename (atomic operation)
+            const jsonData = JSON.stringify(data, null, 2);
+
+            // Try atomic write (temp file + rename) first
             const tempFile = `${this.sessionsFile}.tmp`;
-            await fs.writeFile(tempFile, JSON.stringify(data, null, 2));
-            // Ensure directory still exists before rename (handles race conditions)
-            await fs.mkdir(this.storageDir, { recursive: true });
-            await fs.rename(tempFile, this.sessionsFile);
-            
+            try {
+                await fs.writeFile(tempFile, jsonData);
+                await fs.rename(tempFile, this.sessionsFile);
+            } catch (renameError) {
+                // Fallback for Windows: direct write if rename fails
+                // This can happen due to file locks or cross-device moves
+                try {
+                    await fs.unlink(tempFile);
+                } catch (e) { /* ignore cleanup errors */ }
+                await fs.writeFile(this.sessionsFile, jsonData);
+            }
+
             return true;
         } catch (error) {
             console.error('Failed to save sessions:', error.message);
@@ -69,6 +89,9 @@ class SessionStore {
 
     async loadSessions() {
         try {
+            // Ensure initialization is complete
+            await this.ensureInitialized();
+
             // Check if sessions file exists
             await fs.access(this.sessionsFile);
             

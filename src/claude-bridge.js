@@ -196,13 +196,19 @@ class ClaudeBridge {
       }
 
       if (session.active && session.process) {
-        session.process.kill('SIGTERM');
-        
-        session.killTimeout = setTimeout(() => {
-          if (session.active && session.process) {
-            session.process.kill('SIGKILL');
-          }
-        }, 5000);
+        // On Windows, kill() without arguments terminates the process
+        // On Unix, we use SIGTERM followed by SIGKILL after timeout
+        const isWindows = process.platform === 'win32';
+        if (isWindows) {
+          session.process.kill();
+        } else {
+          session.process.kill('SIGTERM');
+          session.killTimeout = setTimeout(() => {
+            if (session.active && session.process) {
+              session.process.kill('SIGKILL');
+            }
+          }, 5000);
+        }
       }
     } catch (error) {
       console.warn(`Error stopping session ${sessionId}:`, error.message);
