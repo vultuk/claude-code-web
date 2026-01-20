@@ -20,6 +20,8 @@ program
   .option('--cert <path>', 'path to SSL certificate file')
   .option('--key <path>', 'path to SSL private key file')
   .option('--dev', 'development mode with additional logging')
+  .option('--cwd <path>', 'working directory for Claude sessions (default: current directory)')
+  .option('--no-usage', 'disable usage tracking (reduces memory usage)')
   .option('--plan <type>', 'subscription plan (pro, max5, max20)', 'max20')
   .option('--claude-alias <name>', 'display alias for Claude (default: env CLAUDE_ALIAS or "Claude")')
   .option('--codex-alias <name>', 'display alias for Codex (default: env CODEX_ALIAS or "Codex")')
@@ -62,6 +64,22 @@ async function main() {
       }
     }
 
+    // Resolve and validate working directory if provided
+    let cwd = process.cwd();
+    if (options.cwd) {
+      const resolvedCwd = path.resolve(options.cwd);
+      const fs = require('fs');
+      if (!fs.existsSync(resolvedCwd)) {
+        console.error(`Error: Working directory does not exist: ${resolvedCwd}`);
+        process.exit(1);
+      }
+      if (!fs.statSync(resolvedCwd).isDirectory()) {
+        console.error(`Error: Path is not a directory: ${resolvedCwd}`);
+        process.exit(1);
+      }
+      cwd = resolvedCwd;
+    }
+
     const serverOptions = {
       port,
       auth: authToken,
@@ -70,6 +88,8 @@ async function main() {
       cert: options.cert,
       key: options.key,
       dev: options.dev,
+      cwd: cwd,
+      usageTracking: options.usage !== false, // --no-usage sets this to false
       plan: options.plan,
       // UI aliases for assistants
       claudeAlias: options.claudeAlias || process.env.CLAUDE_ALIAS || 'Claude',
@@ -80,7 +100,7 @@ async function main() {
 
     console.log('Starting Claude Code Web Interface...');
     console.log(`Port: ${port}`);
-    console.log('Mode: Folder selection mode');
+    console.log(`Working directory: ${cwd}`);
     console.log(`Plan: ${options.plan}`);
     console.log(`Aliases: Claude → "${serverOptions.claudeAlias}", Codex → "${serverOptions.codexAlias}", Agent → "${serverOptions.agentAlias}"`);
     

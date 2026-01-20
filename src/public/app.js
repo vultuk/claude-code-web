@@ -31,7 +31,8 @@ class ClaudeCodeWebInterface {
         this.sessionStats = null;
         this.sessionTimer = null;
         this.sessionTimerInterval = null;
-        
+        this.usageTrackingEnabled = true; // Server-side usage tracking state
+
         this.splitContainer = null;
         this.init();
     }
@@ -614,8 +615,11 @@ class ClaudeCodeWebInterface {
         switch (message.type) {
             case 'connected':
                 this.connectionId = message.connectionId;
+                // Store server-side usage tracking state
+                this.usageTrackingEnabled = message.usageTracking !== false;
+                this.updateUsageTrackingUI();
                 break;
-                
+
             case 'session_created':
                 this.currentClaudeSessionId = message.sessionId;
                 this.currentClaudeSessionName = message.sessionName;
@@ -816,8 +820,8 @@ class ClaudeCodeWebInterface {
 
             case 'usage_update':
                 this.updateUsageDisplay(
-                    message.sessionStats, 
-                    message.dailyStats, 
+                    message.sessionStats,
+                    message.dailyStats,
                     message.sessionTimer,
                     message.analytics,
                     message.burnRate,
@@ -825,7 +829,20 @@ class ClaudeCodeWebInterface {
                     message.limits
                 );
                 break;
-                
+
+            case 'usage_stats':
+                // Handle usage_stats response (sent when tracking is disabled)
+                if (message.disabled) {
+                    this.usageTrackingEnabled = false;
+                    this.updateUsageTrackingUI();
+                    // Stop polling since it's disabled
+                    if (this.usageUpdateTimer) {
+                        clearInterval(this.usageUpdateTimer);
+                        this.usageUpdateTimer = null;
+                    }
+                }
+                break;
+
             default:
                 console.log('Unknown message type:', message.type);
         }
@@ -985,18 +1002,21 @@ class ClaudeCodeWebInterface {
     showSettings() {
         const modal = document.getElementById('settingsModal');
         modal.classList.add('active');
-        
+
         // Prevent body scroll on mobile when modal is open
         if (this.isMobile) {
             document.body.style.overflow = 'hidden';
         }
-        
+
         const settings = this.loadSettings();
         document.getElementById('fontSize').value = settings.fontSize;
         document.getElementById('fontSizeValue').textContent = settings.fontSize + 'px';
         const themeSelect = document.getElementById('themeSelect');
         if (themeSelect) themeSelect.value = settings.theme === 'light' ? 'light' : 'dark';
         document.getElementById('showTokenStats').checked = settings.showTokenStats;
+
+        // Update usage tracking UI state (hide checkbox if disabled server-side)
+        this.updateUsageTrackingUI();
     }
 
     hideSettings() {
@@ -1828,15 +1848,45 @@ class ClaudeCodeWebInterface {
     }
     
     requestUsageStats() {
+        // Skip if usage tracking is disabled server-side
+        if (!this.usageTrackingEnabled) {
+            return;
+        }
+
         if (this.socket && this.socket.readyState === WebSocket.OPEN) {
             this.socket.send(JSON.stringify({ type: 'get_usage' }));
         }
-        
+
         // Start periodic updates if not already running
         if (!this.usageUpdateTimer) {
             this.usageUpdateTimer = setInterval(() => {
                 this.requestUsageStats();
-            }, 10000); // Update every 10 seconds for more real-time stats
+            }, 60000); // Update every 60 seconds
+        }
+    }
+
+    updateUsageTrackingUI() {
+        // Update the "Show Token Stats" checkbox in settings based on server-side usage tracking state
+        const checkbox = document.getElementById('showTokenStats');
+        const settingGroup = checkbox?.closest('.setting-group');
+
+        if (!this.usageTrackingEnabled) {
+            // Disable and hide the setting when usage tracking is disabled server-side
+            if (checkbox) {
+                checkbox.disabled = true;
+                checkbox.checked = false;
+            }
+            if (settingGroup) {
+                settingGroup.style.display = 'none';
+            }
+        } else {
+            // Re-enable if usage tracking becomes available
+            if (checkbox) {
+                checkbox.disabled = false;
+            }
+            if (settingGroup) {
+                settingGroup.style.display = '';
+            }
         }
     }
 

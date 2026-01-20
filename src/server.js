@@ -24,10 +24,11 @@ class ClaudeCodeWebServer {
     this.keyFile = options.key;
     this.folderMode = options.folderMode !== false; // Default to true
     this.selectedWorkingDir = null;
-    this.baseFolder = process.cwd(); // The folder where the app runs from
+    this.baseFolder = options.cwd || process.cwd(); // The folder where the app runs from (or specified via --cwd)
+    this.usageTracking = options.usageTracking !== false; // Default to true, --no-usage disables
     // Session duration in hours (default to 5 hours from first message)
     this.sessionDurationHours = parseFloat(process.env.CLAUDE_SESSION_HOURS || options.sessionHours || 5);
-    
+
     this.app = express();
     this.claudeSessions = new Map(); // Persistent sessions (claude, codex, or agent)
     this.webSocketConnections = new Map(); // Maps WebSocket connection ID to session info
@@ -35,12 +36,13 @@ class ClaudeCodeWebServer {
     this.codexBridge = new CodexBridge();
     this.agentBridge = new AgentBridge();
     this.sessionStore = new SessionStore();
-    this.usageReader = new UsageReader(this.sessionDurationHours);
-    this.usageAnalytics = new UsageAnalytics({
+    // Only create usage tracking objects if enabled (they parse large JSONL files)
+    this.usageReader = this.usageTracking ? new UsageReader(this.sessionDurationHours) : null;
+    this.usageAnalytics = this.usageTracking ? new UsageAnalytics({
       sessionDurationHours: this.sessionDurationHours,
       plan: options.plan || process.env.CLAUDE_PLAN || 'max20',
       customCostLimit: parseFloat(process.env.CLAUDE_COST_LIMIT || options.customCostLimit || 50.00)
-    });
+    }) : null;
     this.autoSaveInterval = null;
     this.startTime = Date.now(); // Track server start time
     this.isShuttingDown = false; // Flag to prevent duplicate shutdown
@@ -51,7 +53,7 @@ class ClaudeCodeWebServer {
       codex: options.codexAlias || process.env.CODEX_ALIAS || 'Codex',
       agent: options.agentAlias || process.env.AGENT_ALIAS || 'Cursor'
     };
-    
+
     this.setupExpress();
     this.loadPersistedSessions();
     this.setupAutoSave();
@@ -629,10 +631,11 @@ class ClaudeCodeWebServer {
       this.cleanupWebSocketConnection(wsId);
     });
 
-    // Send initial connection message
+    // Send initial connection message with server configuration
     this.sendToWebSocket(ws, {
       type: 'connected',
-      connectionId: wsId
+      connectionId: wsId,
+      usageTracking: this.usageTracking
     });
 
     // If sessionId provided, auto-join that session
@@ -745,7 +748,11 @@ class ClaudeCodeWebServer {
         break;
 
       case 'get_usage':
-        this.handleGetUsage(wsInfo);
+        if (this.usageTracking) {
+          this.handleGetUsage(wsInfo);
+        } else {
+          this.sendToWebSocket(wsInfo.ws, { type: 'usage_stats', disabled: true });
+        }
         break;
 
       default:
