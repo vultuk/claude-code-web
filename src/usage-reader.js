@@ -11,6 +11,15 @@ class UsageReader {
     this.cacheTimeout = 5000; // Cache for 5 seconds for more real-time updates
     this.sessionDurationHours = sessionDurationHours; // Default 5 hours from first message
     this.overlappingSessions = []; // Track overlapping sessions
+
+    // Caching for expensive methods to prevent repeated disk reads
+    this.currentSessionStatsCache = null;
+    this.currentSessionStatsCacheTime = null;
+    this.currentSessionStatsCacheTimeout = 5000; // 5 second cache
+
+    this.overlappingSessionsCache = null;
+    this.overlappingSessionsCacheTime = null;
+    this.overlappingSessionsCacheTimeout = 30000; // 30 second cache
   }
 
   /**
@@ -84,8 +93,14 @@ class UsageReader {
   }
 
   async getCurrentSessionStats() {
+    // Use cache if fresh
+    if (this.currentSessionStatsCache &&
+        this.currentSessionStatsCacheTime &&
+        (Date.now() - this.currentSessionStatsCacheTime < this.currentSessionStatsCacheTimeout)) {
+      return this.currentSessionStatsCache;
+    }
+
     try {
-      
       // Use new session logic based on daily boundaries and cascading 5-hour sessions
       const currentSession = await this.getCurrentSession();
       
@@ -159,7 +174,11 @@ class UsageReader {
       stats.cacheTokens = stats.cacheCreationTokens + stats.cacheReadTokens;
       // Total tokens only includes input and output (matching claude-monitor behavior)
       stats.totalTokens = stats.inputTokens + stats.outputTokens;
-      
+
+      // Cache the result
+      this.currentSessionStatsCache = stats;
+      this.currentSessionStatsCacheTime = Date.now();
+
       return stats;
     } catch (error) {
       console.error('Error reading current session stats:', error);
@@ -638,12 +657,19 @@ class UsageReader {
 
   // Detect overlapping sessions within rolling windows
   async detectOverlappingSessions() {
+    // Use cache if fresh
+    if (this.overlappingSessionsCache &&
+        this.overlappingSessionsCacheTime &&
+        (Date.now() - this.overlappingSessionsCacheTime < this.overlappingSessionsCacheTimeout)) {
+      return this.overlappingSessionsCache;
+    }
+
     try {
       const now = new Date();
       const lookbackHours = this.sessionDurationHours * 2; // Look back twice the session duration
       const cutoff = new Date(now - lookbackHours * 60 * 60 * 1000);
       const entries = await this.readAllEntries(cutoff);
-      
+
       if (entries.length === 0) return [];
       
       // Group entries into sessions based on time gaps
@@ -707,13 +733,18 @@ class UsageReader {
       }
       
       this.overlappingSessions = overlapping;
+
+      // Cache the result
+      this.overlappingSessionsCache = sessions;
+      this.overlappingSessionsCacheTime = Date.now();
+
       return sessions;
     } catch (error) {
       console.error('Error detecting overlapping sessions:', error);
       return [];
     }
   }
-  
+
   // Generate a session ID from timestamp
   generateSessionId(timestamp) {
     return `session_${new Date(timestamp).getTime()}`;

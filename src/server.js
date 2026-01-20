@@ -24,7 +24,7 @@ class ClaudeCodeWebServer {
     this.keyFile = options.key;
     this.folderMode = options.folderMode !== false; // Default to true
     this.selectedWorkingDir = null;
-    this.baseFolder = process.cwd(); // The folder where the app runs from
+    this.baseFolder = options.cwd || process.cwd(); // The folder where the app runs from (or specified via --cwd)
     // Session duration in hours (default to 5 hours from first message)
     this.sessionDurationHours = parseFloat(process.env.CLAUDE_SESSION_HOURS || options.sessionHours || 5);
     
@@ -42,6 +42,9 @@ class ClaudeCodeWebServer {
       customCostLimit: parseFloat(process.env.CLAUDE_COST_LIMIT || options.customCostLimit || 50.00)
     });
     this.autoSaveInterval = null;
+    this.sessionCleanupInterval = null;
+    this.wsCleanupInterval = null;
+    this.memoryMonitorInterval = null;
     this.startTime = Date.now(); // Track server start time
     this.isShuttingDown = false; // Flag to prevent duplicate shutdown
     // Commands dropdown removed
@@ -55,6 +58,9 @@ class ClaudeCodeWebServer {
     this.setupExpress();
     this.loadPersistedSessions();
     this.setupAutoSave();
+    this.setupSessionCleanup();
+    this.setupWebSocketCleanup();
+    this.setupMemoryMonitoring();
   }
   
   async loadPersistedSessions() {
@@ -74,13 +80,115 @@ class ClaudeCodeWebServer {
     this.autoSaveInterval = setInterval(() => {
       this.saveSessionsToDisk();
     }, 30000);
-    
+
     // Also save on process exit
     process.on('SIGINT', () => this.handleShutdown());
     process.on('SIGTERM', () => this.handleShutdown());
     process.on('beforeExit', () => this.saveSessionsToDisk());
   }
-  
+
+  setupSessionCleanup() {
+    // Clean up inactive sessions every 5 minutes
+    this.sessionCleanupInterval = setInterval(() => {
+      this.cleanupInactiveSessions();
+    }, 5 * 60 * 1000);
+  }
+
+  cleanupInactiveSessions() {
+    const now = Date.now();
+    const maxInactiveMs = 24 * 60 * 60 * 1000; // 24 hours
+    let cleanedCount = 0;
+
+    for (const [sessionId, session] of this.claudeSessions.entries()) {
+      const lastActivity = session.lastActivity instanceof Date
+        ? session.lastActivity.getTime()
+        : new Date(session.lastActivity).getTime();
+
+      const isInactive = (now - lastActivity) > maxInactiveMs;
+      const hasNoConnections = session.connections.size === 0;
+      const isNotActive = !session.active;
+
+      // Remove session if it's been inactive for 24+ hours, has no connections, and no active agent
+      if (isInactive && hasNoConnections && isNotActive) {
+        // Stop any running processes just in case
+        if (session.agent === 'codex') {
+          this.codexBridge.stopSession(sessionId);
+        } else if (session.agent === 'agent') {
+          this.agentBridge.stopSession(sessionId);
+        } else if (session.agent === 'claude') {
+          this.claudeBridge.stopSession(sessionId);
+        }
+
+        this.claudeSessions.delete(sessionId);
+        cleanedCount++;
+
+        if (this.dev) {
+          console.log(`Cleaned up inactive session: ${sessionId} (inactive for ${Math.round((now - lastActivity) / (1000 * 60 * 60))}h)`);
+        }
+      }
+    }
+
+    if (cleanedCount > 0) {
+      this.saveSessionsToDisk();
+      if (this.dev) {
+        console.log(`Session cleanup: removed ${cleanedCount} inactive sessions, ${this.claudeSessions.size} remaining`);
+      }
+    }
+  }
+
+  setupWebSocketCleanup() {
+    // Clean up orphaned WebSocket connections every 30 seconds
+    this.wsCleanupInterval = setInterval(() => {
+      this.cleanupOrphanedWebSockets();
+    }, 30 * 1000);
+  }
+
+  cleanupOrphanedWebSockets() {
+    const now = Date.now();
+    const maxSilenceMs = 60 * 1000; // 60 seconds without pong
+    let cleanedCount = 0;
+
+    for (const [wsId, wsInfo] of this.webSocketConnections.entries()) {
+      // Check if we have a lastPong timestamp
+      if (wsInfo.lastPong) {
+        const silenceMs = now - wsInfo.lastPong;
+
+        if (silenceMs > maxSilenceMs) {
+          if (this.dev) {
+            console.log(`Terminating orphaned WebSocket ${wsId} (no pong for ${Math.round(silenceMs / 1000)}s)`);
+          }
+
+          // Terminate the connection
+          if (wsInfo.ws && wsInfo.ws.readyState !== WebSocket.CLOSED) {
+            wsInfo.ws.terminate();
+          }
+
+          this.cleanupWebSocketConnection(wsId);
+          cleanedCount++;
+        }
+      }
+    }
+
+    if (cleanedCount > 0 && this.dev) {
+      console.log(`WebSocket cleanup: removed ${cleanedCount} orphaned connections, ${this.webSocketConnections.size} remaining`);
+    }
+  }
+
+  setupMemoryMonitoring() {
+    // Only monitor memory in dev mode
+    if (!this.dev) return;
+
+    // Log memory usage every 5 minutes in dev mode
+    this.memoryMonitorInterval = setInterval(() => {
+      const memUsage = process.memoryUsage();
+      const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+      const heapTotalMB = Math.round(memUsage.heapTotal / 1024 / 1024);
+      const rssMB = Math.round(memUsage.rss / 1024 / 1024);
+
+      console.log(`[Memory] Heap: ${heapUsedMB}/${heapTotalMB} MB | RSS: ${rssMB} MB | Sessions: ${this.claudeSessions.size} | WS: ${this.webSocketConnections.size}`);
+    }, 5 * 60 * 1000);
+  }
+
   async saveSessionsToDisk() {
     if (this.claudeSessions.size > 0) {
       await this.sessionStore.saveSessions(this.claudeSessions);
@@ -596,7 +704,8 @@ class ClaudeCodeWebServer {
       id: wsId,
       ws,
       claudeSessionId: null,
-      created: new Date()
+      created: new Date(),
+      lastPong: Date.now() // Track last heartbeat response for orphan detection
     };
     this.webSocketConnections.set(wsId, wsInfo);
 
@@ -741,6 +850,7 @@ class ClaudeCodeWebServer {
         break;
 
       case 'ping':
+        wsInfo.lastPong = Date.now(); // Update heartbeat timestamp
         this.sendToWebSocket(wsInfo.ws, { type: 'pong' });
         break;
 
@@ -1191,12 +1301,32 @@ class ClaudeCodeWebServer {
   close() {
     // Save sessions before closing
     this.saveSessionsToDisk();
-    
+
     // Clear auto-save interval
     if (this.autoSaveInterval) {
       clearInterval(this.autoSaveInterval);
     }
-    
+
+    // Clear session cleanup interval
+    if (this.sessionCleanupInterval) {
+      clearInterval(this.sessionCleanupInterval);
+    }
+
+    // Clear WebSocket cleanup interval
+    if (this.wsCleanupInterval) {
+      clearInterval(this.wsCleanupInterval);
+    }
+
+    // Clear memory monitoring interval
+    if (this.memoryMonitorInterval) {
+      clearInterval(this.memoryMonitorInterval);
+    }
+
+    // Destroy usage analytics (clears its internal intervals)
+    if (this.usageAnalytics && this.usageAnalytics.destroy) {
+      this.usageAnalytics.destroy();
+    }
+
     if (this.wss) {
       this.wss.close();
     }

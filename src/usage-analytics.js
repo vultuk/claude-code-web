@@ -63,20 +63,22 @@ class UsageAnalytics extends EventEmitter {
     this.activeSessions = new Map(); // sessionId -> session data
     this.sessionHistory = [];
     this.rollingWindows = new Map(); // Track multiple overlapping windows
-    
+
     // Usage data
     this.recentUsage = []; // Array of {timestamp, tokens, cost, model}
-    this.historicalData = [];
     this.p90Limit = null;
-    
+
     // Burn rate tracking
     this.burnRateHistory = [];
     this.currentBurnRate = 0;
     this.velocityTrend = 'stable'; // 'increasing', 'decreasing', 'stable'
-    
+
     // Predictions
     this.depletionTime = null;
     this.depletionConfidence = 0;
+
+    // Auto-cleanup every hour
+    this.cleanupInterval = setInterval(() => this.cleanup(), 60 * 60 * 1000);
   }
 
   /**
@@ -476,7 +478,7 @@ class UsageAnalytics extends EventEmitter {
    */
   cleanup() {
     const now = new Date();
-    
+
     // Remove expired sessions
     for (const [id, session] of this.activeSessions) {
       if (session.endTime < now) {
@@ -484,10 +486,32 @@ class UsageAnalytics extends EventEmitter {
         this.activeSessions.delete(id);
       }
     }
-    
+
     // Keep only last 24 hours of history
     const cutoff = new Date(now - 24 * 60 * 60 * 1000);
     this.sessionHistory = this.sessionHistory.filter(s => s.endTime > cutoff);
+
+    // Limit sessionHistory array size to prevent unbounded growth
+    if (this.sessionHistory.length > 100) {
+      this.sessionHistory = this.sessionHistory.slice(-100);
+    }
+  }
+
+  /**
+   * Destroy and clean up resources
+   */
+  destroy() {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+
+    // Clear all data structures
+    this.activeSessions.clear();
+    this.sessionHistory = [];
+    this.rollingWindows.clear();
+    this.recentUsage = [];
+    this.burnRateHistory = [];
   }
 }
 
