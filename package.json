@@ -10,7 +10,8 @@
     "start": "node bin/cc-web.js",
     "dev": "node bin/cc-web.js --dev",
     "test": "mocha test/*.test.js",
-    "release:pr": "bash scripts/release-pr.sh"
+    "release:pr": "bash scripts/release-pr.sh",
+    "postinstall": "node scripts/postinstall.js"
   },
   "keywords": [
     "claude",

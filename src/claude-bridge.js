@@ -9,14 +9,28 @@ class ClaudeBridge {
   }
 
   findClaudeCommand() {
+    // Dynamically discover all nvm node versions that may have claude installed
+    const nvmBase = path.join(process.env.HOME || '/', '.nvm', 'versions', 'node');
+    const nvmPaths = [];
+    try {
+      const versions = fs.readdirSync(nvmBase);
+      for (const v of versions.reverse()) {
+        nvmPaths.push(path.join(nvmBase, v, 'bin', 'claude'));
+      }
+    } catch (e) { /* nvm not installed */ }
+
     const possibleCommands = [
+      // Absolute paths first — more reliable when running under launchd/systemd
+      // where PATH may not include nvm or user-local bin directories
+      ...nvmPaths,
       '/home/ec2-user/.claude/local/claude',
-      'claude',
-      'claude-code',
       path.join(process.env.HOME || '/', '.claude', 'local', 'claude'),
       path.join(process.env.HOME || '/', '.local', 'bin', 'claude'),
       '/usr/local/bin/claude',
-      '/usr/bin/claude'
+      '/usr/bin/claude',
+      // Short names as last resort (relies on PATH being set correctly)
+      'claude',
+      'claude-code',
     ];
 
     for (const cmd of possibleCommands) {
@@ -67,8 +81,21 @@ class ClaudeBridge {
         console.log(`⚠️ WARNING: Skipping permissions with --dangerously-skip-permissions flag`);
       }
 
-      const args = dangerouslySkipPermissions ? ['--dangerously-skip-permissions'] : [];
-      const claudeProcess = spawn(this.claudeCommand, args, {
+      // When the resolved claude command is a .js script (e.g. installed via nvm),
+      // node-pty cannot posix_spawnp a script file directly. Detect this case and
+      // invoke it via the current node binary instead.
+      let spawnCmd = this.claudeCommand;
+      let baseArgs = dangerouslySkipPermissions ? ['--dangerously-skip-permissions'] : [];
+      try {
+        const resolvedCmd = fs.realpathSync(this.claudeCommand);
+        if (resolvedCmd.endsWith('.js')) {
+          baseArgs = [resolvedCmd, ...baseArgs];
+          spawnCmd = process.execPath;
+          console.log(`Resolved to JS script, spawning via node: ${spawnCmd} ${resolvedCmd}`);
+        }
+      } catch (e) { /* use spawnCmd as-is */ }
+      const args = baseArgs;
+      const claudeProcess = spawn(spawnCmd, args, {
         cwd: workingDir,
         env: {
           ...process.env,

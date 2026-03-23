@@ -103,11 +103,9 @@ class ClaudeCodeWebInterface {
             const firstTabId = this.sessionTabManager.tabs.keys().next().value;
             console.log('[Init] Switching to tab:', firstTabId);
             await this.sessionTabManager.switchToTab(firstTabId);
-            
-            // Hide overlay completely since we have sessions
-            console.log('[Init] About to hide overlay');
-            this.hideOverlay();
-            console.log('[Init] Overlay should be hidden now');
+            // Overlay state is handled by the session_joined message handler:
+            // it hides the overlay when Claude is active, or shows startPrompt when not.
+            // Do NOT call hideOverlay() here — it would race with and override that logic.
         } else {
             console.log('[Init] No sessions found, showing folder browser');
             // No sessions - hide loading overlay and show folder picker to create first session
